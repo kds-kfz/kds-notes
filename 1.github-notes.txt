@@ -1,0 +1,110 @@
+/******************************************************/
+
+1、github仓库建好后
+#  ssh-keygen -t rsa -C "123456@qq.com"
+输入ssh登录的密码两次后
+#  eval "$(ssh-agent -s)"
+Agent pid 1860
+#  ssh-add ~/.ssh/id_rsa
+输入ssh登录密码后
+Identity added: /home/kds/.ssh/id_rsa (/home/kds/.ssh/id_rsa)
+就保存起来了
+#  vim ~/.ssh/id_rsa.pub
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCu2BkFEutFcU2WOtg2SV4MURJ0SKj1iSisJWLloriYKlhffdeXDvqSPJyPFy64SxnzK16xT3RtGYiBuwgodryMfDq0jU35
+FROnCnyFVN5qJG5hpQ098pl7Se+qkZd8Un5+T2dLTe46zPhDpI4n/CrJMQLSVnzURBn6ihm8bgigc5tHoRMXFNADTItadbdGDeiAMEtagRZ/H3cBcaDuDt9lLnLTxwv4ts81
+t6qOEo4rdM8Fh5U91Y4JwxBMHQkNbCovexENm0bf05/5LjhM51AA7rsBESTWv9Y9+MQs4o3n6XL38gASMJ4AQAH6U/GYJtn2td3goXDzdOaWV0TBGljd 651448672@qq.co
+m
+将这段秘钥添加到远程仓库ssh中即可验证密匙
+==================
+验证密匙是否成功
+#  ssh -T git@github.com
+输入yes
+
+/******************************************************/
+
+2、git指令
+#  git fetch
+当远程仓库有更新，使用git fetch获取远程仓库中最新的数据
+#  git log --oneline --decorate --graph --all
+查看本地仓库分支所属的commit，显然不是远程仓库的commit
+需要将HEAD指针移到最新 commit上
+#  git merge origin/master
+
+#  git push
+如果本地分支没有获取远程仓库已更新的内容，则本地推送会被拒绝
+圆仓分支上有有一些我们本地没有的历史记录，这样我们推送可能会覆盖掉远程仓库的一些记录
+
+此时使用git pull命令，是git fetch和git merge的组合
+#  git pull
+#  git status
+修改完冲突文件
+#  git add 修改的文件名
+#  git commit
+本次comiit的提交日志不做修改
+#  git push
+
+/******************************************************/
+
+#  git tag -a v0 -m"tag for v0"
+#  git push
+Everything up-to-date
+#  git push --tags
+将标签推送到远程仓库
+
+/******************************************************/
+
+远程分支创建develop分支后
+#  git pull
+更新远程所有分支到本地
+#  git pull origin develop
+只跟新远程仓库的develop到本地
+#  git checkout develop
+编辑好文件
+#  git add 文件
+#  git commit 
+写好commit 提交日志
+#  git push origin develop
+推送本地develop到远程分支develop
+
+/******************************************************/
+
+方式一：
+#  git branch -D 本地分支
+#  git push --delete origin 远程分支
+ - [deleted]         test
+次操作是将远程仓库的远程分支删除
+
+方式二：
+#  git push origin :test
+ - [deleted]         test
+将一个空分支替代远程的test分支
+
+/******************************************************/
+
+问题1：
+#  git push origin :develop
+执行时报错
+error: The requested URL returned error: 403 Forbidden while accessing https
+fatal: HTTP request failed
+#  vim .git/config
+将
+[remote "origin"]
+    fetch = +refs/heads/*:refs/remotes/origin/*
+    url = https://github.com/kds-kfz/trade-service.git
+改成
+[remote "origin"]
+    fetch = +refs/heads/*:refs/remotes/origin/*
+    url = https://kds-kfz@github.com/kds-kfz/trade-service.git
+#  git push origin :develop
+执行时报错
+(gnome-ssh-askpass:2921): Gtk-WARNING **: cannot open display:
+#  unset SSH_ASKPASS
+#  git push origin :develop
+输入仓库登录密码
+成功
+
+/******************************************************/
+
+
+
+
