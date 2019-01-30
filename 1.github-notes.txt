@@ -105,6 +105,14 @@ fatal: HTTP request failed
 
 /******************************************************/
 
+问题2：
+(gnome-ssh-askpass:2014): Gtk-WARNING **: cannot open display
+输入：
+unset SSH_ASKPASS
+git push origin develop
+输入密码即可上传代码
+
+/******************************************************/
 
 
 
