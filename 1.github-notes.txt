@@ -112,6 +112,10 @@ unset SSH_ASKPASS
 git push origin develop
 输入密码即可上传代码
 
+问题3：error: OpenSSL SSL_connect: SSL_ERROR_SYSCALL in connection to github.com:443  while accessing https://kds-kfz@github.com/kds-kfz/kds-notes.git/info/refs
+原因：Git的Http代理的问题，Git支持三种协议：git://、ssh://和http://，本来push的时候应该走ssh隧道的，但是因为设置了http代理，所以就走了http的代理，于是就提交不了了
+输入：取消http代理
+git config --global --unset http.proxy
 /******************************************************/
 
 
