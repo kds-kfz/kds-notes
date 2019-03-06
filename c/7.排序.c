@@ -1,11 +1,18 @@
 #include<stdio.h>
 
+# define output(p, n) \
+    int i =0;\
+    for(i = 0; i < n; i++)\
+        printf("%d ", *(p+i));\
+    putchar(10);
+
+
 #define Size(x) sizeof(x)/sizeof(*x)
 
 static void bubble_sort(int *p, const int n);
 static void select_sort(int *p, const int n);
 static void insert_sort(int *p, const int n);
-static void output(int *p, const int n);
+//static void output(int *p, const int n);
 static void Rand(int *p,int n);
 
 int main(){
@@ -62,14 +69,14 @@ static void insert_sort(int *p, const int n){
         }
     }
 }
-
+/*
 static void output(int *p, const int n){
     int i = 0;
     for(i = 0; i < n; i++)
         printf("%d ", *(p+i));
     putchar(10);
 }
-
+*/
 static void Rand(int *p,int n){
     int i = 0;
     //unsigned)time(NULL) 伪随机数起始值
