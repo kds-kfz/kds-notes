@@ -22,13 +22,13 @@ typedef struct s{
 
 ST *create_link(ST *head, Data d1);
 ST *search_link(ST *head, int num);
-ST *delete_link(ST *head, Data d1);
-ST *insert_1_link(ST *head, Data d1);
-ST *insert_2_link(ST *head, Data d1);
-ST *insert_sort_link(ST *head, Data d1);
-ST *select_sort_link(ST *head, Data d1);
-ST *revers_link(ST *head, Data d1);
-int getlen_link(ST *head, Data d1);
+ST *delete_link(ST *head, int num);
+ST *insert_1_link(ST *head, Data d1, int num);//头插入
+ST *insert_2_link(ST *head, Data d1, int num);//尾插入
+ST *insert_sort_link(ST *head);
+ST *select_sort_link(ST *head);
+ST *revers_link(ST *head);
+int getlen_link(ST *head);
 void output_link(ST *head);
 bool free_link(ST *head);
 
