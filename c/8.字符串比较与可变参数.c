@@ -1,6 +1,6 @@
 #include<stdio.h>
 #include<stdarg.h>
-
+#include <string.h>
 static int Simple(int num, ...);
 static void myprintf(char *fmt, ...);
 
@@ -25,7 +25,7 @@ int main(){
     //
     // 函数5：int strncmp(const char *s1, const char *s2, size_t n);
     // 比较前n个字符是否相等，用法与strcmp相似
-    
+
     char *src = "1234567890";
     char dest_1[20] = {0};
     char dest_2[5] = {0};
@@ -35,35 +35,36 @@ int main(){
 
     ret = snprintf(dest_2, 8, "%s", src);
     printf("dest = %s, ret = %d\n", dest_2, ret);//1234567, 10
-    
+
     //可变参数用法
     Simple(5, 2, 3, 4, 1, 8);
 
     myprintf("src = %s, src[0] = %c, sizeof(dest_1) = %d\n", src, src[0], sizeof(dest_1));
+
     return 0;
 }
 
 /*
- va_list是用于存放参数列表的数据结构。
+   va_list是用于存放参数列表的数据结构。
 
- va_start函数根据初始化last来初始化参数列表。
+   va_start函数根据初始化last来初始化参数列表。
 
- va_arg函数用于从参数列表中取出一个参数，参数类型由type指定。
+   va_arg函数用于从参数列表中取出一个参数，参数类型由type指定。
 
- va_copy函数用于复制参数列表。
+   va_copy函数用于复制参数列表。
 
- va_end函数执行清理参数列表的工作。
- */
+   va_end函数执行清理参数列表的工作。
+   */
 
 static int Simple(int num, ...){
     int i, result=0;
     // va_list指针，用于va_start取可变参数，为char*
     va_list v1;
-    
+
     // 取得可变参数列表中的第一个值
     va_start(v1, num); 
     printf("%d, %d\n", num, *v1);
-    
+
     // 这里num表示可变参数列表中有多少个参数
     for (i = 0; i < num ; ++i){
         // 这里把v1往后跳过4个字节（sizeof(int)大小）指向下一个参数
@@ -71,7 +72,7 @@ static int Simple(int num, ...){
         result = va_arg(v1, int);
         printf("result: %d, *v1: %d\n", result, *v1);
     }
-    
+
     va_end(v1);// 结束标志
     return result;
 }
