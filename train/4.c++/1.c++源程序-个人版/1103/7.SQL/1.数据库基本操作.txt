@@ -1,0 +1,53 @@
+//1.数据库基本操作.txt
+#if 0
+SQL语言操作数据库
+.database 显示当前数据库
+.table 显示当前数据库里的表格
+.q 退出
+.exit 退出
+.show 显示配置
+
+数据类型
+intrger 整型:int,short,long
+text 文本:string
+real 浮点型:float,double
+blob 二进制
+
+//创建数据库sur.db在当前目录下
+sqlite3 sur.db
+
+创建表格，表格内容以树状存储
+create table stu(id int,name text,age integer,score int);
+
+查看表格内容
+select * from stu
+
+向表格里增加内容
+insert into stu(id,name,age,score) values(1001,'Tom',12,90);
+
+查找表格里某个内容
+//id为1001的一行
+select *from stu where id=1001;
+//名字为Tom的内容
+select id from stu where name='Tom';
+
+//修改表格的内容,'Tom'=="Tom"
+//将所有名字都改为keke
+update stu set name='keke';
+//将id=1001的name改为keke
+update stu set name='keke' where id=1001;
+//将id=1001同时name='Tom'该为keke
+update stu set name='keke' where id=1001 and name='Bob';
+
+//删除数据
+//删除整个表格的数据
+delete from stu
+//将id=1001同时name='Bob'的内容删除
+delete from stu where id=1001 and name='Bob';
+
+//删除表格
+drop table stu
+//创建主键
+id integer primay key autoincrement
+	    主键         自动增加
+

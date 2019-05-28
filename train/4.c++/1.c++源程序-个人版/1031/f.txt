@@ -1,0 +1,6 @@
+lisi 1002
+keke 1005
+dada 1003
+xixi 1007
+sisi 1001
+:q

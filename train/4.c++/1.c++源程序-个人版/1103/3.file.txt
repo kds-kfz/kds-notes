@@ -1,0 +1,5 @@
+apple 苹果
+China 中国，国名
+English 英国，国名
+Tom 汤姆，人名
+

@@ -1,0 +1,506 @@
+mysql的基本操作:
+1.mysql用户是虚拟的:
+	用root用户启动和关闭mysql服务器
+	ps -u mysql
+	service mysql start
+2.mysql数据库的启动:
+	mysql -u root -p 密码
+	quit/exit退出数据库
+3.查看时间:
+	select now() from dual;
+4.用root用户无法启动mysql数据库:
+  ps -u mysql
+  kill -9 id
+5.数据库的创建、查看、修改、删除
+	创建:
+		创建一个名称为mydb1的数据库
+			create database mydb1;
+		创建一个使用utf-8字符集的mydb2数据库
+			create database mydb2  character set utf8;
+		创建一个使用utf8字符集,并带校对规则的mydb3数据库
+			create database mydb3 character set utf8 collate utf8_general_ci
+
+		这个是mysql的默认字符集		
+			+----------+-----------------------------------------------------------------+
+			| Database | Create Database                                                 |
+			+----------+-----------------------------------------------------------------+
+			| mydb     | CREATE DATABASE `mydb` /*!40100 DEFAULT CHARACTER SET latin1 */ |
+			+----------+-----------------------------------------------------------------+
+	
+	查看:		
+		显示所有数据库
+			show databases;
+		显示创建数据库的语句信息
+			show create database mydb2;
+	修改:
+		修改mydb1的字符集为gbk(不能修改数据库名)
+			alter database mydb1 character set utf8;
+	删除:
+		删除数据库mydb2
+			drop database mydb2;
+6.表的操作:
+	use mydb;
+	
+	创建:
+	    create table t1(id int, name varchar(20));
+		示例:
+			根据实体类Student创建表student
+			Student{
+				int id;
+				string name;
+			}
+			create table student(
+				id int,
+				name varchar(20)
+			);	
+			mysql中的数据类型:
+				bit 1位 但可以指定位数,如:bit(3)
+				int 2字节 可以指定最大位数,如:int<4> 最大为4位的整数
+				float 2个字节 但可以指定最大的位数和最大的小数位数.如:float<5,2>最大为一个5位的数,小数位最多为2位
+				double 4个字节 可以指定最大的位数和最大的小数位数.如:double<6,4>最大为一个6位的数,小数位数最多为4位
+				char 必须指定字节数,如:char(5)为不可变字符.即使存储的内容为"ab",也是用5个字符的空间存储这个数据
+				varchar 必须指定字符数,如varchar(5)位可变字符.如果存储的内容为"ab",占用2个字节的空间.
+				如果为"abc",则占用3个字符的空间
+				text:大文本(大字符串)
+				blob:二进制数据,如图片,音频文件,视频文件
+				data:日期 如: '2017-12-01 12:23:30'
+				timeStanp:时间戳,自动赋值当前日期时间
+			作业:创建一个员工表
+	查看:
+		查看所有的表:
+			show tables;
+		查看指定表的创建语句：
+			show create table employ;
+			注意:mysql表名区分大小写
+		显示指定表的结构:
+			desc employ;
+	删除:
+		删除employ表
+		drop table employ;
+	修改表:
+		增加一个字段:alter table worker add column height double;
+		修改一个字段:alter table worker modify colum height float;
+		删除一个字段:alter table worker drop colum height;
+		更改表名:rename table employ to worker;
+
+	alter table 语句用于创建后对表的修改, 基础用法如下:
+	添加列
+	基本形式: alter table 表名 add 列名 列数据类型 [after 插入位置];
+	示例:
+	在表的最后追加列 address: alter table students add address char(60);
+	在名为 age 的列后插入列 birthday: alter table students add birthday date after age;
+	修改列
+	基本形式: alter table 表名 change 列名称 列新名称 新数据类型;
+	示例:
+	将 name 列的数据类型改为 char(16): alter table students change name name char(16) not null;
+	删除列
+	基本形式: alter table 表名 drop 列名称;
+	示例:
+	删除 birthday 列: alter table students drop birthday;
+	重命名表
+	基本形式: alter table 表名 rename 新表名;
+	示例:
+	重命名 students 表为 workmates: alter table students rename workmates;
+
+7.表数据操作:
+	create 增加数据 insert语句
+	创建一个员工表,新建employ表并添加一些记录
+	例如:
+create table employ(
+id int,
+name varchar(20),
+sex bit,
+birthday date,
+salary double,
+entry_date date
+);
+		insert into employ(id,name,sex,birthday,salary,entry_date)values(1002,"李四",'m','1234-12-13',1234,'1234-12-13');	
+		insert into employ(id,name,sex,birthday,salary,entry_date)values(1003,"李五",'m','1234-12-13',1234,'1234-12-13');
+		insert into employ(id,name,sex,birthday,salary,entry_date)values(1004,"李六",'m','1234-12-13',1234,'1234-12-13');
+
+更新数据: update语句
+	update 表名称 set 列名称=新值,....where 更新条件;
+	将所有员工薪水都增加500元
+		update employ set salary=salary+500;
+	将李四的员工薪水修改为10000
+		update employ set salary=10000 where name="李四";
+
+删除数据 delete语句
+	删除表中的数据
+	delete 语句用于删除表中的数据, 基本用法为:
+    delete from 表名称 where 删除条件;
+	使用示例:
+	删除id为2的行: delete from students where id=2;
+	删除所有年龄小于21岁的数据: delete from students where age<21;
+	删除表中的所有数据: delete from students;
+
+	删除表中姓名为李四的记录
+		delete from employ where name = "李四";
+	删除表中所有记录:
+		delete from employ; --->可以有条件
+	使用truncate employ;--->无条件,效率高	
+
+	select    *    from    employ   ;
+	select *from employ  where id =(>,<,>=,<=) 1002
+	select id, name,salary from  where id =(>,<,>=,<=) 1002
+	select id, name as "名字", salary*12 年薪 from where id =(>,<,>=,<=) 1002	
+
+查找数据 select语句
+例子:
+create table student(
+id int,
+name varchar(20),
+chinese int,
+english int,
+math int
+);
+insert into student(id,name,chinese,english,math) values(1,"李一",81,81,81);
+insert into student(id,name,chinese,english,math) values(2,"李二",82,82,82);
+insert into student(id,name,chinese,english,math) values(3,"李三",83,83,83);
+insert into student(id,name,chinese,english,math) values(4,"李四",84,84,84);
+insert into student(id,name,chinese,english,math) values(5,"李五",85,85,85);
+insert into student(id,name,chinese,english,math) values(6,"李六",86,86,86);
+insert into student(id,name,chinese,english,math) values(7,"李七",87,87,87);
+insert into student(id,name,chinese,english,math) values(8,"李八",88,88,88);
+insert into student(id,name,chinese,english,math) values(9,"李九",89,89,89);
+insert into student(id,name,chinese,english,math) values(10,"李十",90,90,90);
+	查询表中所有学生信息:
+		select *from student;
+	查询所有学生对应姓名和英语成绩:
+		select name,english from student;
+	过滤表中重复数据:
+		select english from student;
+		select DISTINCT english from student;
+		select DISTINCT name, english from student;/*交换了位置,显示的先后会改变*/
+
+		select english+chinese+math from student;
+		select english+chinese+math as 总分 from student;
+		select name,english+chinese+math 总分 from student; 
+	在所有学生英语分数上加10分特长分
+		select name, english+10 from student;
+	统计每个学生的总分
+		select english+chinese+math from student;
+	使用别名表示学生分数
+		select english+chinese+math as 总分 from student;
+		select name,english+chinese+math 总分 from student; 
+	查询姓名为李一的学生成绩
+		select *from student where name="李一";
+	查询英语成绩大于85分的同学
+		select *from student where english>85;	
+	查询总分大于250分的所有同学
+		select *from student where english+chinese+math>250;
+	查询英语分数在 83-86之间的同学
+		select *from student where english>=83 and english<=86; 			
+		select *from student where english between 83 and 86; 
+	查询数学分数为84,86的同学
+		select *from student where math=84 or math 86;
+		select *from student where math in(84,86);	
+	查询所有姓李的学生
+		select *from student where name like '李%' order by math+english+chinese desc;
+		select name,math+english+chinese from student where name like '李%' order by math+english+chinese desc;
+	统计一个班共有多少个学生
+		select count(*) from student;
+	统计数学成绩大于85的学生有多少个
+		select count(*) from student where math>85;
+	统计总分大于250的人数有多少
+		select count(*) from student where math+chinese+english>250;
+
+	统计一个班级数学总成绩:
+		select sum(math) from student;
+	统计一个班级语文,英语,数学各科的总成绩
+		select sum(math),sum(english),sum(chinese) from student;		
+	统计一个班级语文,数学,英语的成绩总和
+		select sum(math+english+chinese) from student;
+		select sum(math)+sum(english)+sum(chinese) from student;
+	求一个班级数学平均分:
+		select avg(math) from student;
+	求一个班级总平均分
+		select avg(math+english+chinese) from student;
+		select avg(math)+avg(english)+avg(chinese) from student;
+	求班级最高分和最低分
+		select max(math+english+chinese),min(math+english+chinese) from student;
+	
+	综合性练习:
+		为学生表增加一个班级列,然后训练分组查询
+		查询出各个班级的总分,最高分
+			准备环境:
+				给表添加一个字段: alter table student add(modify修改,drop删除) column class_id int;
+				更新表:
+					update student set class_id=1 where id<=5;
+					update student set class_id=2 where id>5;
+	select sum(math+english+chinese),max(english+chinese+math) from student group by class_id;				
+8.日期
+	查询当前时间:
+	select now();
+	select now() 当前now, year(now()),month(now()),day(now()) from dual;
+			当前日期        当前时间        当前时间戳
+	select CURRENT_DATE(),CURRENT_TIME(),CURRENT_TIMESTAMP() from dual;
+	select date_add(now(),INTERVAL 2 year) from dual;/*增加两年*/
+9.字符串:
+	select concat('hello','world','china') from dual;	
+10.表的约束
+	定义主键约束 primary key 不允许为空,不允许重复
+	定义主键自动增长 auto_increment
+	删除主键约束 alter table tablename drop primary key;
+
+	create table stu(id int primary key auto_increment, name varchar(20));
+	insert into stu(name) values('haha');	
+10.多表查询
+	内连接
+	select e.*,d.* from e inner join d on e.deptno=d.deptno
+	------可以省略inner
+	左外连接:左边有值才显示
+	selec e.*,d.* from e left outer join d on e.deptno=d.deptno
+	-----可以省略outer	
+	select e.*,d.* from e full outer join d on e.depton=d.depton
+	右外连接:右边有值才显示
+	selec e.*,d.* from e right outer join d on e.deptno=d.deptno
+	-----可以省略outer	
+	满外连接,任一一边有值就会显示
+	select e.*,d.* from e full outer join d on e.depton=d.depton
+	交叉连接
+	叉集,就是笛卡尔积
+	select e.*, d.* from e cross join d 
+	没有条件连接
+
+示例:
+create table student(id int primary key,name varchar(20));
+insert into student(id,name) values(1,'张三');
+insert into student(id,name) values(2,'李四');
+insert into student(id,name) values(3,'王二');
+	
+create table course (id int primary key, name varchar(20));
+insert into course(id,name) values(1,'足球');
+insert into course(id,name) values(2,'音乐');
+insert into course(id,name) values(4,'美术');
+
+一、外 连接
+外连接可分为：左连接、右连接、完全外连接。
+1.左连接 left join 
+SQL语句：select * from student  left join course on student.ID=course.ID
+执行结果：
+左外连接包含left join 左表所有行，如果左表中某行在右表没有匹配，则结果中对应行右表的部分全部为空（NULL）。
+2.右连接 right join 
+SQL语句：select * from student  right join course on student.ID=course.ID
+执行结果：
+右外连接包含 right join 右表所有行，如果左表中某行在右表没有匹配，则结果中对应行左表的部分全部为空（NULL）。
+3.全外连接 full join 
+SQL语句：select * from student  full join course on student.ID=course.ID
+执行结果：
+当某行在另外一个表中没有匹配，则另一个表的选择列表包含空值。
+4.隐式内连接 （没有inner join ）
+SQL语句：select * from student ,course where student.ID=course.ID
+执行结果：
+当某行在另外一个表中没有匹配，则另一个表的选择列表包含空值。
+5.显式内连接 （inner join ）
+SQL语句：select * from student inner join course on student.ID=course.ID
+执行结果：
+当某行在另外一个表中没有匹配，则另一个表的选择列表包含空值。
+
+6.交叉连接
+	select * from student cross join course;
+
+----------------------------------------------------------------------------------------
+mysql的api函数
+1.初始化一个MYSQL结构,该结构在几乎所有的MYSQL C API函数(除了预处理语句相关的函数)中都会用到.
+MYSQL *mysql_init(MYSQL *mysql);
+2.连接MYSQL服务器使用MYSQL* mysql_real_connect(MYSQL* mysql,const char* host,
+							const char *user, const char*passwd,const char* db,unsigned int port, const char* unix_socket, unsigned long client_flag);
+
+另一种方式来进行连接,先用MYSQL_READ_DEFAULT_FILE 作为选项名来调用mysql__options(),再调用mysql_real_connect()来连接服务器
+mysql_options(MYSQL *mysql, MYSQL_READ_DEFAULT_FILE,'my.cnf')
+mysql_real_connect(MYSQL* mysql, NULL, NULL, NULL, NULL,0,NULL,0);
+说明:my.cnf文件中记录了连接MYSQL服务器所需的各项参数(地址,端口,用户名,密码,数据库,字符集,Unix Socket等)
+这样可以灵活的修改连接参数而不必重新编译程序.
+3.关闭连接:
+	mysql_close();
+	void mysql_close(MYSQL* mysql);
+4.执行查询语句:
+	(1) 调用mysql_query()来执行SQL语句,如果语句中包含二进制数据,则需要调用mysql_real_query()
+		int mysql_query(MYSQL* mysql, const char* stnt_str)
+		int mysql_real_query(MYSQL* mysql, const char*stnt_str, unsigned long length);
+	(2) 若执行的是UPDATE,DELETE或INSERT语句则需要调用mysql_affected_rows()获知受影响的记录数.
+		my_unlonglong mysql_affected_rows(MYSQL* mysql)
+		还可以通过mysql_insert_id(MYSQL* mysql)
+	(3) 若执行的是SELECT语句,则有两种方式来获取结果集.
+		[1] 一种是通过调用mysql_store_result()将整个结果全部取回来
+			MYSQL_RES *mysql_store_result(MYSQL* mysql);
+		[2] 另一种方式则是调用mysql_use_result()初始化获取操作,但暂时不取回任何记录
+			MYSQL_RES *mysql_use_result(MYSQL* mysql)
+
+		[3] 两种方法都是通过调用mysql_fecth_row()来访问每一条记录
+			MYSQL_ROW mysql_fetch_row()来访问每一条记录
+			MYSQL_ROW mysql_fetch_row(MYSQL_RES *result)
+		注意:若先调用的是mysql_store_result(),则直接在本地访问记录;若先前调用的是mysql_use_result()
+			 则此时才到服务器上去获取记录
+		[4] 当处理完结果集后,调用mysql_free_result()来释放他所占的内存.
+			void mysql_free_result(MYSQL_RES* result)
+		[5] 可调用mysql_errno()和mysql_error()来获知最近执行的API函数的错误代码和错误信息
+			unsigned int mysql_errno(MYSQL* mysql);
+			const char* mysql_errot(MYSQL* mysql);
+---------------------------------------------------------------------------------------
+MYSQL *mysql_init(MYSQL *mysql)
+描述
+分配或初始化与mysql_real_connect()相适应的MYSQL对象。 如果mysql是NULL指针， 该函数将分配、初始化、并返回新对象。
+否则，将初始化对象，并返回对象的地址。如果mysql_init()分配了新的对象，当调用mysql_close()来关闭连接时。将释放该对
+象。
+返回值
+初始化的MYSQL*句柄。如果无足够内存以分配新的对象，返回NULL。
+错误
+在内存不足的情况下，返回NULL。
+
+
+my_ulonglong mysql_affected_rows(MYSQL *mysql)
+描述
+返回上次UPDATE更改的行数，上次DELETE删除的行数，或上次INSERT语句插入的行数。对于UPDATE、 DELETE或INSERT语
+句，可在mysql_query()后立刻调用。 对于SELECT语句， mysql_affected_rows()的工作方式与mysql_num_rows()类似。
+返回值
+大于0的整数表明受影响或检索的行数。 “0”表示UPDATE语句未更新记录，在查询中没有与WHERE匹配的行，或未执行查
+询。 “-1”表示查询返回错误，或者，对于SELECT查询，在调用mysql_store_result()之前调用了mysql_affected_rows()。由于mysql_affected_rows()返回无符号值，通过比较返回值和“(my_ulonglong)-1”或等效的“(my_ulonglong)~0”，检查是否为“-1”。错误无。
+
+示例：
+mysql_query(&mysql,"UPDATE products SET cost=cost*1.25 WHERE group=10");
+printf("%ld products updated",(long) mysql_affected_rows(&mysql));
+如果在连接至mysqld时指定了标志CLIENT_FOUND_ROWS，对于UPDATE语句， mysql_affected_rows()将返回WHERE语句匹
+配的行数。
+注意，使用REPLACE命令时，如果新行替代了旧行， mysql_affected_rows()返回2。这是因为，在该情况下，删除了重复行后插
+入了1行。
+如果使用“INSERT ... ON DUPLICATE KEY UPDATE”来插入行，如果行是作为新行插入的， mysql_affected_rows()返回1，如果
+是更新了已有的行，返回2。
+
+
+MYSQL_FIELD *mysql_fetch_field(MYSQL_RES *result)
+描述
+返回采用MYSQL_FIELD结构的结果集的列。 重复调用该函数，以检索关于结果集中所有列的信息。未剩余字段
+时， mysql_fetch_field()返回NULL。
+每次执行新的SELECT查询时，将复位mysql_fetch_field()，以返回关于第1个字段的信息。调用mysql_field_seek()也会影响mysql_fetch_field()返回的字段。
+如果调用了mysql_query()以在表上执行SELECT， 但未调用mysql_store_result()，如果调用了mysql_fetch_field()以请求BLOB字段的长度， MySQL将返回默认的Blob长度（8KB）。之所以选择8KB是因为MySQL不知道BLOB的最大长度。应在日后
+使其成为可配置的。 一旦检索了结果集， field->max_length将包含特定查询中该列的最大值的长度。
+返回值
+当前列的MYSQL_FIELD结构。如果未剩余任何列，返回NULL。
+示例：
+MYSQL_FIELD *field;
+while((field = mysql_fetch_field(result)))
+{
+  printf("field name %s\n", field->name);
+}
+
+MYSQL *mysql_real_connect(MYSQL *mysql, const char *host, const char *user, const char *passwd, const char *db,
+unsigned int port, const char *unix_socket, unsigned long client_flag)
+描述
+mysql_real_connect()尝试与运行在主机上的MySQL数据库引擎建立连接。在你能够执行需要有效MySQL连接句柄结构的任何其
+他API函数之前， mysql_real_connect()必须成功完成。
+参数的指定方式如下：
+· 第1个参数应是已有MYSQL结构的地址。 调用mysql_real_connect()之前，必须调用mysql_init(来初始化MYSQL结构。
+通过mysql_options()调用， 可更改多种连接选项。请参见25.2.3.48节， “mysql_options()”。
+· “host”的值必须是主机名或IP地址。如果“host”是NULL或字符串"localhost"，连接将被视为与本地主机的连接。如果操
+作系统支持套接字（Unix）或命名管道（Windows），将使用它们而不是TCP/IP连接到服务器。
+· “user”参数包含用户的MySQL登录ID。如果“user”是NULL或空字符串""，用户将被视为当前用户。在UNIX环境下，它是
+当前的登录名。在Windows ODBC下，必须明确指定当前用户名。请参见26.1.9.2节， “在Windows上配置MyODBC DSN”。
+· “passwd”参数包含用户的密码。 如果“passwd”是NULL， 仅会对该用户的（拥有1个空密码字段的）用户表中的条目进行匹配检查。这样，数据库管理员就能按特定的方式设置MySQL权限系统，根据用户是否拥有指定的密码，用户将获得不同的权限。
+注释：调用mysql_real_connect()之前，不要尝试加密密码，密码加密将由客户端API自动处理。
+· “db”是数据库名称。如果db为NULL， 连接会将默认的数据库设为该值。
+· 如果“port”不是0， 其值将用作TCP/IP连接的端口号。注意， “host”参数决定了连接的类型。
+· 如果unix_socket不是NULL，该字符串描述了应使用的套接字或命名管道。注意， “host”参数决定了连接的类型。
+· client_flag的值通常为0，但是，也能将其设置为下述标志的组合，以允许特定功能：
+标志名称 标志描述
+CLIENT_COMPRESS 使用压缩协议。
+CLIENT_FOUND_ROWS 返回发现的行数（匹配的），而不是受影响的行数。
+CLIENT_IGNORE_SPACE 允许在函数名后使用空格。使所有的函数名成为保留字。
+CLIENT_INTERACTIVE 关闭连接之前，允许interactive_timeout（取代了wait_timeout）秒的不活动时间。 客户端的会
+话wait_timeout变量被设为会话interactive_timeout变量的值。
+CLIENT_LOCAL_FILES 允许LOAD DATA LOCAL处理功能。
+CLIENT_MULTI_STATEMENTS 通知服务器，客户端可能在单个字符串内发送多条语句（由‘;’隔开）。如果未设置该标志，将
+禁止多语句执行。
+CLIENT_MULTI_RESULTS 通知服务器，客户端能够处理来自多语句执行或存储程序的多个结果集。如果设置
+了CLIENT_MULTI_STATEMENTS，将自动设置它。
+CLIENT_NO_SCHEMA 禁止db_name.tbl_name.col_name语法。它用于ODBC。如果使用了该语法，它会使分析程序
+生成错误，在捕获某些ODBC程序中的缺陷时，它很有用。
+CLIENT_ODBC 客户端是ODBC客户端。它将mysqld变得更为ODBC友好。
+CLIENT_SSL 使用SSL（加密协议）。该选项不应由应用程序设置，它是在客户端库内部设置的。
+对于某些参数，能够从选项文件获得取值，而不是取得mysql_real_connect()调用中的确切值。为此，在调
+用mysql_real_connect()之前，应与MYSQL_READ_DEFAULT_FILE或MYSQL_READ_DEFAULT_GROUP选项一起调
+用mysql_options()。随后，在mysql_real_connect()调用中，为准备从选项文件读取值的每个参数指定“无值”值：
+· 对于host，指定NULL值或空字符串("")。
+· 对于user，指定NULL值或空字符串。
+· 对于passwd，指定NULL值。（对于密码， mysql_real_connect()调用中的空字符串的值不能被选项文件中的字符串覆
+盖，这是因为，空字符串明确指明MySQL账户必须有空密码）。
+· 对于db，指定NULL值或空字符串
+· 对于port，指定“0”值。
+· 对于unix_socket， 指定NULL值。
+对于某一参数，如果在选项文件中未发现值，将使用它的默认值，如本节前面介绍的那样。
+返回值
+如果连接成功，返回MYSQL*连接句柄。如果连接失败，返回NULL。对于成功的连接，返回值与第1个参数的值相同。
+错误
+· CR_CONN_HOST_ERROR
+无法连接到MySQL服务器。
+· CR_CONNECTION_ERROR
+无法连接到本地MySQL服务器。
+· CR_IPSOCK_ERROR
+无法创建IP套接字。
+· CR_OUT_OF_MEMORY
+内存溢出。
+· CR_SOCKET_CREATE_ERROR
+无法创建Unix套接字。
+Chapter 25. APIs and Libraries
+· CR_UNKNOWN_HOST
+无法找到主机名的IP地址。
+· CR_VERSION_ERROR
+协议不匹配，起因于：试图连接到具有特定客户端库（该客户端库使用了不同的协议版本）的服务器。如果使用很早的客户端
+库来建立与较新的服务器（未使用“--old-protocol”选项开始的）的连接，就会出现该情况。
+· CR_NAMEDPIPEOPEN_ERROR
+无法在Windows平台下创建命名管道。
+· CR_NAMEDPIPEWAIT_ERROR
+在Windows平台下等待命名管道失败。
+· CR_NAMEDPIPESETSTATE_ERROR
+在Windows平台下获取管道处理程序失败。
+· CR_SERVER_LOST
+如果connect_timeout > 0，而且在连接服务器时所用时间长于connect_timeout秒，或在执行init-command时服务器消失。
+示例：
+MYSQL mysql;
+mysql_init(&mysql);
+mysql_options(&mysql,MYSQL_READ_DEFAULT_GROUP,"your_prog_name");
+if (!mysql_real_connect(&mysql,"host","user","passwd","database",0,NULL,0))
+{
+  fprintf(stderr, "Failed to connect to database: Error: %s\n",
+  mysql_error(&mysql));
+}
+通过使用mysql_options()， MySQL库将读取my.cnf文件的[client]和[your_prog_name]部分，以确保程序工作，即使某人以某种
+非标准的方式设置MySQL也同样。
+注意，一旦建立了连接， mysql_real_connect()将设置再连接标志（MYSQL结构的组成部份）的值，在低于5.0.3版的API中，将
+其设为“1”，在较新的版本中，将其设为“0”。对于该标志，值“1”表示，如果因连接丢失而无法执行语句，放弃前，将尝试再次连接到服务器。从MySQL 5.0.13开始，可以对mysql_options()使用MYSQL_OPT_RECONNECT选项，对再连接行为进行控制。
+
+
+
+MYSQL_RES *mysql_store_result(MYSQL *mysql)
+描述
+对于成功检索了数据的每个查询（SELECT、 SHOW、 DESCRIBE、 EXPLAIN、 CHECK TABLE等），必须调
+用mysql_store_result()或mysql_use_result() 。
+对于其他查询，不需要调用mysql_store_result()或mysql_use_result()，但是如果在任何情况下均调用
+了mysql_store_result()， 它也不会导致任何伤害或性能降低。通过检查mysql_store_result()是否返回0，可检测查询是否没有
+结果集（以后会更多）。
+如果希望了解查询是否应返回结果集，可使用mysql_field_count()进行检查。请参见25.2.3.22节， “mysql_field_count()”。
+mysql_store_result()将查询的全部结果读取到客户端， 分配1个MYSQL_RES结构， 并将结果置于该结构中。
+如果查询未返回结果集， mysql_store_result()将返回Null指针（例如，如果查询是INSERT语句）。
+如果读取结果集失败， mysql_store_result()还会返回Null指针。通过检查mysql_error()是否返回非空字符串， mysql_errno()是
+否返回非0值，或mysql_field_count()是否返回0，可以检查是否出现了错误。
+如果未返回行，将返回空的结果集。（空结果集设置不同于作为返回值的空指针）。
+一旦调用了mysql_store_result()并获得了不是Null指针的结果， 可调用mysql_num_rows()来找出结果集中的行数。
+可以调用mysql_fetch_row()来获取结果集中的行，或调用mysql_row_seek()和mysql_row_tell()来获取或设置结果集中的当前行位置。
+一旦完成了对结果集的操作，必须调用mysql_free_result()。
+请参见25.2.13.1节， “为什么在mysql_query()返回成功后， mysql_store_result()有时会返回NULL”.
+返回值
+具有多个结果的MYSQL_RES结果集合。 如果出现错误，返回NULL。
+如果成功， mysql_store_result()将复位mysql_error()和mysql_errno()。
+· CR_COMMANDS_OUT_OF_SYNC
+以不恰当的顺序执行了命令。
+· CR_OUT_OF_MEMORY
+内存溢出。
+· CR_SERVER_GONE_ERROR
+MySQL服务器不可用。
+· CR_SERVER_LOST
+在查询过程中，与服务器的连接丢失。
+· CR_UNKNOWN_ERROR
+出现未知错误。
+
+

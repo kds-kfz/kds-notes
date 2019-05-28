@@ -1,0 +1,45 @@
+有血缘关系进程间通信
+无名管道
+                　　------------------------------
+    读  fd[０]    ------------------------------ 　写fd[１]
+pipe(fd)
+
+无血缘关系的进程间通信
+mkfifo("/",权限)
+fifo
+两端都打开式,形成管道
+
+映射
+open();//open的权限要至少大于等于mmap的权限　
+void *p = mmap(NULL,大小/大小不可以为0/ ,PROT_READ|PROT_WRITE,MAP_SHARED/MAP_PRIVATE,fd,0)--->最后一个参数移动４字节的整数倍
+
+文件共享
+
+int fd = open()
+
+pid_t pid = fork()
+if(pid == 0){
+	//子进程可以读写文件
+}else if(pid > 0){
+	//父进程读写文件
+}
+父子进程可以共享同一个打开的文件
+ 
+
+ int semId = semget(key,nsem,IPC_CREAT|0777);创建信号量
+ int ret = semctl(semId,0,SETVAL,1);信号量控制
+ ret = semop(semId,&sem,1);
+ struct sembuf{
+ 		num;//下标
+ 		op;//增加或减少
+ 		flg;
+ }
+ 
+ int semId = msgget(key,IPC_CREAT|0777);创建消息队列
+ int ret = msgsnd(semId,&msg,sizeof(msg)-sizeof(long),0);//增加
+ ret = msgrcv(semId,&msg,sizeof(msg)-sizeof(long),1,0);//减少
+ struct msgbuf{
+ 	long mtype;
+ 	....//消息内容
+ }
+

@@ -1,0 +1,186 @@
+sqlite3本地数据库学习
+
+1、安装sqlite3
+
+sudo()apt-get()install()sqlite3
+
+2、存储类型
+
+integer 整型：int，shoert，long
+
+text 文本字符串：string
+
+real 浮点型：float，double
+
+blob 二进制
+
+3、字段结束
+
+not null：字段的值不能为空
+
+unique：字段的值必须是唯一的
+
+default：指定字段的默认值
+
+primarykey：主键，用来唯一的标识某条记录，相当于记录的身份证。主键可以是一个或多个字段，应由计算机自动生成和管理。主键字段默认包含了not null和unique两个约束
+
+autoincrement：当主键是integer类型时，应该增加autoincrement约束，能实现主键值的自动增长
+
+外键：利用外键可以用来建立表与表之间的联系，一般是一张表的某个字段，引用着另一张表的主键
+
+4、创建数据库usr.db在当前目录下
+
+sqlite3()usr.db
+
+5、创建表格，表格内容以树状存储
+
+create()table()表名(字段名1()字段类型1,字段名2()字段类型2...)
+
+6、数据库中不能使用关键字命名表和字段，不区分大小写，每条语句后加";"结尾
+
+7、删除表格
+
+drop()table()表名
+
+8、向表格里添加数据
+
+insert()into()表名(字段1，字段2...)values(字段1的值,字段2的值...)
+
+9、修改表中的数据
+
+updata()表名()set()字段1=字段1的值,字段2=字段2的值...
+
+//将字段为name全部修改成'Tom'
+
+updata()stu()set()name='Tom';
+
+//将字段为id=1001的字段name修改成'Tom'
+
+updata()stu()set()name='Tom'()where()id=1001;
+
+//将字段为id=1001同时字段name='lisi'的字段name修改成'Tom'
+
+updata()stu()set()name='Tom'()where()id=1001()and()name='lisi';
+
+10、删除表中的数据
+
+//删除整个表格
+
+delete()from()表名
+
+//将字段id=1001同时字段name='lisi'这个数据从表中删除
+
+delete()from()表名()where()id=1001()and()name='lisi';
+
+11、查询表格里某个内容
+
+select()字段1()字段2...from()表名()where()字段=某值
+
+//查询字段name='lisi'的字段id的值
+
+select()id()from()stu()where()name='lisi';
+
+//查询表格内所有字段的内容
+
+select()id()*from()stu；
+
+12、计算记录条数
+
+select()count()字段；
+
+select()count()*from()表名;
+
+13、where用法
+
+where()字段=某值;
+
+where()字段!=某值;
+
+where()字段>某值;
+
+where()字段1=某值1()and()字段2<某值2;
+
+where()字段1=某值1()or()字段2>某值2;
+
+14、order()by用法
+
+select()*from()表名()order()by()字段(默认升序);
+
+select()*from()表名()order()by()字段()desc(降序);
+
+select()*from()表名()order()by()字段()asc(升序);
+
+select()*from()表名()order()by()字段1()asc(先按字段1升序),字段2()desc(再按字段2降序);
+
+15、limit用法
+
+//分页查询，数值1表示跳过前面多少条，数值2表示取出之后多少条
+
+select()*from()表名()limit()数值1,数值2;
+
+//跳过前面0条，相当于select()*from()表名()limit()0,数值2;表示前面多少条数据
+
+select()*from()表名()limit()数值2;
+
+16、like用法，模糊查询
+
+select()字段1,字段2...from()表名()where()字段()like()%某值%;
+
+二、函数
+
+1、打开数据库
+
+int sqlite3_open(const char *filename,sqlite3 **ppDb)
+
+const char *filename：数据库文件路径
+
+sqlite3 **ppDb：数据库实例
+
+2、执行任何SQL语句
+
+int sqlite3_exec(sqlite3 *,const char *sql,int (*callback)(void *,int,char **,char **))
+
+sqlite3 *：一个打开的数据实例
+
+const char *sql：需要执行的SQL语句
+
+int (*callback)(void *,int,char **,char **)
+
+SQL语句执行完毕后的回调
+
+void *：回调函数的第一个参数
+
+char **errmsg：错误信息
+
+3、查询SQL语句的合法性(查询前的准备)
+
+int sqlite3_prepare_v2(sqlite3 *db,const char *zSql,int nByte,sqlite3_stmt **ppStmt,const char **pzTail)
+
+sqlite3 *db：数据库实例
+
+const char *zSql：需要检查的SQL语句
+
+int nByte：SQL语句的最大字节长度
+
+sqlite3_stmt **ppStmt：sqlite3_stmt实例，用来获取数据库数据
+
+4、查询1行数据
+
+int sqlite3_step(sqlite3_stmt *)
+
+如果查询到1行数据，就会返回SQLITE_ROW
+
+5、利用stmt获得某一段的值(字段的下标从0开始)
+
+double sqlite3_column_double(sqlite3_stmt *,int iCol)//浮点型数据
+
+int sqlite3_column_int(sqlite3_stmt *,int iCol)//整型数据
+
+sqlite3_int64 sqlite3_column_int64(sqlite3_stmt *,int iCol)//长整型数据
+
+const void *sqlite3_column_blob(sqlite3_stmt *,int iCol)//二进制文件数据
+
+const unsigned char *sqlite3_column_text(sqlite3_stmt *,int iCol)//字符串数据
+
+
+

@@ -1,0 +1,24 @@
+//2.编译指令.txt
+在程序运行时候链接
+创建动态库
+gcc -o libsqlite.so -fPIC --shared sqlite3.c
+./a.out -->执行的时候需要链接到动态库
+
+程序编译的过程已经把静态库链接到可执行文件里
+创建静态库
+gcc - sqlite3.c -o sqlite3.o
+ar -r sqlite3.a sqlite.o
+./a.out
+
+编译 链接静态库
+g++ sqlite.cpp sqlite3.a -lpthread -ldl
+    自定义的文件
+
+链接动态库
+g++ sqlite3.cpp -L ./ -lsqlite -lpthread -ldl
+如果执行的时候找不到动态库，可以cp libsqlite.so /lib
+
+/*
+//将1个函数编译成1个库
+printf()
+*/

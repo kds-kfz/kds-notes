@@ -1,0 +1,10 @@
+apple 苹果
+orange 橘子
+pear 梨子
+jelly 果冻
+dessert 点心
+banana 香蕉
+hello 你好，问候
+Tom 汤姆，人名
+China 中国，国名
+English 英国，国名

@@ -1,0 +1,6 @@
+no.1txt
+abcd
+ABCD
+abrtm
+abuiop
+-name

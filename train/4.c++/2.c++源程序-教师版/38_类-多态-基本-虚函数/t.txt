@@ -1,0 +1,8 @@
+1001 Tom 90
+1002 Mike 89
+1003 Bob 99
+1004 Cindy 78
+2001 Brown 4
+2002 Jack 2
+2003 Smith 3
+2004 David 5

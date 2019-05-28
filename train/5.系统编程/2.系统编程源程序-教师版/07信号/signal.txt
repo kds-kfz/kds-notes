@@ -1,0 +1,5 @@
+singnal()
+kill
+alarm
+abort
+setitimer

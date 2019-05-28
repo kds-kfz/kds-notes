@@ -1,0 +1,20 @@
+newfd = 1
+总用量 80
+-rw-rw-r-- 1 zm zm  409 11月 23 10:15 01.进程概念.txt
+-rw-rw-r-- 1 zm zm   86 11月 23 10:16 02.process.c
+-rw-rw-r-- 1 zm zm  621 11月 23 13:53 03.fork.c
+-rw-rw-r-- 1 zm zm  638 11月 23 14:28 04.getpid-getppid.c
+-rw-rw-r-- 1 zm zm  432 11月 23 16:37 05.循环创建多个子进程.c
+-rw-rw-r-- 1 zm zm  444 11月 23 16:40 06.进程共享.c
+-rw-rw-r-- 1 zm zm 1047 11月 23 16:57 07.文件共享.c
+-rw-rw-r-- 1 zm zm  694 11月 23 17:40 08.环境变量.c
+-rw-rw-r-- 1 zm zm 1178 11月 24 09:54 09.execl.c
+-rw-rw-r-- 1 zm zm 1174 11月 24 10:07 10.execlp.c
+-rw-rw-r-- 1 zm zm 1702 11月 24 11:42 11.execv.c
+-rw-rw-r-- 1 zm zm  145 11月 24 11:28 12.孤儿进程.c
+-rw-rw-r-- 1 zm zm  122 11月 24 11:30 13.僵尸进程.c
+-rwxrwxr-x 1 zm zm 7592 11月 24 11:42 a.out
+-rw-r----- 1 zm zm   10 11月 24 11:42 a.txt
+-rw-r----- 1 zm zm   10 11月 23 16:55 fork
+-rwxrwxr-x 1 zm zm 7332 11月 24 09:25 hello
+-rw-rw-r-- 1 zm zm   74 11月 24 09:25 hello.c

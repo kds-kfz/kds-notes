@@ -1,0 +1,49 @@
+//6.周末作业.txt
+完成线程池
+
+pool_t *pool = NULL;
+
+typedef struct worker{
+    void*(*pfunc)(void*);//回调函数,真正的执行函数的函数指针
+    void* argv;//回调函数的入参
+    struct worker* next;
+}worker_t;
+
+typedef struct{
+    int number;//线程池中线程的个数
+    int shutdown;//线程池销毁的标志,可以用1代表销毁,0代表还没有销毁,也就是释放申请的空间
+
+    worker_t *head;//任务队列的表头
+
+    pthread_t *pth;//pth[0] pth[1]... 
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+}pool_t
+
+int pool_destroy();//销毁线程池  //pthread_cond_broadcast
+int pool_add_worker(void*(*pfunc)(void*),void* argv);//向任务队列里添加任务
+int pool_init(int number);//线程池初始化,里面要创建多少个线程
+-----------------------------------------------
+线程池:
+
+　　任务队列放到线程池里　
+　　＼　　　　　　　　／
+　　　＼　　　　　　／
+[　　线程池　　]
+[相当于管理单元]
+　　　　／　　　　　＼
+　　　／　　　　　　　＼
+　　任务分发给不同线程去执行
+
+这样就省去了创建线程的时间
+
+int main()
+{
+    for(;;){
+	add_worker(,,)
+    }
+    pool_init(12);
+
+    destroy();	
+
+}
