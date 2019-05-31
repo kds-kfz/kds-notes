@@ -1,0 +1,104 @@
+#include<stdio.h>
+#include<unistd.h>
+#include<stdlib.h>
+#include<sys/types.h>
+#include<sys/stat.h>
+#include<fcntl.h>
+//2.dup2.c
+#if 0
+执行新程序：
+    当调用exce函数时，将丢弃旧哟有的程序，
+    用磁盘上的新程序替换类当前进程的正文段数据段，
+    堆段和栈段，新函数则从main函数开始执行
+    -------------------------------------------------------------------------
+    调用exec并不创建新进程，前后的进程id未改变
+    execl
+    execlp
+    execle
+    execv
+    execve
+    execvp
+    1.最后2个字母中有l，传给新程序函数第二个参数为：
+    argv0,argv1...NULL(默认是从当前文件夹查找，如果找不到，依旧执行之前的进程)
+    2.最后2个字母中有p，传"可执行程序"参数时不用写路径，
+    只写程序名(默认是在环境变量中寻找)
+    3.最后2个字母中有v，传给新程序函数第二个参数为argv[]
+    4.最后2个字母中有e，传给新程序环境表
+    -------------------------------------------------------------------------
+    int execl(const char *path, const char *arg, .../* (char  *) NULL */);
+    int execv(const char *path, char *const argv[]);
+    int execle(const char *path, const char *arg, ...
+	    /*, (char *) NULL, char * const envp[] */);
+//    int execve(const char *path, const char argv[],char *const envp[]);
+    
+    int execlp(const char *file, const char *arg, .../* (char  *) NULL */);
+    int execvp(const char *file, char *const argv[]);
+    int execvpe(const char *file, char *const argv[],char *const envp[]);
+    -------------------------------------------------------------------------
+    前4个函数取路径名作为参数，后3个函数取文件名作为参数
+    如果路径名包含/，视为路径名
+    execlp,execvp使用路径前最中的一个找到了可执行文件，如果该文件不是由编译器产生的，
+    就认为是shell脚本
+    -------------------------------------------------------------------------
+    echo $PATH
+    /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+    execlp("ls","ls","-l",NULL);
+#endif
+#if 0
+int main(int argc,char *argv[]){
+    pid_t pid=fork();
+    char *buf[]={"ls","-l",NULL};
+    if(pid==-1){
+	printf("fork error");
+	exit(-1);
+    }
+    else if(pid==0){
+	printf("in child pid=%d,parent pid=%d\n",getpid(),getppid());
+//	execl("hello","./hello",NULL);//从当前目录找可执行文件,找到后执行./hello
+//	execl("/bin/ls","ls","-l",NULL);
+//	execlp("ls","ls","-l",NULL);//从环境变量里找
+//	execv("hello",argv);
+	execvp("ls",buf);
+	printf("2017/11/24\n");
+	}
+    else{
+	printf("in parent pid=%d\n",getpid());
+	sleep(1);
+	}
+    return 0;
+}
+#endif
+int main(){
+    int fd,fd2,ret;
+    char buf[]={"hello world"};
+    fd=open("file1.txt",O_WRONLY|O_CREAT|O_TRUNC,0640);
+//    fd=open("file1.txt",O_WRONLY);
+    if(fd==-1){
+	    printf("open file1.txt\n");
+	    exit(-1);
+    }
+    //标准输出文件描述符重定向到文件描述符
+    fd2=dup2(fd,STDOUT_FILENO);
+    pid_t pid=fork();
+    if(pid==-1){
+	    printf("fork error");
+	    exit(-1);
+    }
+    else if(pid==0){
+	    ret=write(fd2,buf,sizeof(buf));
+	    if(ret!=sizeof(buf)){
+	        printf("fd2 write buf fail\n");
+	        exit(-1);
+	    }
+	    printf("in child pid=%d,parent pid=%d\n",getpid(),getppid());
+//	execlp("ls","ls","-l",NULL);
+	//从环境变量里找，如果找到ls，则执行ls -l，
+	//这时子进程的代码将不会执行，如果找不到，则执行子进程的代码 
+    }else{
+	    printf("in parent pid=%d\n",getpid());
+	    sleep(5);
+    }
+    close(fd);
+    return 0;
+}
+
