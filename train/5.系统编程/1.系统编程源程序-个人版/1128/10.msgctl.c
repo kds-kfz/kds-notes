@@ -53,7 +53,7 @@ int main(){
     int ret;
     //释放
 //    ret=msgctl(65538,IPC_RMID,&msg1);
-    ret=msgctl(65538,IPC_RMID,NULL);
+    ret=msgctl(0,IPC_RMID,NULL);
     if(ret==-1){
 	printf("remove msqid fail\n");
     }

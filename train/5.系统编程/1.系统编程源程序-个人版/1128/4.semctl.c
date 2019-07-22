@@ -13,16 +13,18 @@
     另一种是具有超级用户特权的进程
 #endif
 int main(){
+#if 0
     //获取已有的集合信号量id
     int semid;
-    semid=semget(3,1,IPC_EXCL);
+    semid=semget(0,1,IPC_EXCL);
     if(semid==-1){
 	printf("semget error\n");
 	exit(-1);
     }
-    printf("semid ok ...\n");
+    printf("semid ok [%ld]...\n", semid);
+#endif
     //移除集合信号量
-    ret=semctl(semid,0,IPC_RMID,0);
+    int ret=semctl(semid,0,IPC_RMID,0);
     if(ret==-1){
 	printf("remove semid fial\n");
     }

@@ -46,7 +46,7 @@ int main(){
 	printf("semctl fail\n");
 	exit(-1);
     }
-    #if 0
+    #if 1
     struct sembuf sem;
     sem.sem_num=0;
     sem.sem_op=-1;
