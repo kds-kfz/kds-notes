@@ -1,0 +1,62 @@
+{
+	"RstCode":	"0000",
+	"dataList":	[{
+			"all_ocr":	0,
+			"dataDataLen":	0,
+			"dataFormat":	0,
+			"pattern_sn":	0,
+			"processRst":	0,
+			"regionNum":	3,
+			"regions":	[{
+					"linNum":	1,
+					"lines":	[{
+							"content":	"49016196512025076",
+							"height":	38,
+							"isRecog":	1,
+							"isVerified":	0,
+							"lineType":	1,
+							"line_no":	0,
+							"sn_Inner":	3,
+							"width":	377,
+							"x":	381,
+							"y":	643
+						}],
+					"regionType":	1
+				}, {
+					"linNum":	1,
+					"lines":	[{
+							"content":	"第一代居民身份证",
+							"height":	38,
+							"isRecog":	1,
+							"isVerified":	0,
+							"lineType":	1,
+							"line_no":	0,
+							"sn_Inner":	3,
+							"width":	377,
+							"x":	381,
+							"y":	643
+						}],
+					"regionType":	2
+				}, {
+					"linNum":	1,
+					"lines":	[{
+							"content":	"阿诺斯瓦辛格",
+							"height":	38,
+							"isRecog":	1,
+							"isVerified":	0,
+							"lineType":	1,
+							"line_no":	0,
+							"sn_Inner":	3,
+							"width":	377,
+							"x":	381,
+							"y":	643
+						}],
+					"regionType":	3
+				}],
+			"regionType":	1,
+			"dataNum":	1
+		}],
+	"IDFilewPath":	null,
+	"HeadFilePath":	null,
+	"filename":	null
+}

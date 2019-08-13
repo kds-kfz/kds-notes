@@ -5,7 +5,7 @@ int main()
 {
 
 	cJSON* obj = cJSON_CreateObject();
-	cJSON_AddStringToObject(obj,"name","中国");
+	//cJSON_AddStringToObject(obj,"name","中国");
 	cJSON* arr = cJSON_CreateArray();
 
 	cJSON* obj1 = cJSON_CreateObject();
@@ -36,7 +36,8 @@ int main()
 	cJSON_AddItemToArray(arr,obj1);
 	cJSON_AddItemToArray(arr,obj2);
 	cJSON_AddItemToArray(arr,obj3);
-	cJSON_AddItemToObject(obj,"cities",arr);
+	//cJSON_AddItemToObject(obj,"cities",arr);
+    cJSON_AddItemToArray(obj,arr);
 
 	char* p = cJSON_Print(obj);
 	printf("%s\n",p);
