@@ -1,0 +1,138 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+CD	font.h	75;"	d
+CL	font.h	78;"	d
+CR	font.h	76;"	d
+CR1	font.h	77;"	d
+CU	font.h	74;"	d
+Data	link.h	/^}Data;$/;"	t	typeref:struct:__anon1
+Data1	link.h	/^}Data1;$/;"	t	typeref:struct:__anon2
+ST	link.h	/^}ST;$/;"	t	typeref:struct:s
+ST1	link.h	/^}ST1;$/;"	t	typeref:struct:s1
+_FONT_H	font.h	2;"	d
+_LINK_H	link.h	2;"	d
+_MANAGE_H	manage.h	2;"	d
+_STUDENT_H	student.h	2;"	d
+_TEACHER_H	teacher.h	2;"	d
+admin_change	manage.c	/^void admin_change(){$/;"	f
+age	link.h	/^    int age;        \/\/年龄$/;"	m	struct:__anon1
+age	link.h	/^    int age;        \/\/年龄$/;"	m	struct:__anon2
+black	font.h	63;"	d
+blue	font.h	67;"	d
+chinese	link.h	/^    float chinese;  \/\/语文$/;"	m	struct:__anon1
+clas	link.h	/^    char clas[10];  \/\/任课班级$/;"	m	struct:__anon2
+clas1	link.h	/^    char clas1[10]; \/\/班级$/;"	m	struct:__anon1
+clas2	link.h	/^    char clas2[10]; \/\/学生类别$/;"	m	struct:__anon1
+clear_buf	student.c	/^void clear_buf(){$/;"	f
+color_back_red	font.h	31;"	d
+color_end	font.h	25;"	d
+color_font_high	font.h	22;"	d
+color_font_yellow	font.h	28;"	d
+course	link.h	/^    char course[10];\/\/教学科目$/;"	m	struct:__anon2
+create1_link	link.c	/^ST *create1_link(ST *head,Data d1){\/\/头创建$/;"	f
+create2_link	link.c	/^ST1 *create2_link(ST1 *head,Data1 d1){\/\/尾创建$/;"	f
+create_link	link.c	/^ST *create_link(ST *head,Data d1){\/\/尾创建$/;"	f
+cursor_down	font.h	35;"	d
+cursor_down1	font.h	36;"	d
+cursor_left	font.h	72;"	d
+cursor_move	font.c	/^void cursor_move(int x,int y){$/;"	f
+cursor_right	font.h	37;"	d
+cursor_right0	font.h	50;"	d
+cursor_right1	font.h	51;"	d
+cursor_right10	font.h	61;"	d
+cursor_right11	font.h	38;"	d
+cursor_right12	font.h	39;"	d
+cursor_right13	font.h	40;"	d
+cursor_right14	font.h	41;"	d
+cursor_right15	font.h	42;"	d
+cursor_right16	font.h	43;"	d
+cursor_right2	font.h	52;"	d
+cursor_right3	font.h	53;"	d
+cursor_right4	font.h	54;"	d
+cursor_right5	font.h	55;"	d
+cursor_right6	font.h	56;"	d
+cursor_right7	font.h	57;"	d
+cursor_right8	font.h	58;"	d
+cursor_right9	font.h	59;"	d
+cursor_up	font.h	34;"	d
+dark_green	font.h	69;"	d
+del1_link	link.c	/^ST1 *del1_link(ST1 *head,int num){\/\/以工号删除(教师)$/;"	f
+del_link	link.c	/^ST *del_link(ST *head,int num){\/\/以学号删除(学生)$/;"	f
+del_student	manage.c	/^void del_student(){$/;"	f
+del_teacher	manage.c	/^void del_teacher(){$/;"	f
+display_all_student	teacher.c	/^void display_all_student(){$/;"	f
+display_all_teacher	manage.c	/^void display_all_teacher(){$/;"	f
+display_cheek	font.c	/^void display_cheek(int x,int y){$/;"	f
+english	link.h	/^    float english;  \/\/英语$/;"	m	struct:__anon1
+free_link	link.c	/^void free_link(ST *head){$/;"	f
+gpa_rank	teacher.c	/^void gpa_rank(){$/;"	f
+green	font.h	65;"	d
+insert1_link	link.c	/^ST *insert1_link(ST *head,Data d1,char arr[]){\/\/前插入$/;"	f
+insert_link	link.c	/^ST *insert_link(ST *head,Data d1,char arr[]){\/\/后插入$/;"	f
+job	link.h	/^    char job[20];   \/\/职务$/;"	m	struct:__anon1
+job	link.h	/^    char job[20];   \/\/职务$/;"	m	struct:__anon2
+key	link.h	/^    char key[20];   \/\/密码$/;"	m	struct:__anon1
+key	link.h	/^    char key[20];   \/\/密码$/;"	m	struct:__anon2
+ma_login	manage.c	/^void ma_login(){$/;"	f
+main	main.c	/^int main(){\/\/主函数$/;"	f
+manager	manage.c	/^void manager(){$/;"	f
+math	link.h	/^    float math;     \/\/数学$/;"	m	struct:__anon1
+menu	manage.c	/^void menu(){$/;"	f
+menu_choose	font.c	/^char menu_choose(){$/;"	f
+my_system	manage.c	/^void my_system(){$/;"	f
+name	link.h	/^    char name[20];  \/\/姓名$/;"	m	struct:__anon1
+name	link.h	/^    char name[20];  \/\/姓名$/;"	m	struct:__anon2
+next	link.h	/^    struct s *next;$/;"	m	struct:s	typeref:struct:s::s
+next	link.h	/^    struct s1 *next;$/;"	m	struct:s1	typeref:struct:s1::s1
+num	link.h	/^    int num;        \/\/学号$/;"	m	struct:__anon1
+num	link.h	/^    int num;        \/\/工号$/;"	m	struct:__anon2
+number	link.h	/^    char number[20];\/\/帐号$/;"	m	struct:__anon1
+number	link.h	/^    char number[20];\/\/帐号$/;"	m	struct:__anon2
+pre	link.h	/^    struct s *pre;$/;"	m	struct:s	typeref:struct:s::s
+pre	link.h	/^    struct s1 *pre;$/;"	m	struct:s1	typeref:struct:s1::s1
+printf1_link_pre	link.c	/^void printf1_link_pre(ST1 *head){\/\/从头打印$/;"	f
+printf_link_next	link.c	/^void printf_link_next(ST *head){\/\/从尾打印$/;"	f
+printf_link_pre	link.c	/^void printf_link_pre(ST *head){\/\/从头打印$/;"	f
+purple	font.h	68;"	d
+read1_link	link.c	/^ST1 *read1_link(){$/;"	f
+read_link	link.c	/^ST *read_link(){$/;"	f
+record_mark	teacher.c	/^void record_mark(ST1 *te_head){$/;"	f
+record_other	teacher.c	/^void record_other(ST1 *te_head){$/;"	f
+record_te_job	manage.c	/^void record_te_job(){$/;"	f
+red	font.h	64;"	d
+s	link.h	/^typedef struct s{   \/\/学生$/;"	s
+s1	link.h	/^typedef struct s1{  \/\/教师$/;"	s
+save1_link	link.c	/^void save1_link(ST1 *head){$/;"	f
+save2_link	link.c	/^void save2_link(ST *head){$/;"	f
+save_link	link.c	/^void save_link(ST *head){$/;"	f
+search1_link	link.c	/^ST1 *search1_link(ST1 *head,char arr[]){\/\/帐号查找$/;"	f
+search2_link	link.c	/^ST *search2_link(ST *head,int num){\/\/学号查找$/;"	f
+search3_link	link.c	/^ST1 *search3_link(ST1 *head,int num){\/\/帐号查找$/;"	f
+search_link	link.c	/^ST *search_link(ST *head,char arr[]){\/\/帐号查找$/;"	f
+select_sort_link	link.c	/^ST *select_sort_link(ST *head){\/\/选择排序$/;"	f
+sex	link.h	/^    char sex[10];    \/\/性别$/;"	m	struct:__anon1
+sex	link.h	/^    char sex[10];   \/\/性别$/;"	m	struct:__anon2
+st_key_change	student.c	/^void st_key_change(ST *head,ST *st_head){$/;"	f
+st_link	student.c	/^void st_link(){$/;"	f
+st_login	student.c	/^void st_login(){$/;"	f
+st_news	student.c	/^void st_news(ST *st_head){$/;"	f
+st_register	student.c	/^void st_register(){$/;"	f
+student	student.c	/^void student(){$/;"	f
+take_clas	manage.c	/^void take_clas(){$/;"	f
+te_key_change	teacher.c	/^void te_key_change(ST1 *head,ST1 *te_head){$/;"	f
+te_link	teacher.c	/^void te_link(){$/;"	f
+te_login	teacher.c	/^void te_login(){$/;"	f
+te_news	teacher.c	/^void te_news(ST1 *te_head){$/;"	f
+te_register	teacher.c	/^void te_register(){$/;"	f
+teacher	teacher.c	/^void teacher(){$/;"	f
+total	link.h	/^    float total;    \/\/总分$/;"	m	struct:__anon1
+value	link.h	/^    Data value;$/;"	m	struct:s
+value1	link.h	/^    Data1 value1;$/;"	m	struct:s1
+white	font.h	70;"	d
+x_seat	font.h	46;"	d
+y_seat	font.h	47;"	d
+yellow	font.h	66;"	d
