@@ -30,6 +30,7 @@ void read_data(FILE *f, H_t *t){
     char *p[7] = {t->nam, t->ena, t->dwc, t->job, t->mob, t->com, t->crt};
     char buf[1024] = {};
     fscanf(f, "%s", buf);
+    printf("%s\n",buf);
     int i = 0, j = 0, k = 0;
     for(; i < strlen(buf); i++){
         if(buf[i] != ','){
