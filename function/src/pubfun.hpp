@@ -15,6 +15,10 @@
 #include <errno.h>
 #include <dirent.h>
 
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <cstdlib>
+
 using namespace std;
 
 namespace kfz{
@@ -293,7 +297,86 @@ class Http{
 
 //套接字通信类
 class Socket{
+private:
+    string msg;                 //信息
+    char buff[2048];            //缓存通信内容
+    
+    int sfd;                    //服务端套接字
+    struct sockaddr_in saddr;   //服务端套接字初始化信息
+    
+    int cfd;                    //客户端套接字
+    struct sockaddr_in caddr;   //客户端套接字初始化信息
+public:
+    Socket():sfd(0),cfd(0){
+        msg = "";
+        memcpy(buff, 0, sizeof(buff));
+        bzero(&saddr, sizeof(saddr));
+        bzero(&caddr, sizeof(caddr));
+    }
+    ~Socket(){
+        close(sfd);
+        close(cfd);
+    }
 
+    bool SocketBuild(){
+        sfd = socket(AF_INET,SOCK_STREAM,0);
+        if(sfd == -1){
+            msg = "SocketBuild Fail!";
+            return false;
+        }
+        return true;
+    }
+    
+    bool SocketBind(const char *addr, const char *port){
+        saddr.sin_family = AF_INET;
+        saddr.sin_port = htons(atoi(port));
+        inet_pton(AF_INET, addr, &saddr.sin_addr.s_addr);
+        int ret = bind(sfd, (struct sockaddr *)&saddr, sizeof(saddr));
+        if(ret == -1){
+            msg = "SocketBind Fail!";
+            return false;
+        }
+        return true;
+    }
+
+    bool SocketListen(int backlog){
+        int ret = listen(sfd, backlog);
+        if(ret == -1){
+            msg = "SocketListen Fail!";
+            return false;
+        }
+        return true;
+    }
+
+    bool SocketAccept(){
+        socklen_t c_len = sizeof(caddr);
+        cfd = accept(sfd,(struct sockaddr *)&caddr, &c_len);
+        if(cfd == -1){
+            msg = "SocketAccept Fail!";
+            return false;
+        }
+        return true;
+    }
+    
+    bool SocketInit(const char *addr = "127.0.0.0", const char *port = "8080", int backlog = 128){
+        return SocketBuild() == false ? false
+            : SocketBind(addr, port) == false ? false
+            : SocketListen(backlog) == false ? false
+            : SocketAccept() == false ? false
+            : true;
+    }
+
+    bool SocketRead(){
+        memcpy(buff, 0, sizeof(buff));
+        int ret = read(cfd, buff, sizeof(buff));
+        if(ret == 0){
+            msg = "SocketRead Fail, client is breaked!";
+            return false;
+        }
+        return true;
+    }
+
+protected:
 };
 
 //信号处理类
