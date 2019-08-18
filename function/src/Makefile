@@ -28,4 +28,4 @@ man.out : main.o
 	$(CXX) -o $@ -c $<
 
 clean:
-	rm $(OBJ) $(COMMONOBJS) *.out -f
+	rm $(OBJ) $(COMMONOBJS) *.out *.o -f

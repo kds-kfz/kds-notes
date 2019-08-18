@@ -22,6 +22,14 @@
 using namespace std;
 
 namespace kfz{
+
+//这是socket通信结构体，服务端于客户端公用
+typedef struct{
+    int fd;
+    struct sockaddr_in addr;
+    char buff[2048];//数据长度(8字节) + 数据类型(2字节) + 消息体(10字节之后到\0)
+}Total_msg;
+
 //文件处理类
 class Files{
 private:
@@ -298,79 +306,164 @@ class Http{
 //套接字通信类
 class Socket{
 private:
-    string msg;                 //信息
-    char buff[2048];            //缓存通信内容
+    string errmsg;              //错误信息
+    Total_msg *sfd;             //服务端结构体
+    Total_msg *cfd;             //客户端结构体
+    /*
+    char sbuff[2048];           //服务端缓存通信内容
+    char cbuff[2048];           //客户端缓存通信内容
     
     int sfd;                    //服务端套接字
     struct sockaddr_in saddr;   //服务端套接字初始化信息
     
     int cfd;                    //客户端套接字
     struct sockaddr_in caddr;   //客户端套接字初始化信息
+    */
 public:
-    Socket():sfd(0),cfd(0){
-        msg = "";
-        memcpy(buff, 0, sizeof(buff));
-        bzero(&saddr, sizeof(saddr));
-        bzero(&caddr, sizeof(caddr));
+    Socket(){
+        errmsg = "";
+        /*
+        memcpy(sfd->buff, 0, sizeof(sfd->buff));
+        memcpy(cfd->buff, 0, sizeof(cfd->buff));
+        bzero(&sfd->addr, sizeof(sfd->addr));
+        bzero(&cfd->addr, sizeof(cfd->addr));
+        */
+        sfd = (Total_msg *)malloc(sizeof(Total_msg));
+        cfd = (Total_msg *)malloc(sizeof(Total_msg));
+        memset(sfd, 0, sizeof(Total_msg));
+        memset(cfd, 0, sizeof(Total_msg));
+        sfd->fd = 0;
+        cfd->fd = 0;
     }
     ~Socket(){
-        close(sfd);
-        close(cfd);
+        close(sfd->fd);
+        close(cfd->fd);
+        delete []sfd;
+        delete []cfd;
     }
-
-    bool SocketBuild(){
-        sfd = socket(AF_INET,SOCK_STREAM,0);
-        if(sfd == -1){
-            msg = "SocketBuild Fail!";
+    //SocketServe 服务端
+    bool SocketServeBuild(){
+        sfd->fd = socket(AF_INET,SOCK_STREAM,0);
+        if(sfd->fd == -1){
+            errmsg = "SocketServeBuild Fail!";
             return false;
         }
         return true;
     }
     
-    bool SocketBind(const char *addr, const char *port){
-        saddr.sin_family = AF_INET;
-        saddr.sin_port = htons(atoi(port));
-        inet_pton(AF_INET, addr, &saddr.sin_addr.s_addr);
-        int ret = bind(sfd, (struct sockaddr *)&saddr, sizeof(saddr));
+    bool SocketServeBind(const char *addr, const char *port){
+        sfd->addr.sin_family = AF_INET;
+        sfd->addr.sin_port = htons(atoi(port));
+        inet_pton(AF_INET, addr, &sfd->addr.sin_addr.s_addr);
+        int ret = bind(sfd->fd, (struct sockaddr *)&sfd->addr, sizeof(sfd->addr));
         if(ret == -1){
-            msg = "SocketBind Fail!";
+            errmsg = "SocketServeBind Fail!";
             return false;
         }
         return true;
     }
 
-    bool SocketListen(int backlog){
-        int ret = listen(sfd, backlog);
+    bool SocketServeListen(int backlog){
+        int ret = listen(sfd->fd, backlog);
         if(ret == -1){
-            msg = "SocketListen Fail!";
+            errmsg = "SocketServeListen Fail!";
             return false;
         }
         return true;
     }
 
-    bool SocketAccept(){
-        socklen_t c_len = sizeof(caddr);
-        cfd = accept(sfd,(struct sockaddr *)&caddr, &c_len);
-        if(cfd == -1){
-            msg = "SocketAccept Fail!";
+    bool SocketServeAccept(){
+        socklen_t c_len = sizeof(cfd->addr);
+        cfd->fd = accept(sfd->fd,(struct sockaddr *)&cfd->addr, &c_len);
+        if(cfd->fd == -1){
+            errmsg = "SocketServeAccept Fail!";
             return false;
         }
         return true;
     }
     
-    bool SocketInit(const char *addr = "127.0.0.0", const char *port = "8080", int backlog = 128){
-        return SocketBuild() == false ? false
-            : SocketBind(addr, port) == false ? false
-            : SocketListen(backlog) == false ? false
-            : SocketAccept() == false ? false
+    bool SocketServeInit(const char *addr = "127.0.0.0", const char *port = "8080", int backlog = 128){
+        return SocketServeBuild() == false ? false
+            : SocketServeBind(addr, port) == false ? false
+            : SocketServeListen(backlog) == false ? false
+            : SocketServeAccept() == false ? false
+            : true;
+    }
+    
+    bool SocketServeSend(void *data){
+        Total_msg *sp = (Total_msg *)data;
+        memcpy(sfd->buff, 0, sizeof(sfd->buff));
+        memcpy(sfd->buff, sp->buff, strlen(sp->buff));
+        int ret = write(sfd->fd, sfd->buff, strlen(sfd->buff));
+        if(ret < 0){
+            errmsg = "Server Write To Client Fail!";
+            return false;
+        }
+        return true;
+    }
+
+    bool SocketServeRead(){
+        memcpy(sfd->buff, 0, sizeof(sfd->buff));
+        int ret = read(cfd->fd, sfd->buff, sizeof(sfd->buff));
+        if(ret == 0){
+            errmsg = "SocketServeRead Fail, client is breaked!";
+            return false;
+        }
+        return true;
+    }
+
+    //SocketClient 客户端
+    bool SocketClientBuild(){
+        cfd->fd = socket(AF_INET, SOCK_STREAM, 0);
+        if(cfd->fd == -1){
+            errmsg = "SocketClientBuild Fail!";
+            return false;
+        }
+        return true;
+    }
+
+    bool SocketClientConnect(const char *addr, const char *port){
+        cfd->addr.sin_family = AF_INET;
+        cfd->addr.sin_port = htons(atoi(port));
+        inet_pton(AF_INET, addr, &cfd->addr.sin_addr.s_addr);
+        int ret = connect(cfd->fd,(struct sockaddr *)&cfd->addr,sizeof(cfd->addr));
+        if(ret == -1){
+            errmsg = "SocketClientConnect Fail!";
+            return false;
+        }else if(ret != 0){
+            errmsg = "SocketClientConnect error:[" + string(strerror(ret)) + "]!";
+            return false;
+        }
+        return true;
+    }
+
+    bool SocketClientInit(const char *addr = "127.0.0.0", const char *port = "8080"){
+        return SocketClientBuild() == false ? false
+            : SocketClientConnect(addr, port) == false ? false
             : true;
     }
 
-    bool SocketRead(){
-        memcpy(buff, 0, sizeof(buff));
-        int ret = read(cfd, buff, sizeof(buff));
-        if(ret == 0){
-            msg = "SocketRead Fail, client is breaked!";
+    bool SocketClientSend(void *data){
+        Total_msg *cp = (Total_msg *)data;
+        memcpy(cfd->buff, 0, sizeof(cfd->buff));
+        memcpy(cfd->buff, cp->buff, strlen(cfd->buff));
+        int ret = write(cfd->fd, cfd->buff, strlen(cfd->buff));
+        if(ret < 0){
+            errmsg = "Client Write To Server Fail!";
+            return false;
+        }
+        return true;
+    }
+
+    bool SocketClientRead(){
+        memcpy(cfd->buff, 0, sizeof(cfd->buff));
+        int ret = read(cfd->fd, cfd->buff, sizeof(cfd->buff));
+        //ret == -1
+        if(ret == -1){
+            errmsg = "SocketClientRead error:[" + string(strerror(ret)) + "]!";
+            return false;
+        }else if(ret == 0){
+            errmsg = "SocketClientRead the EOF or Read 0 Byte!";
             return false;
         }
         return true;
