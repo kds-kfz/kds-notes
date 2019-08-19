@@ -316,35 +316,18 @@ private:
     string errmsg;              //错误信息
     Total_msg *sfd;             //服务端结构体
     Total_msg *cfd;             //客户端结构体
-    /*
-    char sbuff[2048];           //服务端缓存通信内容
-    char cbuff[2048];           //客户端缓存通信内容
-    
-    int sfd;                    //服务端套接字
-    struct sockaddr_in saddr;   //服务端套接字初始化信息
-    
-    int cfd;                    //客户端套接字
-    struct sockaddr_in caddr;   //客户端套接字初始化信息
-    */
 public:
     Socket(){
-        errmsg = "";
-        /*
-        memcpy(sfd->buff, 0, sizeof(sfd->buff));
-        memcpy(cfd->buff, 0, sizeof(cfd->buff));
-        bzero(&sfd->addr, sizeof(sfd->addr));
-        bzero(&cfd->addr, sizeof(cfd->addr));
-        */
-        //sfd = (Total_msg *)malloc(sizeof(Total_msg));
-        //cfd = (Total_msg *)malloc(sizeof(Total_msg));
-        //memset(sfd, 0, sizeof(Total_msg));
-        //memset(cfd, 0, sizeof(Total_msg));
-        //sfd->fd = 0;
-        //cfd->fd = 0;
-        //errmsg = "none";
+        cfd = new Total_msg;
+        sfd = new Total_msg;
+        memset(sfd, 0, sizeof(Total_msg));
+        memset(cfd, 0, sizeof(Total_msg));
+        sfd->fd = 0;
+        cfd->fd = 0;
+        errmsg = "none";
     }
     ~Socket(){
-        //Close();
+        Close();
     }
     void Close(){
         close(sfd->fd);
@@ -380,26 +363,13 @@ public:
             errmsg = "SocketServeListen Fail!";
             return false;
         }
-        /*
-        socklen_t c_len = sizeof(sockaddr_in);
-        cout<<"+++:"<<c_len<<endl;
-        cout<<"+-+:"<<sfd->fd<<endl;
-        cfd->fd = accept(sfd->fd, (struct sockaddr *)&cfd->addr, &c_len);
-        cout<<"---:"<<cfd->fd<<endl;
-        if(cfd->fd == -1){
-            errmsg = "SocketServeAccept Fail!";
-            return false;
-        }
-*/
         return true;
     }
 
     //XXX
-    bool SocketServeAccept(int sfd){
-        cout<<"->>-:"<<sfd<<endl;
+    bool SocketServeAccept(){
         socklen_t c_len = sizeof(sockaddr_in);
-        cfd->fd = accept(sfd, (struct sockaddr *)&cfd->addr, &c_len);
-        cout<<"---:"<<cfd->fd<<endl;
+        cfd->fd = accept(sfd->fd, (struct sockaddr *)&cfd->addr, &c_len);
         if(cfd->fd == -1){
             errmsg = "SocketServeAccept Fail!";
             return false;
@@ -410,6 +380,7 @@ public:
     //XXX
     int SocketServeFd(){
         cout<<"errmsg:"<<errmsg<<endl;
+        return sfd->fd;
     }
     
     void SocketShowAccept(){
@@ -439,11 +410,11 @@ public:
     }
     
     bool SocketServeSend(void *data){
-        Msg_buff *sp = (Msg_buff *)data;
-        memcpy(&(sfd->buff), 0, sizeof(Msg_buff));
-        memcpy(&(sfd->buff), sp, sizeof(Msg_buff));
-        //int ret = write(sfd->fd, sfd->buff, strlen(sfd->buff));
-        int ret = send(sfd->fd, &(sfd->buff), sizeof(Msg_buff), 0);
+        Msg_buff *cp = (Msg_buff *)data;
+        memset(&(cfd->buff), 0, sizeof(Msg_buff));
+        memcpy(&(cfd->buff), cp, sizeof(Msg_buff));
+        int ret = write(cfd->fd, &(cfd->buff), sizeof(cfd->buff));
+        //int ret = send(cfd->fd, &(cfd->buff), sizeof(Msg_buff), 0);
         if(ret < 0){
             errmsg = "Server Write To Client Fail!";
             return false;
@@ -472,11 +443,11 @@ public:
         //tv.tv_usec = (timeout $ 1000) * 1000;
         //select(sfd->fd +1, sfd->buff, 0, 0, &tv);
         
-        memcpy(&(sfd->buff), 0, sizeof(Msg_buff));
+        memset(&(cfd->buff), 0, sizeof(Msg_buff));
         //读取的字节数大于 240*384 = 92160 = 90 * 1024, 90k
         //此时需要循环读取
         //而使用 recv 读取
-        int ret = read(sfd->fd, &(sfd->buff), sizeof(Msg_buff));
+        int ret = read(cfd->fd, &(cfd->buff), sizeof(Msg_buff));
         if(ret == 0){
             errmsg = "SocketServeRead Fail, client is breaked!";
             return 0;

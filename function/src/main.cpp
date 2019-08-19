@@ -19,33 +19,35 @@ int main(int argc, char *argv[]){
     cout<<"转换结果:"<<str.StringMateMore(str_2, " ")<<endl;
 #endif
     //套接字测试
-    Socket serve;
     pid_t pid;
-    if(!serve.SocketServeInit("127.0.0.1", "8089", 128)){
-        cout<<"服务器初始化失败!错误信息为:"<<serve.SocketServeErrmsg()<<endl;
+    Socket serve;
+    int fd;
+    if(serve.SocketServeBuild()){
+        cout<<"SocketServeBuild ok"<<endl;
+        if(serve.SocketServeBind("127.0.0.1", "8080")){
+            cout<<"SocketServeBind ok"<<endl;
+            if(serve.SocketServeListen(64)){
+                cout<<"SocketServeListen ok"<<endl;
+            }
+        }
     }
-    
     Msg_buff res;
-    memset(&res, 0, sizeof(Total_msg));
+    memset(&res, 0, sizeof(Msg_buff));
     memcpy(res.type, "02", 2);
     memcpy(res.length, "00000012", 8);
     memcpy(res.info, "receive data", 12);
-    
     while(1){
         cout<<"tttt"<<endl;
-        serve.SocketServeFd();
-        //if(serve.SocketServeAccept()){
-        if(serve.SocketServeAccept(serve.SocketServeFd())){
-            cout<<"SocketServeAccept ok"<<endl;
-        }
-            cout<<"服务启动成功"<<endl;
-            cout<<"有客户接入"<<endl;
-            //serve.SocketShowAccept();
+        fd = serve.SocketServeFd();
+        cout<<"sfd:"<<fd<<endl;
+        printf("serve is waiting ...\n");
+        if(serve.SocketServeAccept()){
+            printf("----------accept ok----------\n");
             if((pid = fork()) == -1){
                 cout<<"fork fail"<<endl;
                 exit(-1);
             }else if(pid == 0){
-                close(serve.SocketServeFd());
+                close(fd);
                 
                 while(1){
                      cout<<"正在接受客户端消息:"<<endl;
@@ -66,12 +68,12 @@ int main(int argc, char *argv[]){
                      }
                 }
             }else{
-            }/*
+                serve.Close();
+            }
         }else{
             cout<<serve.SocketServeErrmsg()<<endl;
             exit(-1);
-        }*/
-        cout<<"asdasdad"<<endl;
+        }
     }
     return 0;
 }

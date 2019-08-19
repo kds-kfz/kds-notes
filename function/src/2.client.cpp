@@ -1,4 +1,5 @@
 #include"pubfun.hpp"
+#include <unistd.h>
 
 using namespace std;
 using namespace kfz;
@@ -40,19 +41,27 @@ int main(int argc,char *argv[]){
     */
     
     Socket client;
-
+    if(client.SocketClientBuild()){
+        cout<<"SocketClientBuild ok"<<endl;
+        if(client.SocketClientConnect("127.0.0.1", "8080")){
+            cout<<"SocketClientConnect ok"<<endl;
+        }
+    }
+/*
     if(!client.SocketClientInit("127.0.0.1", "8089")){
         cout<<client.SocketServeErrmsg()<<endl;
         cout<<"----"<<endl;
     }
-    
-    Msg_buff *req = (Msg_buff *)malloc(sizeof(Msg_buff));
-    memcpy(req->type, "01", 2);
-    memcpy(req->length, "00000011", 8);
-    memcpy(req->info, "hello world", 11);
+  */  
+    Msg_buff req;
+    memset(&req, 0, sizeof(Msg_buff));
+    memcpy(req.type, "01", 2);
+    memcpy(req.length, "00000011", 8);
+    memcpy(req.info, "hello world", 11);
 
     while(1){
-        if(!client.SocketClientSend(req)){
+        sleep(3);
+        if(!client.SocketClientSend(&req)){
             cout<<client.SocketServeErrmsg()<<endl;
         }
         cout<<"----"<<endl;

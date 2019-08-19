@@ -20,7 +20,7 @@ all : 1.a.out 2.a.out man.out
 2.a.out : 2.解析ocr应答数据.o $(INCS)/cJSON.o
 	$(CXX) -o $@ $^ $(FLAG)
 man.out : main.o
-	$(CXX) -o $@ $^
+	$(CXX) -o $@ $^ -std=c++0x
 
 %.o : %.c
 	$(CC) -o $@ -c $<
