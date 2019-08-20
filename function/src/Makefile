@@ -14,13 +14,15 @@ SRC=$(wildcard ./*.cpp)
 OBJ=$(patsubst %.cpp,%.o,$(SRC))
 
 
-all : 1.a.out 2.a.out man.out
+all : 1.a.out 2.a.out ser.out cli.out
 1.a.out : 1.生成ocr应答数据.o $(INCS)/cJSON.o
 	$(CXX) -o $@ $^ $(FLAG)
 2.a.out : 2.解析ocr应答数据.o $(INCS)/cJSON.o
 	$(CXX) -o $@ $^ $(FLAG)
-man.out : main.o
+ser.out : main.o
 	$(CXX) -o $@ $^ -std=c++0x
+cli.out : 2.client.o
+	$(CXX) -o $@ $^
 
 %.o : %.c
 	$(CC) -o $@ -c $<

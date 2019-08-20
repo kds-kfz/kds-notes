@@ -1,7 +1,13 @@
-#include"pubfun.hpp"
+#include"ksocket.hpp"
+#include<sys/wait.h>
 
 using namespace std;
 using namespace kfz;
+
+void fun(int n){
+    int wai=waitpid(-1,NULL,WNOHANG);
+    printf("waitpid = %d\n",wai);
+}
 
 int main(int argc, char *argv[]){
 #if 0
@@ -19,59 +25,73 @@ int main(int argc, char *argv[]){
     cout<<"转换结果:"<<str.StringMateMore(str_2, " ")<<endl;
 #endif
     //套接字测试
+    if(argc<2){
+        printf("./a.out less port\n");
+        exit(-1);
+    }
+
     pid_t pid;
     Socket serve;
-    int fd;
+    /*
     if(serve.SocketServeBuild()){
         cout<<"SocketServeBuild ok"<<endl;
-        if(serve.SocketServeBind("127.0.0.1", "8080")){
+        if(serve.SocketServeBind("127.0.0.1", argv[1])){
             cout<<"SocketServeBind ok"<<endl;
             if(serve.SocketServeListen(64)){
                 cout<<"SocketServeListen ok"<<endl;
             }
         }
     }
+    */
+    if(!serve.SocketServeInit("127.0.0.1", argv[1], 128)){
+        cout<<"SocketServeInit Fail!"<<endl;
+        exit(-1);
+    }
+    cout<<"SocketServeInit Success!"<<endl;
+
+    //默认应答客户端数据
     Msg_buff res;
     memset(&res, 0, sizeof(Msg_buff));
     memcpy(res.type, "02", 2);
     memcpy(res.length, "00000012", 8);
     memcpy(res.info, "receive data", 12);
+    
     while(1){
-        cout<<"tttt"<<endl;
-        fd = serve.SocketServeFd();
-        cout<<"sfd:"<<fd<<endl;
-        printf("serve is waiting ...\n");
+        printf("Serve is waiting ...\n");
         if(serve.SocketServeAccept()){
-            printf("----------accept ok----------\n");
+            cout<<serve.SocketShowAccept()<<endl;
             if((pid = fork()) == -1){
                 cout<<"fork fail"<<endl;
                 exit(-1);
             }else if(pid == 0){
-                close(fd);
+                if(!serve.SocketServeClose()){
+                    cout<<"close sfd fail!"<<endl;
+                    exit(-1);
+                }
                 
                 while(1){
-                     cout<<"正在接受客户端消息:"<<endl;
-                     int ret = serve.SocketServeRead();
-                     if(ret == -1){
-                         cout<<serve.SocketServeErrmsg()<<endl;
-                         continue;
-                     }else if(ret == 0 || ret == -2){
-                         cout<<serve.SocketServeErrmsg()<<endl;
-                         exit(-1);
-                     }
+                    int ret = serve.SocketServeRead();
+                    if(ret == -1){
+                        cout<<serve.SocketErrmsg()<<endl;
+                        continue;
+                    }else if(ret == 0 || ret == -2){
+                        cout<<serve.SocketErrmsg()<<endl;
+                        exit(-1);
+                    }
                      
-                     //已收到请求
-                     Msg_buff *psbuff = (Msg_buff *)serve.SocketServeBuff();
-                     cout<<"收到请求内容: "<<psbuff->info<<endl;
-                     if(!serve.SocketServeSend(&res)){
-                         cout<<serve.SocketServeErrmsg()<<endl;
-                     }
+                    //已收到请求
+                    Msg_buff *psbuff = (Msg_buff *)serve.SocketServeBuff();
+                    cout<<"收到请求内容: "<<psbuff->info<<endl;
+                    if(!serve.SocketServeSend(&res)){
+                        cout<<serve.SocketErrmsg()<<endl;
+                    }
                 }
             }else{
-                serve.Close();
+                serve.SocketClientClose();
+                signal(SIGCHLD,fun);
             }
         }else{
-            cout<<serve.SocketServeErrmsg()<<endl;
+            cout<<serve.SocketErrmsg()<<endl;
             exit(-1);
         }
     }

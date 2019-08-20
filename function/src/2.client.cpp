@@ -1,58 +1,31 @@
-#include"pubfun.hpp"
+#include"ksocket.hpp"
 #include <unistd.h>
 
 using namespace std;
 using namespace kfz;
 
 int main(int argc,char *argv[]){
-    /*
     if(argc<2){
-	printf("./a.out less\n");
-	exit(-1);
+	    printf("./a.out less port\n");
+	    exit(-1);
     }
-    char buf[1024];
-    int cfd,ret;
-    struct sockaddr_in caddr;
-    cfd=socket(AF_INET,SOCK_STREAM,0);
-    if(cfd==-1){
-	perror("socket fail\n");
-	exit(-1);
-    }
-    memset(&caddr,0,sizeof(caddr));
-    caddr.sin_family=AF_INET;
-    caddr.sin_port=htons(atoi(argv[1]));
-    inet_pton(AF_INET,"127.0.0.1",&caddr.sin_addr.s_addr);
-    ret=connect(cfd,(struct sockaddr *)&caddr,sizeof(caddr));
-    if(ret==-1){
-	printf("connect error\n");
-	exit(-1);
-    }
-    else
-	printf("----------connect ok---------\n");
-    while(fgets(buf,sizeof(buf),stdin)!=NULL){
-	ret=write(cfd,buf,strlen(buf));
-	if(ret==-1){
-	
-	}
-	ret=read(cfd,buf,sizeof(buf));
-	write(STDOUT_FILENO,buf,ret);
-    }
-    close(cfd);
-    */
     
     Socket client;
+    /*
     if(client.SocketClientBuild()){
         cout<<"SocketClientBuild ok"<<endl;
-        if(client.SocketClientConnect("127.0.0.1", "8080")){
+        if(client.SocketClientConnect("127.0.0.1", argv[1])){
             cout<<"SocketClientConnect ok"<<endl;
         }
     }
-/*
-    if(!client.SocketClientInit("127.0.0.1", "8089")){
-        cout<<client.SocketServeErrmsg()<<endl;
-        cout<<"----"<<endl;
+    */
+    if(!client.SocketClientInit("127.0.0.1", argv[1])){
+        cout<<"SocketClientInit Fail"<<endl;
+        exit(-1);
     }
-  */  
+    cout<<"SocketClientInit Success!"<<endl;
+    
+    //默认请求服务器数据
     Msg_buff req;
     memset(&req, 0, sizeof(Msg_buff));
     memcpy(req.type, "01", 2);
@@ -62,11 +35,10 @@ int main(int argc,char *argv[]){
     while(1){
         sleep(3);
         if(!client.SocketClientSend(&req)){
-            cout<<client.SocketServeErrmsg()<<endl;
+            cout<<client.SocketErrmsg()<<endl;
         }
-        cout<<"----"<<endl;
         if(!client.SocketClientRead()){
-            cout<<client.SocketServeErrmsg()<<endl;
+            cout<<client.SocketErrmsg()<<endl;
         }else{
             //已收到应答
             Msg_buff *pcbuff = (Msg_buff *)client.SocketClientBuff();

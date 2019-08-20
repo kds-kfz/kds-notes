@@ -22,20 +22,19 @@
 using namespace std;
 
 namespace kfz{
+/*
+serve:
+sfd
+cfd
+ip_buff
+cbuff
+Msg_buff
 
-typedef struct{
-    char length[8];
-    char type[2];
-    char info[2048];//数据长度(8字节) + 数据类型(2字节) + 消息体(10字节之后到\0)
-}Msg_buff;
-
-//这是socket通信结构体，服务端于客户端公用
-typedef struct{
-    int fd;
-    struct sockaddr_in addr;
-    char ip_buf[64];
-    Msg_buff buff;
-}Total_msg;
+client:
+cfd
+cbuff
+Msg_buff
+*/
 
 //文件处理类
 class Files{
@@ -49,7 +48,7 @@ public:
     bool open(const char *filename, const char *mode){
         _fp = fopen(filename, mode);
 	    if(_fp == NULL){
-            std::cout<<"open error"<<std::endl;
+            std::cout<<"open Error"<<std::endl;
 	        return false;
 	    }
         //计算文件大小
@@ -104,7 +103,7 @@ public:
                 #if 0
                 //每次读取一个字节
                 if((ret = read(_fd, &ch, 1)) == -1){
-                    fprintf(stderr,"read read file by one byte error:[%s]\n",strerror(ret));
+                    fprintf(stderr,"read read file by one byte Error:[%s]\n",strerror(ret));
                     return false;
                 }else if(ret != 0){
                     memcpy(pbuf, &ch, ret);
@@ -116,7 +115,7 @@ public:
                 //每次读取指定个数字节
                 char buf[1025] = {0};
                 if((ret = read(_fd, buf, byte)) == -1){
-                    fprintf(stderr,"read read file by 1024 byte error:[%s]\n",strerror(ret));
+                    fprintf(stderr,"read read file by 1024 byte Error:[%s]\n",strerror(ret));
                     return false;
                 }else if(ret != 0){
                     memcpy(pbuf, buf, ret);
@@ -149,7 +148,7 @@ public:
         //strcat(newdir, newfile);
         
         if((dir = opendir(basePath)) == NULL){
-            perror("Open dir error ...");
+            perror("Open dir Error ...");
             return false;
         }
         while((ptr = readdir(dir)) != NULL){
@@ -181,12 +180,12 @@ public:
             }else{
                 if(content == NULL){
                     if((ret = write(fw, this->_date, this->_size)) == -1){
-                        fprintf(stderr,"write to newfile error[%s]", strerror(ret));
+                        fprintf(stderr,"write to newfile Error[%s]", strerror(ret));
                         return false;
                     }
                 }else{
                     if((ret = write(fw, content, strlen(content))) == -1){
-                        fprintf(stderr,"write to newfile error[%s]", strerror(ret));
+                        fprintf(stderr,"write to newfile Error[%s]", strerror(ret));
                         return false;
                     }
                 }
@@ -197,12 +196,12 @@ public:
             if(ft.Open(newdir, O_RDWR) && ft.Size() == 0){
                 if(content == NULL){
                     if((ret = write(ft.Handle(), this->_date, this->_size)) == -1){
-                        fprintf(stderr,"write to newfile error[%s]", strerror(ret));
+                        fprintf(stderr,"write to newfile Error[%s]", strerror(ret));
                         return false;
                     }
                 }else{
                     if((ret = write(ft.Handle(), content, strlen(content))) == -1){
-                        fprintf(stderr,"write to newfile error[%s]", strerror(ret));
+                        fprintf(stderr,"write to newfile Error[%s]", strerror(ret));
                         return false;
                     }
                 }
@@ -308,233 +307,6 @@ class Log{
 //http通信类
 class Http{
 
-};
-
-//套接字通信类
-class Socket{
-private:
-    string errmsg;              //错误信息
-    Total_msg *sfd;             //服务端结构体
-    Total_msg *cfd;             //客户端结构体
-public:
-    Socket(){
-        cfd = new Total_msg;
-        sfd = new Total_msg;
-        memset(sfd, 0, sizeof(Total_msg));
-        memset(cfd, 0, sizeof(Total_msg));
-        sfd->fd = 0;
-        cfd->fd = 0;
-        errmsg = "none";
-    }
-    ~Socket(){
-        Close();
-    }
-    void Close(){
-        close(sfd->fd);
-        close(cfd->fd);
-        delete []sfd;
-        delete []cfd;
-    }
-    //SocketServe 服务端
-    bool SocketServeBuild(){
-        sfd->fd = socket(AF_INET,SOCK_STREAM,0);
-        if(sfd->fd == -1){
-            errmsg = "SocketServeBuild Fail!";
-            return false;
-        }
-        return true;
-    }
-    
-    bool SocketServeBind(const char *addr, const char *port){
-        sfd->addr.sin_family = AF_INET;
-        sfd->addr.sin_port = htons(atoi(port));
-        inet_pton(AF_INET, addr, &sfd->addr.sin_addr.s_addr);
-        int ret = bind(sfd->fd, (struct sockaddr *)&sfd->addr, sizeof(sfd->addr));
-        if(ret == -1){
-            errmsg = "SocketServeBind Fail!";
-            return false;
-        }
-        return true;
-    }
-
-    bool SocketServeListen(int backlog){
-        int ret = listen(sfd->fd, backlog);
-        if(ret == -1){
-            errmsg = "SocketServeListen Fail!";
-            return false;
-        }
-        return true;
-    }
-
-    //XXX
-    bool SocketServeAccept(){
-        socklen_t c_len = sizeof(sockaddr_in);
-        cfd->fd = accept(sfd->fd, (struct sockaddr *)&cfd->addr, &c_len);
-        if(cfd->fd == -1){
-            errmsg = "SocketServeAccept Fail!";
-            return false;
-        }
-
-        return true;
-    }
-    //XXX
-    int SocketServeFd(){
-        cout<<"errmsg:"<<errmsg<<endl;
-        return sfd->fd;
-    }
-    
-    void SocketShowAccept(){
-        printf("client ip[%s],port[%d]\n",
-                 inet_ntop(AF_INET,&cfd->addr.sin_addr.s_addr,cfd->ip_buf,sizeof(cfd->ip_buf)),
-                 ntohs(cfd->addr.sin_port));
-    }
-    
-    bool SocketServeInit(const char *addr = "127.0.0.0", const char *port = "8080", int backlog = 128){
-        /*
-        return SocketServeBuild() == false ? false
-            : SocketServeBind(addr, port) == false ? false
-            : SocketServeListen(backlog) == false ? false
-            : true;
-        */
-        if(SocketServeBuild()){
-            cout<<"SocketServeBuild ok"<<endl;
-            if(SocketServeBind(addr, port)){
-                cout<<"SocketServeBind ok"<<endl;
-                if(SocketServeListen(backlog)){
-                    cout<<"SocketServeListen ok"<<endl;
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    
-    bool SocketServeSend(void *data){
-        Msg_buff *cp = (Msg_buff *)data;
-        memset(&(cfd->buff), 0, sizeof(Msg_buff));
-        memcpy(&(cfd->buff), cp, sizeof(Msg_buff));
-        int ret = write(cfd->fd, &(cfd->buff), sizeof(cfd->buff));
-        //int ret = send(cfd->fd, &(cfd->buff), sizeof(Msg_buff), 0);
-        if(ret < 0){
-            errmsg = "Server Write To Client Fail!";
-            return false;
-        }
-        return true;
-    }
-/*
-    bool SocketServeSetup(){
-        //8秒,有些系统未能精确到微秒
-        struct timeval tv = {8, 0};
-        //在send(), recv()过程有时由于网络等原因，收发不能如期进行，可设置收发时限
-        //接受时限
-        if(setsockopt(socket，SOL_S0CKET,SO_RCVTIMEO，(char *)&tv,sizeof(tv) == -1){
-            errmsg = "Error: Setup Socket Timeout Failed!";
-            return false;
-        }
-        //发送时限
-        //setsockopt (socket，SOL_S0CKET,SO_SNDTIMEO，(char *)&nNetTimeout,sizeof(int));
-        return true;
-    }
-*/
-    int SocketServeRead(){
-        //设置通信时间
-        //timeval tv;
-        //tv.tv_sec = timeout / 1000;
-        //tv.tv_usec = (timeout $ 1000) * 1000;
-        //select(sfd->fd +1, sfd->buff, 0, 0, &tv);
-        
-        memset(&(cfd->buff), 0, sizeof(Msg_buff));
-        //读取的字节数大于 240*384 = 92160 = 90 * 1024, 90k
-        //此时需要循环读取
-        //而使用 recv 读取
-        int ret = read(cfd->fd, &(cfd->buff), sizeof(Msg_buff));
-        if(ret == 0){
-            errmsg = "SocketServeRead Fail, client is breaked!";
-            return 0;
-        }else if(ret < 0){
-            if(errno == EINTR){
-                errmsg = "SocketServeRead Read EINTR!";
-                return -1;
-            }else{
-                errmsg = "SocketServeRead Read Error!";
-                return -2;
-            }
-        }
-        return 1;
-    }
-    
-    Msg_buff *SocketServeBuff(){
-        return &(sfd->buff);
-    }
-    
-    Msg_buff *SocketClientBuff(){
-        return &(cfd->buff);
-    }
-
-    string SocketServeErrmsg(){
-        return errmsg;
-    }
-
-    //SocketClient 客户端
-    bool SocketClientBuild(){
-        cfd->fd = socket(AF_INET, SOCK_STREAM, 0);
-        if(cfd->fd == -1){
-            errmsg = "SocketClientBuild Fail!";
-            return false;
-        }
-        return true;
-    }
-
-    bool SocketClientConnect(const char *addr, const char *port){
-        //memset(&cfd->addr, 0, sizeof(cfd->addr));
-        cfd->addr.sin_family = AF_INET;
-        cfd->addr.sin_port = htons(atoi(port));
-        inet_pton(AF_INET, addr, &cfd->addr.sin_addr.s_addr);
-        int ret = connect(cfd->fd,(struct sockaddr *)(&(cfd->addr)),sizeof(cfd->addr));
-        if(ret == -1){
-            errmsg = "SocketClientConnect Fail!";
-            return false;
-        }else if(ret != 0){
-            errmsg = "SocketClientConnect error:[" + string(strerror(ret)) + "]!";
-            return false;
-        }
-        return true;
-    }
-
-    bool SocketClientInit(const char *addr = "127.0.0.1", const char *port = "8080"){
-        return SocketClientBuild() == false ? false
-            : SocketClientConnect(addr, port) == false ? false
-            : true;
-    }
-
-    bool SocketClientSend(void *data){
-        Msg_buff *cp = (Msg_buff *)data;
-        memcpy(&(cfd->buff), 0, sizeof(cfd->buff));
-        memcpy(&(cfd->buff), &(cp), sizeof(Msg_buff));
-        //int ret = write(cfd->fd, cfd->buff, strlen(cfd->buff));
-        int ret = send(cfd->fd, &(cfd->buff), sizeof(Msg_buff), 0);
-        if(ret < 0){
-            errmsg = "Client Write To Server Fail!";
-            return false;
-        }
-        return true;
-    }
-
-    bool SocketClientRead(){
-        memcpy(&(cfd->buff), 0, sizeof(Msg_buff));
-        int ret = read(cfd->fd, &(cfd->buff), sizeof(Msg_buff));
-        //ret == -1
-        if(ret == -1){
-            errmsg = "SocketClientRead error:[" + string(strerror(ret)) + "]!";
-            return false;
-        }else if(ret == 0){
-            errmsg = "SocketClientRead the EOF or Read 0 Byte!";
-            return false;
-        }
-        return true;
-    }
-
-protected:
 };
 
 //信号处理类
