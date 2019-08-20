@@ -32,17 +32,7 @@ int main(int argc, char *argv[]){
 
     pid_t pid;
     Socket serve;
-    /*
-    if(serve.SocketServeBuild()){
-        cout<<"SocketServeBuild ok"<<endl;
-        if(serve.SocketServeBind("127.0.0.1", argv[1])){
-            cout<<"SocketServeBind ok"<<endl;
-            if(serve.SocketServeListen(64)){
-                cout<<"SocketServeListen ok"<<endl;
-            }
-        }
-    }
-    */
+    
     if(!serve.SocketServeInit("127.0.0.1", argv[1], 128)){
         cout<<"SocketServeInit Fail!"<<endl;
         exit(-1);
@@ -50,12 +40,13 @@ int main(int argc, char *argv[]){
     cout<<"SocketServeInit Success!"<<endl;
 
     //默认应答客户端数据
+    /*
     Msg_buff res;
     memset(&res, 0, sizeof(Msg_buff));
     memcpy(res.type, "02", 2);
     memcpy(res.length, "00000012", 8);
     memcpy(res.info, "receive data", 12);
-    
+    */
     while(1){
         printf("Serve is waiting ...\n");
         if(serve.SocketServeAccept()){
@@ -71,6 +62,7 @@ int main(int argc, char *argv[]){
                 
                 while(1){
                     int ret = serve.SocketServeRead();
+                    /*
                     if(ret == -1){
                         cout<<serve.SocketErrmsg()<<endl;
                         continue;
@@ -78,13 +70,29 @@ int main(int argc, char *argv[]){
                         cout<<serve.SocketErrmsg()<<endl;
                         exit(-1);
                     }
-                     
+                    */
+                    if(ret == -3){
+                        cout<<serve.SocketErrmsg()<<endl;
+                        continue;
+                    }else if(ret == -5 || ret == -6){
+                        cout<<serve.SocketErrmsg()<<endl;
+                        exit(-1);
+                    }
+                    /*
                     //已收到请求
                     Msg_buff *psbuff = (Msg_buff *)serve.SocketServeBuff();
                     cout<<"收到请求内容: "<<psbuff->info<<endl;
                     if(!serve.SocketServeSend(&res)){
                         cout<<serve.SocketErrmsg()<<endl;
+                    }*/
+                    
+                    cout<<"收到请求内容: "<<serve.SocketServeBuff()<<endl;
+#if 1
+                    char res[64] = "已收到测试请求包，正在处理...";
+                    if(!serve.SocketServeSend("01#", res)){
+                        cout<<serve.SocketErrmsg()<<endl;
                     }
+#endif
                 }
             }else{
                 serve.SocketClientClose();
