@@ -74,10 +74,12 @@ int main(int argc, char *argv[]){
                     if(ret == -3){
                         cout<<serve.SocketErrmsg()<<endl;
                         continue;
-                    }else if(ret == -5 || ret == -6){
+                    }/*
+                    else if(ret == -5 || ret == -6){
                         cout<<serve.SocketErrmsg()<<endl;
                         exit(-1);
                     }
+                    */
                     /*
                     //已收到请求
                     Msg_buff *psbuff = (Msg_buff *)serve.SocketServeBuff();
@@ -85,14 +87,12 @@ int main(int argc, char *argv[]){
                     if(!serve.SocketServeSend(&res)){
                         cout<<serve.SocketErrmsg()<<endl;
                     }*/
-                    
-                    cout<<"收到请求内容: "<<serve.SocketServeBuff()<<endl;
-#if 1
+                    cout<<"收到请求类型:"<<serve.SocketType()<<endl;
+                    cout<<"收到请求内容:"<<serve.SocketServeBuff()<<endl;
                     char res[64] = "已收到测试请求包，正在处理...";
                     if(!serve.SocketServeSend("01#", res)){
                         cout<<serve.SocketErrmsg()<<endl;
                     }
-#endif
                 }
             }else{
                 serve.SocketClientClose();

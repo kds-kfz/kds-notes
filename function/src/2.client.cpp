@@ -39,8 +39,8 @@ int main(int argc,char *argv[]){
             Msg_buff *pcbuff = (Msg_buff *)client.SocketClientBuff();
             cout<<"收到应答内容: "<<pcbuff->info<<endl;
             */
-            cout<<"收到应答类型: "<<client.SocketType()<<endl;
-            cout<<"收到应答内容: "<<client.SocketClientBuff()<<endl;
+            cout<<"收到应答类型:"<<client.SocketType()<<endl;
+            cout<<"收到应答内容:"<<client.SocketClientBuff()<<endl;
 
         }
     }

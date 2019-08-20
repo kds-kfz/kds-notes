@@ -1,0 +1,1119 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+Actor	shop.h	/^	Actor() : Actor(0,0,Hat,"物品","--",0){}$/;"	f	class:Actor
+Actor	shop.h	/^	Actor(int i,int l,int w,TYPE t3,PARTS p,string n1,string n2,int s) : $/;"	f	class:Actor
+Actor	shop.h	/^	Actor(int l,int w,PARTS p,string n1,string n2,int s) : $/;"	f	class:Actor
+Actor	shop.h	/^class Actor{		    \/\/物品：是防具部位的基类$/;"	c
+Armor	shop.h	/^	Armor() : Armor(0,0,Hat,"装备","--",0){}$/;"	f	class:Armor
+Armor	shop.h	/^	Armor(int i,int l,int w,TYPE t3,PARTS p,string n1,string n2,int s) : $/;"	f	class:Armor
+Armor	shop.h	/^	Armor(int l,int w,PARTS p,string n1,string n2,int s) : Actor(l,w,p,n1,n2,s){}$/;"	f	class:Armor
+Armor	shop.h	/^class Armor : public Actor{\/\/防具：部位$/;"	c
+Artifact	shop.h	/^    Artifact,	\/\/神器$/;"	e	enum:RARE
+Attribute	shop.h	/^    Attribute() : Attribute(2000,800,5,5,300,150,220,90,0,Common,Gold){}$/;"	f	class:Attribute
+Attribute	shop.h	/^    Attribute(int h,int m,float s1,float s2,int a1,$/;"	f	class:Attribute
+Attribute	shop.h	/^    Attribute(int h,int m,float s1,float s2,int a1,int a2,int d,int r) : $/;"	f	class:Attribute
+Attribute	shop.h	/^class Attribute{$/;"	c
+BELT	shop.h	/^    BELT() : BELT(0,0,"腰带","--",0,0,0,0,0,0,Common,Gold,0){}$/;"	f	class:BELT
+BELT	shop.h	/^    BELT(int i,int l,int w2,TYPE t3,string n1,string n2,int h,int d,int r,int t,$/;"	f	class:BELT
+BELT	shop.h	/^    BELT(int l,int w2,string n1,string n2,int h,int d,int r,int t,$/;"	f	class:BELT
+BELT	shop.h	/^class BELT : public Armor{$/;"	c
+Begin	game.cpp	/^void Game::Begin(){$/;"	f	class:Game
+Belt	shop.h	/^    Belt,	\/\/腰带$/;"	e	enum:PARTS
+Body	shop.h	/^    Body,	\/\/身体$/;"	e	enum:TYPE
+ChToch	game.cpp	/^void ChToch(char *a,char *b){$/;"	f
+Clothes	shop.h	/^    Clothes,	\/\/衣服$/;"	e	enum:TYPE
+Common	shop.h	/^    Common,	\/\/普通$/;"	e	enum:RARE
+DRUG	shop.h	/^    DRUG() : DRUG(0,0,"药剂","--",0,0,0,Common,Gold,0){}$/;"	f	class:DRUG
+DRUG	shop.h	/^    DRUG(int i,int l,int w2,TYPE t3,string n1,string n2,int h,int g,int d2,RARE r2,WEALTH w,int s3): $/;"	f	class:DRUG
+DRUG	shop.h	/^    DRUG(int l,int w2,string n1,string n2,int h,int g,int d2,RARE r2,WEALTH w,int s3): $/;"	f	class:DRUG
+DRUG	shop.h	/^class DRUG : public Armor{$/;"	c
+Dimond	shop.h	/^    Dimond,	\/\/钻石	1元=10钻,活动中可充值$/;"	e	enum:WEALTH
+Dress	shop.h	/^    Dress,	\/\/时装$/;"	e	enum:TYPE
+Drug	shop.h	/^    Drug	\/\/药剂$/;"	e	enum:PARTS
+Epic	shop.h	/^    Epic,	\/\/史诗$/;"	e	enum:RARE
+FTS5_TOKENIZE_AUX	sqlite3.h	10673;"	d
+FTS5_TOKENIZE_DOCUMENT	sqlite3.h	10672;"	d
+FTS5_TOKENIZE_PREFIX	sqlite3.h	10671;"	d
+FTS5_TOKENIZE_QUERY	sqlite3.h	10670;"	d
+FTS5_TOKEN_COLOCATED	sqlite3.h	10677;"	d
+FULLY_WITHIN	sqlite3.h	8847;"	d
+Factory	shop.h	/^class Factory{$/;"	c
+Factory_All	shop.h	/^class Factory_All : public Factory{$/;"	c
+Fame	shop.h	/^    Fame,	\/\/传说$/;"	e	enum:RARE
+Fts5Context	sqlite3.h	/^typedef struct Fts5Context Fts5Context;$/;"	t	typeref:struct:Fts5Context
+Fts5ExtensionApi	sqlite3.h	/^struct Fts5ExtensionApi {$/;"	s
+Fts5ExtensionApi	sqlite3.h	/^typedef struct Fts5ExtensionApi Fts5ExtensionApi;$/;"	t	typeref:struct:Fts5ExtensionApi
+Fts5PhraseIter	sqlite3.h	/^struct Fts5PhraseIter {$/;"	s
+Fts5PhraseIter	sqlite3.h	/^typedef struct Fts5PhraseIter Fts5PhraseIter;$/;"	t	typeref:struct:Fts5PhraseIter
+Fts5Tokenizer	sqlite3.h	/^typedef struct Fts5Tokenizer Fts5Tokenizer;$/;"	t	typeref:struct:Fts5Tokenizer
+GAME	game.h	14;"	d
+Game	game.h	/^class Game{$/;"	c
+Gold	shop.h	/^    Gold=1,	\/\/金币	游戏中获得$/;"	e	enum:WEALTH
+HAT	shop.h	/^    HAT() : HAT(0,0,"头盔","--",0,0,0,0,0,0,Common,Gold,0){}$/;"	f	class:HAT
+HAT	shop.h	/^    HAT(int i,int l,int w2,TYPE t3,string n1,string n2,int a,int d,int r1,int t,$/;"	f	class:HAT
+HAT	shop.h	/^    HAT(int l,int w2,string n1,string n2,int a,int d,int r1,int t,$/;"	f	class:HAT
+HAT	shop.h	/^class HAT : public Armor{$/;"	c
+Hand	shop.h	/^    Hand=1,	\/\/手部$/;"	e	enum:TYPE
+Hat	shop.h	/^    Hat,	\/\/帽子$/;"	e	enum:PARTS
+Limit	shop.h	/^    Limit	\/\/限定$/;"	e	enum:RARE
+Login	game.cpp	/^void Game::Login(){$/;"	f	class:Game
+Max	game.cpp	/^int Max(int a,int b){$/;"	f
+NOT_WITHIN	sqlite3.h	8845;"	d
+Orbament	shop.h	/^    Orbament	\/\/饰品$/;"	e	enum:TYPE
+Other	shop.h	/^    Other,$/;"	e	enum:PARTS
+PANTS	shop.h	/^    PANTS() : PANTS(0,0,"长裤","--",0,0,0,0,0,0,Common,Gold,0){}$/;"	f	class:PANTS
+PANTS	shop.h	/^    PANTS(int i,int l,int w2,TYPE t3,string n1,string n2,int h,int d,int r,int t,$/;"	f	class:PANTS
+PANTS	shop.h	/^    PANTS(int l,int w2,string n1,string n2,int h,int d,int r,int t,$/;"	f	class:PANTS
+PANTS	shop.h	/^class PANTS : public Armor{$/;"	c
+PARTLY_WITHIN	sqlite3.h	8846;"	d
+PARTS	shop.h	/^enum PARTS{	\/\/装备部位$/;"	g
+PLAYER	game.cpp	/^map<string,Player *>PLAYER;$/;"	v
+Pants	shop.h	/^    Pants,	\/\/裤子$/;"	e	enum:PARTS
+Player	player.h	/^    Player() : Player("马叉虫","--"){}$/;"	f	class:Player
+Player	player.h	/^    Player(int i,string n,string k) : id(i),name(n),key(k),$/;"	f	class:Player
+Player	player.h	/^    Player(int i,string n,string k,int e,int l,int w,$/;"	f	class:Player
+Player	player.h	/^    Player(string n,string k) : id(count3++),name(n),key(k),$/;"	f	class:Player
+Player	player.h	/^class Player{$/;"	c
+Points	shop.h	/^    Points,	\/\/点券	1元=10点$/;"	e	enum:WEALTH
+QB	shop.h	/^    int QB;	\/\/Q币	1元=1QB$/;"	m	struct:Value
+RARE	shop.h	/^enum RARE{	\/\/装备稀有度---时装---饰品$/;"	g
+Register	game.cpp	/^void Game::Register(){$/;"	f	class:Game
+Relic	shop.h	/^    Relic,	\/\/圣物$/;"	e	enum:RARE
+SHIRT	shop.h	/^    SHIRT() : SHIRT(0,0,"铁布衫","--",0,0,0,0,0,0,Common,Gold,0){}$/;"	f	class:SHIRT
+SHIRT	shop.h	/^    SHIRT(int i,int l,int w2,TYPE t3,string n1,string n2,int h,float s,int d,int t,$/;"	f	class:SHIRT
+SHIRT	shop.h	/^    SHIRT(int l,int w2,string n1,string n2,int h,float s,int d,int t,$/;"	f	class:SHIRT
+SHIRT	shop.h	/^class SHIRT : public Armor{$/;"	c
+SHOES	shop.h	/^    SHOES() : SHOES(0,0,"忍者鞋","--",0,0,0,0,0,0,Common,Gold,0){}$/;"	f	class:SHOES
+SHOES	shop.h	/^    SHOES(int i,int l,int w2,TYPE t3,string n1,string n2,float s,int d,int r,int t,$/;"	f	class:SHOES
+SHOES	shop.h	/^    SHOES(int l,int w2,string n1,string n2,float s,int d,int r,int t,$/;"	f	class:SHOES
+SHOES	shop.h	/^class SHOES : public Armor{$/;"	c
+SQLITE3_H	sqlite3.h	34;"	d
+SQLITE3_TEXT	sqlite3.h	4320;"	d
+SQLITE_ABORT	sqlite3.h	427;"	d
+SQLITE_ABORT_ROLLBACK	sqlite3.h	516;"	d
+SQLITE_ACCESS_EXISTS	sqlite3.h	1344;"	d
+SQLITE_ACCESS_READ	sqlite3.h	1346;"	d
+SQLITE_ACCESS_READWRITE	sqlite3.h	1345;"	d
+SQLITE_ALTER_TABLE	sqlite3.h	2883;"	d
+SQLITE_ANALYZE	sqlite3.h	2885;"	d
+SQLITE_ANY	sqlite3.h	4723;"	d
+SQLITE_API	sqlite3.h	52;"	d
+SQLITE_APICALL	sqlite3.h	58;"	d
+SQLITE_ATTACH	sqlite3.h	2881;"	d
+SQLITE_AUTH	sqlite3.h	446;"	d
+SQLITE_AUTH_USER	sqlite3.h	530;"	d
+SQLITE_BLOB	sqlite3.h	4313;"	d
+SQLITE_BUSY	sqlite3.h	428;"	d
+SQLITE_BUSY_RECOVERY	sqlite3.h	505;"	d
+SQLITE_BUSY_SNAPSHOT	sqlite3.h	506;"	d
+SQLITE_CALLBACK	sqlite3.h	64;"	d
+SQLITE_CANTOPEN	sqlite3.h	437;"	d
+SQLITE_CANTOPEN_CONVPATH	sqlite3.h	510;"	d
+SQLITE_CANTOPEN_FULLPATH	sqlite3.h	509;"	d
+SQLITE_CANTOPEN_ISDIR	sqlite3.h	508;"	d
+SQLITE_CANTOPEN_NOTEMPDIR	sqlite3.h	507;"	d
+SQLITE_CDECL	sqlite3.h	55;"	d
+SQLITE_CHANGESET_ABORT	sqlite3.h	9992;"	d
+SQLITE_CHANGESET_CONFLICT	sqlite3.h	9955;"	d
+SQLITE_CHANGESET_CONSTRAINT	sqlite3.h	9956;"	d
+SQLITE_CHANGESET_DATA	sqlite3.h	9953;"	d
+SQLITE_CHANGESET_FOREIGN_KEY	sqlite3.h	9957;"	d
+SQLITE_CHANGESET_NOTFOUND	sqlite3.h	9954;"	d
+SQLITE_CHANGESET_OMIT	sqlite3.h	9990;"	d
+SQLITE_CHANGESET_REPLACE	sqlite3.h	9991;"	d
+SQLITE_CHECKPOINT_FULL	sqlite3.h	8206;"	d
+SQLITE_CHECKPOINT_PASSIVE	sqlite3.h	8205;"	d
+SQLITE_CHECKPOINT_RESTART	sqlite3.h	8207;"	d
+SQLITE_CHECKPOINT_TRUNCATE	sqlite3.h	8208;"	d
+SQLITE_CONFIG_COVERING_INDEX_SCAN	sqlite3.h	1937;"	d
+SQLITE_CONFIG_GETMALLOC	sqlite3.h	1922;"	d
+SQLITE_CONFIG_GETMUTEX	sqlite3.h	1928;"	d
+SQLITE_CONFIG_GETPCACHE	sqlite3.h	1932;"	d
+SQLITE_CONFIG_GETPCACHE2	sqlite3.h	1936;"	d
+SQLITE_CONFIG_HEAP	sqlite3.h	1925;"	d
+SQLITE_CONFIG_LOG	sqlite3.h	1933;"	d
+SQLITE_CONFIG_LOOKASIDE	sqlite3.h	1930;"	d
+SQLITE_CONFIG_MALLOC	sqlite3.h	1921;"	d
+SQLITE_CONFIG_MEMSTATUS	sqlite3.h	1926;"	d
+SQLITE_CONFIG_MMAP_SIZE	sqlite3.h	1939;"	d
+SQLITE_CONFIG_MULTITHREAD	sqlite3.h	1919;"	d
+SQLITE_CONFIG_MUTEX	sqlite3.h	1927;"	d
+SQLITE_CONFIG_PAGECACHE	sqlite3.h	1924;"	d
+SQLITE_CONFIG_PCACHE	sqlite3.h	1931;"	d
+SQLITE_CONFIG_PCACHE2	sqlite3.h	1935;"	d
+SQLITE_CONFIG_PCACHE_HDRSZ	sqlite3.h	1941;"	d
+SQLITE_CONFIG_PMASZ	sqlite3.h	1942;"	d
+SQLITE_CONFIG_SCRATCH	sqlite3.h	1923;"	d
+SQLITE_CONFIG_SERIALIZED	sqlite3.h	1920;"	d
+SQLITE_CONFIG_SINGLETHREAD	sqlite3.h	1918;"	d
+SQLITE_CONFIG_SMALL_MALLOC	sqlite3.h	1944;"	d
+SQLITE_CONFIG_SQLLOG	sqlite3.h	1938;"	d
+SQLITE_CONFIG_STMTJRNL_SPILL	sqlite3.h	1943;"	d
+SQLITE_CONFIG_URI	sqlite3.h	1934;"	d
+SQLITE_CONFIG_WIN32_HEAPSIZE	sqlite3.h	1940;"	d
+SQLITE_CONSTRAINT	sqlite3.h	442;"	d
+SQLITE_CONSTRAINT_CHECK	sqlite3.h	517;"	d
+SQLITE_CONSTRAINT_COMMITHOOK	sqlite3.h	518;"	d
+SQLITE_CONSTRAINT_FOREIGNKEY	sqlite3.h	519;"	d
+SQLITE_CONSTRAINT_FUNCTION	sqlite3.h	520;"	d
+SQLITE_CONSTRAINT_NOTNULL	sqlite3.h	521;"	d
+SQLITE_CONSTRAINT_PRIMARYKEY	sqlite3.h	522;"	d
+SQLITE_CONSTRAINT_ROWID	sqlite3.h	526;"	d
+SQLITE_CONSTRAINT_TRIGGER	sqlite3.h	523;"	d
+SQLITE_CONSTRAINT_UNIQUE	sqlite3.h	524;"	d
+SQLITE_CONSTRAINT_VTAB	sqlite3.h	525;"	d
+SQLITE_COPY	sqlite3.h	2890;"	d
+SQLITE_CORRUPT	sqlite3.h	434;"	d
+SQLITE_CORRUPT_VTAB	sqlite3.h	511;"	d
+SQLITE_CREATE_INDEX	sqlite3.h	2858;"	d
+SQLITE_CREATE_TABLE	sqlite3.h	2859;"	d
+SQLITE_CREATE_TEMP_INDEX	sqlite3.h	2860;"	d
+SQLITE_CREATE_TEMP_TABLE	sqlite3.h	2861;"	d
+SQLITE_CREATE_TEMP_TRIGGER	sqlite3.h	2862;"	d
+SQLITE_CREATE_TEMP_VIEW	sqlite3.h	2863;"	d
+SQLITE_CREATE_TRIGGER	sqlite3.h	2864;"	d
+SQLITE_CREATE_VIEW	sqlite3.h	2865;"	d
+SQLITE_CREATE_VTABLE	sqlite3.h	2886;"	d
+SQLITE_DBCONFIG_ENABLE_FKEY	sqlite3.h	2068;"	d
+SQLITE_DBCONFIG_ENABLE_FTS3_TOKENIZER	sqlite3.h	2070;"	d
+SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION	sqlite3.h	2071;"	d
+SQLITE_DBCONFIG_ENABLE_QPSG	sqlite3.h	2073;"	d
+SQLITE_DBCONFIG_ENABLE_TRIGGER	sqlite3.h	2069;"	d
+SQLITE_DBCONFIG_LOOKASIDE	sqlite3.h	2067;"	d
+SQLITE_DBCONFIG_MAINDBNAME	sqlite3.h	2066;"	d
+SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE	sqlite3.h	2072;"	d
+SQLITE_DBSTATUS_CACHE_HIT	sqlite3.h	7274;"	d
+SQLITE_DBSTATUS_CACHE_MISS	sqlite3.h	7275;"	d
+SQLITE_DBSTATUS_CACHE_USED	sqlite3.h	7268;"	d
+SQLITE_DBSTATUS_CACHE_USED_SHARED	sqlite3.h	7278;"	d
+SQLITE_DBSTATUS_CACHE_WRITE	sqlite3.h	7276;"	d
+SQLITE_DBSTATUS_DEFERRED_FKS	sqlite3.h	7277;"	d
+SQLITE_DBSTATUS_LOOKASIDE_HIT	sqlite3.h	7271;"	d
+SQLITE_DBSTATUS_LOOKASIDE_MISS_FULL	sqlite3.h	7273;"	d
+SQLITE_DBSTATUS_LOOKASIDE_MISS_SIZE	sqlite3.h	7272;"	d
+SQLITE_DBSTATUS_LOOKASIDE_USED	sqlite3.h	7267;"	d
+SQLITE_DBSTATUS_MAX	sqlite3.h	7279;"	d
+SQLITE_DBSTATUS_SCHEMA_USED	sqlite3.h	7269;"	d
+SQLITE_DBSTATUS_STMT_USED	sqlite3.h	7270;"	d
+SQLITE_DELETE	sqlite3.h	2866;"	d
+SQLITE_DENY	sqlite3.h	2835;"	d
+SQLITE_DEPRECATED	sqlite3.h	83;"	d
+SQLITE_DETACH	sqlite3.h	2882;"	d
+SQLITE_DETERMINISTIC	sqlite3.h	4734;"	d
+SQLITE_DONE	sqlite3.h	453;"	d
+SQLITE_DROP_INDEX	sqlite3.h	2867;"	d
+SQLITE_DROP_TABLE	sqlite3.h	2868;"	d
+SQLITE_DROP_TEMP_INDEX	sqlite3.h	2869;"	d
+SQLITE_DROP_TEMP_TABLE	sqlite3.h	2870;"	d
+SQLITE_DROP_TEMP_TRIGGER	sqlite3.h	2871;"	d
+SQLITE_DROP_TEMP_VIEW	sqlite3.h	2872;"	d
+SQLITE_DROP_TRIGGER	sqlite3.h	2873;"	d
+SQLITE_DROP_VIEW	sqlite3.h	2874;"	d
+SQLITE_DROP_VTABLE	sqlite3.h	2887;"	d
+SQLITE_EMPTY	sqlite3.h	439;"	d
+SQLITE_ERROR	sqlite3.h	424;"	d
+SQLITE_EXPERIMENTAL	sqlite3.h	84;"	d
+SQLITE_EXTERN	sqlite3.h	49;"	d
+SQLITE_FAIL	sqlite3.h	8293;"	d
+SQLITE_FCNTL_BEGIN_ATOMIC_WRITE	sqlite3.h	1094;"	d
+SQLITE_FCNTL_BUSYHANDLER	sqlite3.h	1079;"	d
+SQLITE_FCNTL_CHUNK_SIZE	sqlite3.h	1070;"	d
+SQLITE_FCNTL_COMMIT_ATOMIC_WRITE	sqlite3.h	1095;"	d
+SQLITE_FCNTL_COMMIT_PHASETWO	sqlite3.h	1085;"	d
+SQLITE_FCNTL_FILE_POINTER	sqlite3.h	1071;"	d
+SQLITE_FCNTL_GET_LOCKPROXYFILE	sqlite3.h	1066;"	d
+SQLITE_FCNTL_HAS_MOVED	sqlite3.h	1083;"	d
+SQLITE_FCNTL_JOURNAL_POINTER	sqlite3.h	1091;"	d
+SQLITE_FCNTL_LAST_ERRNO	sqlite3.h	1068;"	d
+SQLITE_FCNTL_LOCKSTATE	sqlite3.h	1065;"	d
+SQLITE_FCNTL_MMAP_SIZE	sqlite3.h	1081;"	d
+SQLITE_FCNTL_OVERWRITE	sqlite3.h	1075;"	d
+SQLITE_FCNTL_PDB	sqlite3.h	1093;"	d
+SQLITE_FCNTL_PERSIST_WAL	sqlite3.h	1074;"	d
+SQLITE_FCNTL_POWERSAFE_OVERWRITE	sqlite3.h	1077;"	d
+SQLITE_FCNTL_PRAGMA	sqlite3.h	1078;"	d
+SQLITE_FCNTL_RBU	sqlite3.h	1089;"	d
+SQLITE_FCNTL_ROLLBACK_ATOMIC_WRITE	sqlite3.h	1096;"	d
+SQLITE_FCNTL_SET_LOCKPROXYFILE	sqlite3.h	1067;"	d
+SQLITE_FCNTL_SIZE_HINT	sqlite3.h	1069;"	d
+SQLITE_FCNTL_SYNC	sqlite3.h	1084;"	d
+SQLITE_FCNTL_SYNC_OMITTED	sqlite3.h	1072;"	d
+SQLITE_FCNTL_TEMPFILENAME	sqlite3.h	1080;"	d
+SQLITE_FCNTL_TRACE	sqlite3.h	1082;"	d
+SQLITE_FCNTL_VFSNAME	sqlite3.h	1076;"	d
+SQLITE_FCNTL_VFS_POINTER	sqlite3.h	1090;"	d
+SQLITE_FCNTL_WAL_BLOCK	sqlite3.h	1087;"	d
+SQLITE_FCNTL_WIN32_AV_RETRY	sqlite3.h	1073;"	d
+SQLITE_FCNTL_WIN32_GET_HANDLE	sqlite3.h	1092;"	d
+SQLITE_FCNTL_WIN32_SET_HANDLE	sqlite3.h	1086;"	d
+SQLITE_FCNTL_ZIPVFS	sqlite3.h	1088;"	d
+SQLITE_FLOAT	sqlite3.h	4312;"	d
+SQLITE_FORMAT	sqlite3.h	447;"	d
+SQLITE_FULL	sqlite3.h	436;"	d
+SQLITE_FUNCTION	sqlite3.h	2888;"	d
+SQLITE_GET_LOCKPROXYFILE	sqlite3.h	1099;"	d
+SQLITE_IGNORE	sqlite3.h	2836;"	d
+SQLITE_INDEX_CONSTRAINT_EQ	sqlite3.h	6250;"	d
+SQLITE_INDEX_CONSTRAINT_GE	sqlite3.h	6254;"	d
+SQLITE_INDEX_CONSTRAINT_GLOB	sqlite3.h	6257;"	d
+SQLITE_INDEX_CONSTRAINT_GT	sqlite3.h	6251;"	d
+SQLITE_INDEX_CONSTRAINT_IS	sqlite3.h	6263;"	d
+SQLITE_INDEX_CONSTRAINT_ISNOT	sqlite3.h	6260;"	d
+SQLITE_INDEX_CONSTRAINT_ISNOTNULL	sqlite3.h	6261;"	d
+SQLITE_INDEX_CONSTRAINT_ISNULL	sqlite3.h	6262;"	d
+SQLITE_INDEX_CONSTRAINT_LE	sqlite3.h	6252;"	d
+SQLITE_INDEX_CONSTRAINT_LIKE	sqlite3.h	6256;"	d
+SQLITE_INDEX_CONSTRAINT_LT	sqlite3.h	6253;"	d
+SQLITE_INDEX_CONSTRAINT_MATCH	sqlite3.h	6255;"	d
+SQLITE_INDEX_CONSTRAINT_NE	sqlite3.h	6259;"	d
+SQLITE_INDEX_CONSTRAINT_REGEXP	sqlite3.h	6258;"	d
+SQLITE_INDEX_SCAN_UNIQUE	sqlite3.h	6240;"	d
+SQLITE_INSERT	sqlite3.h	2875;"	d
+SQLITE_INTEGER	sqlite3.h	4311;"	d
+SQLITE_INTERNAL	sqlite3.h	425;"	d
+SQLITE_INTERRUPT	sqlite3.h	432;"	d
+SQLITE_IOCAP_ATOMIC	sqlite3.h	596;"	d
+SQLITE_IOCAP_ATOMIC16K	sqlite3.h	602;"	d
+SQLITE_IOCAP_ATOMIC1K	sqlite3.h	598;"	d
+SQLITE_IOCAP_ATOMIC2K	sqlite3.h	599;"	d
+SQLITE_IOCAP_ATOMIC32K	sqlite3.h	603;"	d
+SQLITE_IOCAP_ATOMIC4K	sqlite3.h	600;"	d
+SQLITE_IOCAP_ATOMIC512	sqlite3.h	597;"	d
+SQLITE_IOCAP_ATOMIC64K	sqlite3.h	604;"	d
+SQLITE_IOCAP_ATOMIC8K	sqlite3.h	601;"	d
+SQLITE_IOCAP_BATCH_ATOMIC	sqlite3.h	610;"	d
+SQLITE_IOCAP_IMMUTABLE	sqlite3.h	609;"	d
+SQLITE_IOCAP_POWERSAFE_OVERWRITE	sqlite3.h	608;"	d
+SQLITE_IOCAP_SAFE_APPEND	sqlite3.h	605;"	d
+SQLITE_IOCAP_SEQUENTIAL	sqlite3.h	606;"	d
+SQLITE_IOCAP_UNDELETABLE_WHEN_OPEN	sqlite3.h	607;"	d
+SQLITE_IOERR	sqlite3.h	433;"	d
+SQLITE_IOERR_ACCESS	sqlite3.h	485;"	d
+SQLITE_IOERR_AUTH	sqlite3.h	500;"	d
+SQLITE_IOERR_BEGIN_ATOMIC	sqlite3.h	501;"	d
+SQLITE_IOERR_BLOCKED	sqlite3.h	483;"	d
+SQLITE_IOERR_CHECKRESERVEDLOCK	sqlite3.h	486;"	d
+SQLITE_IOERR_CLOSE	sqlite3.h	488;"	d
+SQLITE_IOERR_COMMIT_ATOMIC	sqlite3.h	502;"	d
+SQLITE_IOERR_CONVPATH	sqlite3.h	498;"	d
+SQLITE_IOERR_DELETE	sqlite3.h	482;"	d
+SQLITE_IOERR_DELETE_NOENT	sqlite3.h	495;"	d
+SQLITE_IOERR_DIR_CLOSE	sqlite3.h	489;"	d
+SQLITE_IOERR_DIR_FSYNC	sqlite3.h	477;"	d
+SQLITE_IOERR_FSTAT	sqlite3.h	479;"	d
+SQLITE_IOERR_FSYNC	sqlite3.h	476;"	d
+SQLITE_IOERR_GETTEMPPATH	sqlite3.h	497;"	d
+SQLITE_IOERR_LOCK	sqlite3.h	487;"	d
+SQLITE_IOERR_MMAP	sqlite3.h	496;"	d
+SQLITE_IOERR_NOMEM	sqlite3.h	484;"	d
+SQLITE_IOERR_RDLOCK	sqlite3.h	481;"	d
+SQLITE_IOERR_READ	sqlite3.h	473;"	d
+SQLITE_IOERR_ROLLBACK_ATOMIC	sqlite3.h	503;"	d
+SQLITE_IOERR_SEEK	sqlite3.h	494;"	d
+SQLITE_IOERR_SHMLOCK	sqlite3.h	492;"	d
+SQLITE_IOERR_SHMMAP	sqlite3.h	493;"	d
+SQLITE_IOERR_SHMOPEN	sqlite3.h	490;"	d
+SQLITE_IOERR_SHMSIZE	sqlite3.h	491;"	d
+SQLITE_IOERR_SHORT_READ	sqlite3.h	474;"	d
+SQLITE_IOERR_TRUNCATE	sqlite3.h	478;"	d
+SQLITE_IOERR_UNLOCK	sqlite3.h	480;"	d
+SQLITE_IOERR_VNODE	sqlite3.h	499;"	d
+SQLITE_IOERR_WRITE	sqlite3.h	475;"	d
+SQLITE_LAST_ERRNO	sqlite3.h	1101;"	d
+SQLITE_LIMIT_ATTACHED	sqlite3.h	3521;"	d
+SQLITE_LIMIT_COLUMN	sqlite3.h	3516;"	d
+SQLITE_LIMIT_COMPOUND_SELECT	sqlite3.h	3518;"	d
+SQLITE_LIMIT_EXPR_DEPTH	sqlite3.h	3517;"	d
+SQLITE_LIMIT_FUNCTION_ARG	sqlite3.h	3520;"	d
+SQLITE_LIMIT_LENGTH	sqlite3.h	3514;"	d
+SQLITE_LIMIT_LIKE_PATTERN_LENGTH	sqlite3.h	3522;"	d
+SQLITE_LIMIT_SQL_LENGTH	sqlite3.h	3515;"	d
+SQLITE_LIMIT_TRIGGER_DEPTH	sqlite3.h	3524;"	d
+SQLITE_LIMIT_VARIABLE_NUMBER	sqlite3.h	3523;"	d
+SQLITE_LIMIT_VDBE_OP	sqlite3.h	3519;"	d
+SQLITE_LIMIT_WORKER_THREADS	sqlite3.h	3525;"	d
+SQLITE_LOCKED	sqlite3.h	429;"	d
+SQLITE_LOCKED_SHAREDCACHE	sqlite3.h	504;"	d
+SQLITE_LOCK_EXCLUSIVE	sqlite3.h	623;"	d
+SQLITE_LOCK_NONE	sqlite3.h	619;"	d
+SQLITE_LOCK_PENDING	sqlite3.h	622;"	d
+SQLITE_LOCK_RESERVED	sqlite3.h	621;"	d
+SQLITE_LOCK_SHARED	sqlite3.h	620;"	d
+SQLITE_MISMATCH	sqlite3.h	443;"	d
+SQLITE_MISUSE	sqlite3.h	444;"	d
+SQLITE_MUTEX_FAST	sqlite3.h	6908;"	d
+SQLITE_MUTEX_RECURSIVE	sqlite3.h	6909;"	d
+SQLITE_MUTEX_STATIC_APP1	sqlite3.h	6918;"	d
+SQLITE_MUTEX_STATIC_APP2	sqlite3.h	6919;"	d
+SQLITE_MUTEX_STATIC_APP3	sqlite3.h	6920;"	d
+SQLITE_MUTEX_STATIC_LRU	sqlite3.h	6915;"	d
+SQLITE_MUTEX_STATIC_LRU2	sqlite3.h	6916;"	d
+SQLITE_MUTEX_STATIC_MASTER	sqlite3.h	6910;"	d
+SQLITE_MUTEX_STATIC_MEM	sqlite3.h	6911;"	d
+SQLITE_MUTEX_STATIC_MEM2	sqlite3.h	6912;"	d
+SQLITE_MUTEX_STATIC_OPEN	sqlite3.h	6913;"	d
+SQLITE_MUTEX_STATIC_PMEM	sqlite3.h	6917;"	d
+SQLITE_MUTEX_STATIC_PRNG	sqlite3.h	6914;"	d
+SQLITE_MUTEX_STATIC_VFS1	sqlite3.h	6921;"	d
+SQLITE_MUTEX_STATIC_VFS2	sqlite3.h	6922;"	d
+SQLITE_MUTEX_STATIC_VFS3	sqlite3.h	6923;"	d
+SQLITE_NOLFS	sqlite3.h	445;"	d
+SQLITE_NOMEM	sqlite3.h	430;"	d
+SQLITE_NOTADB	sqlite3.h	449;"	d
+SQLITE_NOTFOUND	sqlite3.h	435;"	d
+SQLITE_NOTICE	sqlite3.h	450;"	d
+SQLITE_NOTICE_RECOVER_ROLLBACK	sqlite3.h	528;"	d
+SQLITE_NOTICE_RECOVER_WAL	sqlite3.h	527;"	d
+SQLITE_NULL	sqlite3.h	4314;"	d
+SQLITE_OK	sqlite3.h	422;"	d
+SQLITE_OK_LOAD_PERMANENTLY	sqlite3.h	531;"	d
+SQLITE_OPEN_AUTOPROXY	sqlite3.h	545;"	d
+SQLITE_OPEN_CREATE	sqlite3.h	542;"	d
+SQLITE_OPEN_DELETEONCLOSE	sqlite3.h	543;"	d
+SQLITE_OPEN_EXCLUSIVE	sqlite3.h	544;"	d
+SQLITE_OPEN_FULLMUTEX	sqlite3.h	556;"	d
+SQLITE_OPEN_MAIN_DB	sqlite3.h	548;"	d
+SQLITE_OPEN_MAIN_JOURNAL	sqlite3.h	551;"	d
+SQLITE_OPEN_MASTER_JOURNAL	sqlite3.h	554;"	d
+SQLITE_OPEN_MEMORY	sqlite3.h	547;"	d
+SQLITE_OPEN_NOMUTEX	sqlite3.h	555;"	d
+SQLITE_OPEN_PRIVATECACHE	sqlite3.h	558;"	d
+SQLITE_OPEN_READONLY	sqlite3.h	540;"	d
+SQLITE_OPEN_READWRITE	sqlite3.h	541;"	d
+SQLITE_OPEN_SHAREDCACHE	sqlite3.h	557;"	d
+SQLITE_OPEN_SUBJOURNAL	sqlite3.h	553;"	d
+SQLITE_OPEN_TEMP_DB	sqlite3.h	549;"	d
+SQLITE_OPEN_TEMP_JOURNAL	sqlite3.h	552;"	d
+SQLITE_OPEN_TRANSIENT_DB	sqlite3.h	550;"	d
+SQLITE_OPEN_URI	sqlite3.h	546;"	d
+SQLITE_OPEN_WAL	sqlite3.h	559;"	d
+SQLITE_PERM	sqlite3.h	426;"	d
+SQLITE_PRAGMA	sqlite3.h	2876;"	d
+SQLITE_PREPARE_PERSISTENT	sqlite3.h	3549;"	d
+SQLITE_PROTOCOL	sqlite3.h	438;"	d
+SQLITE_RANGE	sqlite3.h	448;"	d
+SQLITE_READ	sqlite3.h	2877;"	d
+SQLITE_READONLY	sqlite3.h	431;"	d
+SQLITE_READONLY_CANTLOCK	sqlite3.h	513;"	d
+SQLITE_READONLY_DBMOVED	sqlite3.h	515;"	d
+SQLITE_READONLY_RECOVERY	sqlite3.h	512;"	d
+SQLITE_READONLY_ROLLBACK	sqlite3.h	514;"	d
+SQLITE_RECURSIVE	sqlite3.h	2891;"	d
+SQLITE_REINDEX	sqlite3.h	2884;"	d
+SQLITE_REPLACE	sqlite3.h	8295;"	d
+SQLITE_ROLLBACK	sqlite3.h	8291;"	d
+SQLITE_ROW	sqlite3.h	452;"	d
+SQLITE_SAVEPOINT	sqlite3.h	2889;"	d
+SQLITE_SCANSTAT_EST	sqlite3.h	8346;"	d
+SQLITE_SCANSTAT_EXPLAIN	sqlite3.h	8348;"	d
+SQLITE_SCANSTAT_NAME	sqlite3.h	8347;"	d
+SQLITE_SCANSTAT_NLOOP	sqlite3.h	8344;"	d
+SQLITE_SCANSTAT_NVISIT	sqlite3.h	8345;"	d
+SQLITE_SCANSTAT_SELECTID	sqlite3.h	8349;"	d
+SQLITE_SCHEMA	sqlite3.h	440;"	d
+SQLITE_SELECT	sqlite3.h	2878;"	d
+SQLITE_SET_LOCKPROXYFILE	sqlite3.h	1100;"	d
+SQLITE_SHM_EXCLUSIVE	sqlite3.h	1373;"	d
+SQLITE_SHM_LOCK	sqlite3.h	1371;"	d
+SQLITE_SHM_NLOCK	sqlite3.h	1383;"	d
+SQLITE_SHM_SHARED	sqlite3.h	1372;"	d
+SQLITE_SHM_UNLOCK	sqlite3.h	1370;"	d
+SQLITE_SOURCE_ID	sqlite3.h	128;"	d
+SQLITE_STATIC	sqlite3.h	5030;"	d
+SQLITE_STATUS_MALLOC_COUNT	sqlite3.h	7138;"	d
+SQLITE_STATUS_MALLOC_SIZE	sqlite3.h	7134;"	d
+SQLITE_STATUS_MEMORY_USED	sqlite3.h	7129;"	d
+SQLITE_STATUS_PAGECACHE_OVERFLOW	sqlite3.h	7131;"	d
+SQLITE_STATUS_PAGECACHE_SIZE	sqlite3.h	7136;"	d
+SQLITE_STATUS_PAGECACHE_USED	sqlite3.h	7130;"	d
+SQLITE_STATUS_PARSER_STACK	sqlite3.h	7135;"	d
+SQLITE_STATUS_SCRATCH_OVERFLOW	sqlite3.h	7133;"	d
+SQLITE_STATUS_SCRATCH_SIZE	sqlite3.h	7137;"	d
+SQLITE_STATUS_SCRATCH_USED	sqlite3.h	7132;"	d
+SQLITE_STDCALL	sqlite3.h	61;"	d
+SQLITE_STMTSTATUS_AUTOINDEX	sqlite3.h	7365;"	d
+SQLITE_STMTSTATUS_FULLSCAN_STEP	sqlite3.h	7363;"	d
+SQLITE_STMTSTATUS_MEMUSED	sqlite3.h	7369;"	d
+SQLITE_STMTSTATUS_REPREPARE	sqlite3.h	7367;"	d
+SQLITE_STMTSTATUS_RUN	sqlite3.h	7368;"	d
+SQLITE_STMTSTATUS_SORT	sqlite3.h	7364;"	d
+SQLITE_STMTSTATUS_VM_STEP	sqlite3.h	7366;"	d
+SQLITE_SYNC_DATAONLY	sqlite3.h	653;"	d
+SQLITE_SYNC_FULL	sqlite3.h	652;"	d
+SQLITE_SYNC_NORMAL	sqlite3.h	651;"	d
+SQLITE_SYSAPI	sqlite3.h	67;"	d
+SQLITE_TESTCTRL_ALWAYS	sqlite3.h	7011;"	d
+SQLITE_TESTCTRL_ASSERT	sqlite3.h	7010;"	d
+SQLITE_TESTCTRL_BENIGN_MALLOC_HOOKS	sqlite3.h	7008;"	d
+SQLITE_TESTCTRL_BITVEC_TEST	sqlite3.h	7006;"	d
+SQLITE_TESTCTRL_BYTEORDER	sqlite3.h	7021;"	d
+SQLITE_TESTCTRL_EXPLAIN_STMT	sqlite3.h	7017;"	d
+SQLITE_TESTCTRL_FAULT_INSTALL	sqlite3.h	7007;"	d
+SQLITE_TESTCTRL_FIRST	sqlite3.h	7002;"	d
+SQLITE_TESTCTRL_IMPOSTER	sqlite3.h	7024;"	d
+SQLITE_TESTCTRL_ISINIT	sqlite3.h	7022;"	d
+SQLITE_TESTCTRL_ISKEYWORD	sqlite3.h	7014;"	d
+SQLITE_TESTCTRL_LAST	sqlite3.h	7025;"	d
+SQLITE_TESTCTRL_LOCALTIME_FAULT	sqlite3.h	7016;"	d
+SQLITE_TESTCTRL_NEVER_CORRUPT	sqlite3.h	7019;"	d
+SQLITE_TESTCTRL_ONCE_RESET_THRESHOLD	sqlite3.h	7018;"	d
+SQLITE_TESTCTRL_OPTIMIZATIONS	sqlite3.h	7013;"	d
+SQLITE_TESTCTRL_PENDING_BYTE	sqlite3.h	7009;"	d
+SQLITE_TESTCTRL_PRNG_RESET	sqlite3.h	7005;"	d
+SQLITE_TESTCTRL_PRNG_RESTORE	sqlite3.h	7004;"	d
+SQLITE_TESTCTRL_PRNG_SAVE	sqlite3.h	7003;"	d
+SQLITE_TESTCTRL_RESERVE	sqlite3.h	7012;"	d
+SQLITE_TESTCTRL_SCRATCHMALLOC	sqlite3.h	7015;"	d
+SQLITE_TESTCTRL_SORTER_MMAP	sqlite3.h	7023;"	d
+SQLITE_TESTCTRL_VDBE_COVERAGE	sqlite3.h	7020;"	d
+SQLITE_TEXT	sqlite3.h	4316;"	d
+SQLITE_TEXT	sqlite3.h	4318;"	d
+SQLITE_TOOBIG	sqlite3.h	441;"	d
+SQLITE_TRACE_CLOSE	sqlite3.h	2985;"	d
+SQLITE_TRACE_PROFILE	sqlite3.h	2983;"	d
+SQLITE_TRACE_ROW	sqlite3.h	2984;"	d
+SQLITE_TRACE_STMT	sqlite3.h	2982;"	d
+SQLITE_TRANSACTION	sqlite3.h	2879;"	d
+SQLITE_TRANSIENT	sqlite3.h	5031;"	d
+SQLITE_UPDATE	sqlite3.h	2880;"	d
+SQLITE_UTF16	sqlite3.h	4722;"	d
+SQLITE_UTF16BE	sqlite3.h	4721;"	d
+SQLITE_UTF16LE	sqlite3.h	4720;"	d
+SQLITE_UTF16_ALIGNED	sqlite3.h	4724;"	d
+SQLITE_UTF8	sqlite3.h	4719;"	d
+SQLITE_VERSION	sqlite3.h	126;"	d
+SQLITE_VERSION	sqlite3.h	90;"	d
+SQLITE_VERSION_NUMBER	sqlite3.h	127;"	d
+SQLITE_VERSION_NUMBER	sqlite3.h	93;"	d
+SQLITE_VTAB_CONSTRAINT_SUPPORT	sqlite3.h	8265;"	d
+SQLITE_WARNING	sqlite3.h	451;"	d
+SQLITE_WARNING_AUTOINDEX	sqlite3.h	529;"	d
+Senior	shop.h	/^    Senior,	\/\/高级$/;"	e	enum:RARE
+Shirt	shop.h	/^    Shirt,	\/\/衬衣$/;"	e	enum:PARTS
+Shoes	shop.h	/^    Shoes,	\/\/鞋子$/;"	e	enum:PARTS
+Smriti	shop.h	/^    Smriti,	\/\/传承$/;"	e	enum:RARE
+Sqlite3	game.cpp	/^    Sqlite3(const char *database) : r(0),c(0),buf(NULL),ok(SQLITE_ERROR){$/;"	f	class:Sqlite3
+Sqlite3	game.cpp	/^class Sqlite3{$/;"	c	file:
+TYPE	shop.h	/^enum TYPE{	\/\/装备类型$/;"	g
+Token	shop.h	/^    Token	\/\/代币	游戏中获得$/;"	e	enum:WEALTH
+Value	shop.h	/^    Value() : Value(0,0,0,0,0){}$/;"	f	struct:Value
+Value	shop.h	/^    Value(int g,int d,int p,int t,int q) : $/;"	f	struct:Value
+Value	shop.h	/^struct Value{	\/\/商品价值，玩家钱包	$/;"	s
+WEALTH	shop.h	/^enum WEALTH{	\/\/商品财富	$/;"	g
+WEAPON	shop.h	/^    WEAPON() : WEAPON(0,0,"武器","--",0,0,0,0,0,0,Common,Gold,0){}$/;"	f	class:WEAPON
+WEAPON	shop.h	/^    WEAPON(int i,int l,int w2,TYPE t3,string n1,string n2,float s,int a1,int a2,int t,$/;"	f	class:WEAPON
+WEAPON	shop.h	/^    WEAPON(int l,int w2,string n1,string n2,float s,int a1,int a2,int t,$/;"	f	class:WEAPON
+WEAPON	shop.h	/^class WEAPON : public Armor{$/;"	c
+Weapon	shop.h	/^    Weapon,	\/\/武器$/;"	e	enum:PARTS
+_FONT_H	font.h	2;"	d
+_FTS5_H	sqlite3.h	10169;"	d
+_GAME_H	game.h	2;"	d
+_PLAYER_H	player.h	2;"	d
+_SHOP_H_	shop.h	2;"	d
+_SQLITE3RTREE_H_	sqlite3.h	8753;"	d
+__SQLITESESSION_H_	sqlite3.h	8860;"	d
+a	shop.h	/^	Actor(const Actor &a)=delete;$/;"	m	class:Actor
+a	sqlite3.h	/^  const unsigned char *a;$/;"	m	struct:Fts5PhraseIter
+aConstraint	sqlite3.h	/^  } *aConstraint;            \/* Table of WHERE clause constraints *\/$/;"	m	struct:sqlite3_index_info	typeref:struct:sqlite3_index_info::sqlite3_index_constraint
+aConstraintUsage	sqlite3.h	/^  } *aConstraintUsage;$/;"	m	struct:sqlite3_index_info	typeref:struct:sqlite3_index_info::sqlite3_index_constraint_usage
+aCoord	sqlite3.h	/^  sqlite3_rtree_dbl *aCoord;        \/* Coordinates of node or entry to check *\/$/;"	m	struct:sqlite3_rtree_query_info
+aOrderBy	sqlite3.h	/^  } *aOrderBy;               \/* The ORDER BY clause *\/$/;"	m	struct:sqlite3_index_info	typeref:struct:sqlite3_index_info::sqlite3_index_orderby
+aParam	sqlite3.h	/^  sqlite3_rtree_dbl *aParam;        \/* value of function parameters *\/$/;"	m	struct:sqlite3_rtree_query_info
+aParam	sqlite3.h	/^  sqlite3_rtree_dbl *aParam;      \/* Parameters passed to SQL geom function *\/$/;"	m	struct:sqlite3_rtree_geometry
+addAttr	player.cpp	/^void Player:: addAttr(const Attribute &at){$/;"	f	class:Player
+anQueue	sqlite3.h	/^  unsigned int *anQueue;            \/* Number of pending entries in the queue *\/$/;"	m	struct:sqlite3_rtree_query_info
+apSqlParam	sqlite3.h	/^  sqlite3_value **apSqlParam;       \/* Original SQL values of parameters *\/$/;"	m	struct:sqlite3_rtree_query_info
+argvIndex	sqlite3.h	/^    int argvIndex;           \/* if >0, constraint is part of argv to xFilter *\/$/;"	m	struct:sqlite3_index_info::sqlite3_index_constraint_usage
+atk	shop.h	/^    int atk;	\/\/物理伤害$/;"	m	class:Attribute
+atm	shop.h	/^    int atm;	\/\/魔法伤害$/;"	m	class:Attribute
+attr	shop.h	/^    Attribute attr;$/;"	m	class:HAT
+attr	shop.h	/^    Attribute attr;\/\/装备效果$/;"	m	class:BELT
+attr	shop.h	/^    Attribute attr;\/\/装备效果$/;"	m	class:DRUG
+attr	shop.h	/^    Attribute attr;\/\/装备效果$/;"	m	class:PANTS
+attr	shop.h	/^    Attribute attr;\/\/装备效果$/;"	m	class:SHIRT
+attr	shop.h	/^    Attribute attr;\/\/装备效果$/;"	m	class:SHOES
+attr	shop.h	/^    Attribute attr;\/\/装备效果$/;"	m	class:WEAPON
+attr1	player.h	/^    Attribute attr1;\/\/玩家状态1$/;"	m	class:Player
+attr2	player.h	/^    Attribute attr2;\/\/玩家状态1$/;"	m	class:Player
+b	sqlite3.h	/^  const unsigned char *b;$/;"	m	struct:Fts5PhraseIter
+bag	player.h	/^    map<string,pair<Actor *,int> >bag;\/\/道具name，道具地址，数量$/;"	m	class:Player
+black	font.h	79;"	d
+blink_font	font.cpp	/^void blink_font(){$/;"	f
+blue	font.h	83;"	d
+buf	game.cpp	/^    char **buf;$/;"	m	class:Sqlite3	file:
+buy_good	game.cpp	/^void Game::buy_good(){$/;"	f	class:Game
+buy_goods	game.cpp	/^void Game::buy_goods(map<string,Player *>::iterator r){$/;"	f	class:Game
+c	game.cpp	/^    int c;\/\/列col$/;"	m	class:Sqlite3	file:
+chToin	game.cpp	/^int chToin(char p[]){$/;"	f
+chTost	game.cpp	/^void chTost(string &s1,char *s2){$/;"	f
+chTost2	game.cpp	/^void chTost2(string &s1,char *s2){$/;"	f
+change1	game.cpp	/^TYPE change1(int n){$/;"	f
+change2	game.cpp	/^PARTS change2(int n){$/;"	f
+change3	game.cpp	/^RARE change3(int n){$/;"	f
+change4	game.cpp	/^WEALTH change4(int n){$/;"	f
+choice_input	game.cpp	/^void choice_input(int up,int right,char arr[]){$/;"	f
+clear_cursor	font.cpp	/^void clear_cursor(int x){$/;"	f
+clear_line	font.cpp	/^void clear_line(){$/;"	f
+clear_screen	font.cpp	/^void clear_screen(){$/;"	f
+colUsed	sqlite3.h	/^  sqlite3_uint64 colUsed;    \/* Input: Mask of columns used by statement *\/$/;"	m	struct:sqlite3_index_info
+common_input	game.cpp	/^void common_input(int up,int down,int right,char arr[]){$/;"	f
+count	shop.cpp	/^int Actor::count=1000;\/\/初始化部位防具id$/;"	m	class:Actor	file:
+count	shop.h	/^	static int count;   \/\/id号获取$/;"	m	class:Actor
+count3	player.cpp	/^int Player::count3=3000;$/;"	m	class:Player	file:
+count3	player.h	/^    static int count3;$/;"	m	class:Player
+create_bag_table	game.cpp	/^    void create_bag_table(){$/;"	f	class:operate_Sqlite3
+create_goods_table	game.cpp	/^    void create_goods_table(){$/;"	f	class:operate_Sqlite3
+create_parts_table	game.cpp	/^    void create_parts_table(){$/;"	f	class:operate_Sqlite3
+create_player_table	game.cpp	/^    void create_player_table(){$/;"	f	class:operate_Sqlite3
+create_rares_table	game.cpp	/^    void create_rares_table(){$/;"	f	class:operate_Sqlite3
+cursor_down	font.h	30;"	d
+cursor_left	font.h	32;"	d
+cursor_right	font.h	31;"	d
+cursor_right0	font.h	42;"	d
+cursor_right1	font.h	43;"	d
+cursor_right10	font.h	35;"	d
+cursor_right2	font.h	44;"	d
+cursor_right3	font.h	45;"	d
+cursor_right4	font.h	46;"	d
+cursor_right5	font.h	47;"	d
+cursor_right6	font.h	48;"	d
+cursor_right7	font.h	49;"	d
+cursor_right8	font.h	50;"	d
+cursor_right9	font.h	51;"	d
+cursor_up	font.h	29;"	d
+cursor_up1	font.h	34;"	d
+cursor_up2	font.h	76;"	d
+dark_green	font.h	85;"	d
+def	shop.h	/^    int def;	\/\/物理防御$/;"	m	class:Attribute
+delete_all_table	game.cpp	/^    void delete_all_table(){$/;"	f	class:operate_Sqlite3
+desc	sqlite3.h	/^     unsigned char desc;       \/* True for DESC.  False for ASC. *\/$/;"	m	struct:sqlite3_index_info::sqlite3_index_orderby
+device_plot	game.cpp	/^void device_plot(){$/;"	f
+dimonD	shop.h	/^    int dimonD;	\/\/钻石	1元=10钻,活动中可充值$/;"	m	struct:Value
+display1_cheek	font.cpp	/^void display1_cheek(int x,int y,int color){$/;"	f
+display_cheek	font.cpp	/^void display_cheek(int x,int y){$/;"	f
+display_cheek1	font.cpp	/^void display_cheek1(int x,int y,int right){$/;"	f
+double	sqlite3.h	286;"	d
+double	sqlite3.h	8730;"	d
+draw_col_line1	font.cpp	/^void draw_col_line1(int up,int left,int right,int n,const char type[]){$/;"	f
+draw_col_line2	font.cpp	/^void draw_col_line2(int up,int right,int n,const char type[]){$/;"	f
+draw_row_line1	font.cpp	/^void draw_row_line1(int up,int right,int n,const char type[]){$/;"	f
+draw_row_line2	font.cpp	/^void draw_row_line2(int down,int left,int n,const char type[]){$/;"	f
+eParentWithin	sqlite3.h	/^  int eParentWithin;                \/* Visibility of parent node *\/$/;"	m	struct:sqlite3_rtree_query_info
+eWithin	sqlite3.h	/^  int eWithin;                      \/* OUT: Visiblity *\/$/;"	m	struct:sqlite3_rtree_query_info
+estimatedCost	sqlite3.h	/^  double estimatedCost;           \/* Estimated cost of using this index *\/$/;"	m	struct:sqlite3_index_info
+estimatedRows	sqlite3.h	/^  sqlite3_int64 estimatedRows;    \/* Estimated number of rows returned *\/$/;"	m	struct:sqlite3_index_info
+exec	game.cpp	/^    int exec(const string &s){$/;"	f	class:Sqlite3
+exp	player.h	/^    int exp;		\/\/玩家经验$/;"	m	class:Player
+fixed_input	font.cpp	/^void fixed_input(char arr[],int n,int *flag){$/;"	f
+fixed_input1	font.cpp	/^char fixed_input1(char arr[],int n,int *flag){$/;"	f
+fixed_my_input	font.cpp	/^void fixed_my_input(string *s,int n,int &flag){$/;"	f
+fixed_my_input1	font.cpp	/^char fixed_my_input1(string *s,int n,int &flag){$/;"	f
+fts5_api	sqlite3.h	/^struct fts5_api {$/;"	s
+fts5_api	sqlite3.h	/^typedef struct fts5_api fts5_api;$/;"	t	typeref:struct:fts5_api
+fts5_extension_function	sqlite3.h	/^typedef void (*fts5_extension_function)($/;"	t
+fts5_tokenizer	sqlite3.h	/^struct fts5_tokenizer {$/;"	s
+fts5_tokenizer	sqlite3.h	/^typedef struct fts5_tokenizer fts5_tokenizer;$/;"	t	typeref:struct:fts5_tokenizer
+fun_cursor_down	font.cpp	/^void fun_cursor_down(int x){$/;"	f
+fun_cursor_left	font.cpp	/^void fun_cursor_left(int x){$/;"	f
+fun_cursor_right	font.cpp	/^void fun_cursor_right(int x){$/;"	f
+fun_cursor_up	font.cpp	/^void fun_cursor_up(int x){$/;"	f
+function	game.cpp	/^void Game::function(map<string,Player *>::iterator p,$/;"	f	class:Game
+game_clear_cursor	game.cpp	/^void Game::game_clear_cursor(int x,int y,int row,int col){$/;"	f	class:Game
+getPant	shop.cpp	/^string getPant(PARTS p){$/;"	f
+getRare	shop.cpp	/^string getRare(RARE r){$/;"	f
+get_c	game.cpp	/^    int get_c(){$/;"	f	class:Sqlite3
+get_r	game.cpp	/^    int get_r(){$/;"	f	class:Sqlite3
+getat	shop.h	/^    Attribute getat()const{return attr;}$/;"	f	class:BELT
+getat	shop.h	/^    Attribute getat()const{return attr;}$/;"	f	class:DRUG
+getat	shop.h	/^    Attribute getat()const{return attr;}$/;"	f	class:HAT
+getat	shop.h	/^    Attribute getat()const{return attr;}$/;"	f	class:PANTS
+getat	shop.h	/^    Attribute getat()const{return attr;}$/;"	f	class:SHIRT
+getat	shop.h	/^    Attribute getat()const{return attr;}$/;"	f	class:SHOES
+getat	shop.h	/^    Attribute getat()const{return attr;}$/;"	f	class:WEAPON
+getat1	player.h	/^    Attribute getat1()const{return attr1;}\/\/玩家状态1$/;"	f	class:Player
+getat2	player.h	/^    Attribute getat2()const{return attr2;}\/\/玩家状态1$/;"	f	class:Player
+getdi	player.h	/^    int getdi()const{return wallet.dimonD;}$/;"	f	class:Player
+getdi	shop.h	/^    int getdi()const{return value.dimonD;}$/;"	f	class:BELT
+getdi	shop.h	/^    int getdi()const{return value.dimonD;}$/;"	f	class:DRUG
+getdi	shop.h	/^    int getdi()const{return value.dimonD;}$/;"	f	class:HAT
+getdi	shop.h	/^    int getdi()const{return value.dimonD;}$/;"	f	class:PANTS
+getdi	shop.h	/^    int getdi()const{return value.dimonD;}$/;"	f	class:SHIRT
+getdi	shop.h	/^    int getdi()const{return value.dimonD;}$/;"	f	class:SHOES
+getdi	shop.h	/^    int getdi()const{return value.dimonD;}$/;"	f	class:WEAPON
+getex	player.h	/^    int getex()const{return exp;}$/;"	f	class:Player
+getgo	player.h	/^    int getgo()const{return wallet.golD;}$/;"	f	class:Player
+getid	player.h	/^    int getid()const{return id;}$/;"	f	class:Player
+getid	shop.h	/^    int getid()const{return id;}$/;"	f	class:BELT
+getid	shop.h	/^    int getid()const{return id;}$/;"	f	class:DRUG
+getid	shop.h	/^    int getid()const{return id;}$/;"	f	class:HAT
+getid	shop.h	/^    int getid()const{return id;}$/;"	f	class:PANTS
+getid	shop.h	/^    int getid()const{return id;}$/;"	f	class:SHIRT
+getid	shop.h	/^    int getid()const{return id;}$/;"	f	class:SHOES
+getid	shop.h	/^    int getid()const{return id;}$/;"	f	class:WEAPON
+getke	player.h	/^    string getke()const{return key;}$/;"	f	class:Player
+getle	player.h	/^    int getle()const{return level;}$/;"	f	class:Player
+getle	shop.h	/^    int getle()const{return level;}$/;"	f	class:BELT
+getle	shop.h	/^    int getle()const{return level;}$/;"	f	class:DRUG
+getle	shop.h	/^    int getle()const{return level;}$/;"	f	class:HAT
+getle	shop.h	/^    int getle()const{return level;}$/;"	f	class:PANTS
+getle	shop.h	/^    int getle()const{return level;}$/;"	f	class:SHIRT
+getle	shop.h	/^    int getle()const{return level;}$/;"	f	class:SHOES
+getle	shop.h	/^    int getle()const{return level;}$/;"	f	class:WEAPON
+getn1	shop.h	/^    string getn1()const{return name;}$/;"	f	class:BELT
+getn1	shop.h	/^    string getn1()const{return name;}$/;"	f	class:DRUG
+getn1	shop.h	/^    string getn1()const{return name;}$/;"	f	class:HAT
+getn1	shop.h	/^    string getn1()const{return name;}$/;"	f	class:PANTS
+getn1	shop.h	/^    string getn1()const{return name;}$/;"	f	class:SHIRT
+getn1	shop.h	/^    string getn1()const{return name;}$/;"	f	class:SHOES
+getn1	shop.h	/^    string getn1()const{return name;}$/;"	f	class:WEAPON
+getn2	shop.h	/^    string getn2()const{return nature;}$/;"	f	class:BELT
+getn2	shop.h	/^    string getn2()const{return nature;}$/;"	f	class:DRUG
+getn2	shop.h	/^    string getn2()const{return nature;}$/;"	f	class:HAT
+getn2	shop.h	/^    string getn2()const{return nature;}$/;"	f	class:PANTS
+getn2	shop.h	/^    string getn2()const{return nature;}$/;"	f	class:SHIRT
+getn2	shop.h	/^    string getn2()const{return nature;}$/;"	f	class:SHOES
+getn2	shop.h	/^    string getn2()const{return nature;}$/;"	f	class:WEAPON
+getna	player.h	/^    string getna()const{return name;}$/;"	f	class:Player
+getpa	shop.h	/^    PARTS getpa()const{return part;}$/;"	f	class:BELT
+getpa	shop.h	/^    PARTS getpa()const{return part;}$/;"	f	class:DRUG
+getpa	shop.h	/^    PARTS getpa()const{return part;}$/;"	f	class:HAT
+getpa	shop.h	/^    PARTS getpa()const{return part;}$/;"	f	class:PANTS
+getpa	shop.h	/^    PARTS getpa()const{return part;}$/;"	f	class:SHIRT
+getpa	shop.h	/^    PARTS getpa()const{return part;}$/;"	f	class:SHOES
+getpa	shop.h	/^    PARTS getpa()const{return part;}$/;"	f	class:WEAPON
+getqb	player.h	/^    int getqb()const{return wallet.QB;}$/;"	f	class:Player
+getra	shop.h	/^    RARE getra()const{return attr.rare;}$/;"	f	class:BELT
+getra	shop.h	/^    RARE getra()const{return attr.rare;}$/;"	f	class:DRUG
+getra	shop.h	/^    RARE getra()const{return attr.rare;}$/;"	f	class:HAT
+getra	shop.h	/^    RARE getra()const{return attr.rare;}$/;"	f	class:PANTS
+getra	shop.h	/^    RARE getra()const{return attr.rare;}$/;"	f	class:SHIRT
+getra	shop.h	/^    RARE getra()const{return attr.rare;}$/;"	f	class:SHOES
+getra	shop.h	/^    RARE getra()const{return attr.rare;}$/;"	f	class:WEAPON
+getst	shop.h	/^    int getst()const{return state;}$/;"	f	class:BELT
+getst	shop.h	/^    int getst()const{return state;}$/;"	f	class:DRUG
+getst	shop.h	/^    int getst()const{return state;}$/;"	f	class:HAT
+getst	shop.h	/^    int getst()const{return state;}$/;"	f	class:PANTS
+getst	shop.h	/^    int getst()const{return state;}$/;"	f	class:SHIRT
+getst	shop.h	/^    int getst()const{return state;}$/;"	f	class:SHOES
+getst	shop.h	/^    int getst()const{return state;}$/;"	f	class:WEAPON
+getto	player.h	/^    int getto()const{return wallet.tokeN;}$/;"	f	class:Player
+getty	shop.h	/^    TYPE getty()const{return type;}$/;"	f	class:BELT
+getty	shop.h	/^    TYPE getty()const{return type;}$/;"	f	class:DRUG
+getty	shop.h	/^    TYPE getty()const{return type;}$/;"	f	class:HAT
+getty	shop.h	/^    TYPE getty()const{return type;}$/;"	f	class:PANTS
+getty	shop.h	/^    TYPE getty()const{return type;}$/;"	f	class:SHIRT
+getty	shop.h	/^    TYPE getty()const{return type;}$/;"	f	class:SHOES
+getty	shop.h	/^    TYPE getty()const{return type;}$/;"	f	class:WEAPON
+getva	shop.h	/^    int getva()const{return value.golD;}$/;"	f	class:BELT
+getva	shop.h	/^    int getva()const{return value.golD;}$/;"	f	class:DRUG
+getva	shop.h	/^    int getva()const{return value.golD;}$/;"	f	class:HAT
+getva	shop.h	/^    int getva()const{return value.golD;}$/;"	f	class:PANTS
+getva	shop.h	/^    int getva()const{return value.golD;}$/;"	f	class:SHIRT
+getva	shop.h	/^    int getva()const{return value.golD;}$/;"	f	class:SHOES
+getva	shop.h	/^    int getva()const{return value.golD;}$/;"	f	class:WEAPON
+getwe	player.h	/^    int getwe()const{return weigh;}$/;"	f	class:Player
+getwe	shop.h	/^    int getwe()const{return weight;}$/;"	f	class:BELT
+getwe	shop.h	/^    int getwe()const{return weight;}$/;"	f	class:DRUG
+getwe	shop.h	/^    int getwe()const{return weight;}$/;"	f	class:HAT
+getwe	shop.h	/^    int getwe()const{return weight;}$/;"	f	class:PANTS
+getwe	shop.h	/^    int getwe()const{return weight;}$/;"	f	class:SHIRT
+getwe	shop.h	/^    int getwe()const{return weight;}$/;"	f	class:SHOES
+getwe	shop.h	/^    int getwe()const{return weight;}$/;"	f	class:WEAPON
+golD	shop.h	/^    int golD;	\/\/金币	游戏中获得$/;"	m	struct:Value
+goods	game.h	/^    map<int,pair<Actor *,int> >goods;\/\/id,商品,数量$/;"	m	class:Game
+green	font.h	81;"	d
+h	shop.h	/^    BELT(const BELT &h)=delete; $/;"	m	class:BELT
+h	shop.h	/^    DRUG(const DRUG &h)=delete; $/;"	m	class:DRUG
+h	shop.h	/^    HAT(const HAT &h)=delete; $/;"	m	class:HAT
+h	shop.h	/^    PANTS(const PANTS &h)=delete; $/;"	m	class:PANTS
+h	shop.h	/^    SHIRT(const SHIRT &h)=delete; $/;"	m	class:SHIRT
+h	shop.h	/^    SHOES(const SHOES &h)=delete; $/;"	m	class:SHOES
+h	shop.h	/^    WEAPON(const WEAPON &h)=delete; $/;"	m	class:WEAPON
+hidden	sqlite3.h	/^  unsigned char hidden[48];$/;"	m	struct:sqlite3_snapshot
+hide_cursor	font.cpp	/^void hide_cursor(){$/;"	f
+hp	shop.h	/^    int hp;	\/\/生命值$/;"	m	class:Attribute
+iColumn	sqlite3.h	/^     int iColumn;              \/* Column constrained.  -1 for ROWID *\/$/;"	m	struct:sqlite3_index_info::sqlite3_index_constraint
+iColumn	sqlite3.h	/^     int iColumn;              \/* Column number *\/$/;"	m	struct:sqlite3_index_info::sqlite3_index_orderby
+iLevel	sqlite3.h	/^  int iLevel;                       \/* Level of current node or entry *\/$/;"	m	struct:sqlite3_rtree_query_info
+iRowid	sqlite3.h	/^  sqlite3_int64 iRowid;             \/* Rowid for current entry *\/$/;"	m	struct:sqlite3_rtree_query_info
+iTermOffset	sqlite3.h	/^     int iTermOffset;          \/* Used internally - xBestIndex should ignore *\/$/;"	m	struct:sqlite3_index_info::sqlite3_index_constraint
+iVersion	sqlite3.h	/^  int iVersion;                   \/* Currently always set to 2 *\/$/;"	m	struct:fts5_api
+iVersion	sqlite3.h	/^  int iVersion;                   \/* Currently always set to 3 *\/$/;"	m	struct:Fts5ExtensionApi
+iVersion	sqlite3.h	/^  int iVersion;            \/* Structure version number (currently 3) *\/$/;"	m	struct:sqlite3_vfs
+iVersion	sqlite3.h	/^  int iVersion;$/;"	m	struct:sqlite3_io_methods
+iVersion	sqlite3.h	/^  int iVersion;$/;"	m	struct:sqlite3_module
+iVersion	sqlite3.h	/^  int iVersion;$/;"	m	struct:sqlite3_pcache_methods2
+id	player.h	/^    int id;		\/\/玩家id$/;"	m	class:Player
+id	shop.h	/^	int id;		    \/\/id号$/;"	m	class:Actor
+idxFlags	sqlite3.h	/^  int idxFlags;              \/* Mask of SQLITE_INDEX_SCAN_* flags *\/$/;"	m	struct:sqlite3_index_info
+idxNum	sqlite3.h	/^  int idxNum;                \/* Number used to identify the index *\/$/;"	m	struct:sqlite3_index_info
+idxStr	sqlite3.h	/^  char *idxStr;              \/* String, possibly obtained from sqlite3_malloc *\/$/;"	m	struct:sqlite3_index_info
+insert_bag	game.cpp	/^    void insert_bag(map<string,Player *>p){$/;"	f	class:operate_Sqlite3
+insert_goods	game.cpp	/^    void insert_goods(map<int,pair<Actor *,int> >s){$/;"	f	class:operate_Sqlite3
+insert_parts	game.cpp	/^    void insert_parts(map<string,Player *>p){$/;"	f	class:operate_Sqlite3
+insert_player	game.cpp	/^    void insert_player(map<string,Player *>s){$/;"	f	class:operate_Sqlite3
+insert_rares	game.cpp	/^    void insert_rares(map<string,Player *>p){$/;"	f	class:operate_Sqlite3
+interface	font.cpp	/^void interface(int x,int y,int n){$/;"	f
+intput_part	shop.cpp	/^PARTS intput_part(char n){$/;"	f
+intput_rare	shop.cpp	/^RARE intput_rare(char n){$/;"	f
+intput_type	shop.cpp	/^TYPE intput_type(char n){$/;"	f
+intput_wealth	shop.cpp	/^WEALTH intput_wealth(char n){$/;"	f
+is_open	game.cpp	/^    bool is_open() {$/;"	f	class:Sqlite3
+key	player.h	/^    string key;		\/\/玩家密码$/;"	m	class:Player
+level	player.h	/^    int level;		\/\/玩家等级$/;"	m	class:Player
+level	shop.h	/^	int level;	    \/\/等级$/;"	m	class:Actor
+main	main.cpp	/^int main(){$/;"	f
+menu_choose	font.cpp	/^char menu_choose(int n){$/;"	f
+message_cursor0	font.h	66;"	d
+message_cursor1	font.h	67;"	d
+message_cursor2	font.h	68;"	d
+message_cursor3	font.h	69;"	d
+message_cursor4	font.h	70;"	d
+message_cursor5	font.h	71;"	d
+message_cursor6	font.h	72;"	d
+message_cursor7	font.h	73;"	d
+message_cursor8	font.h	74;"	d
+message_cursor9	font.h	75;"	d
+mp	shop.h	/^    int mp;	\/\/魔法值$/;"	m	class:Attribute
+mxLevel	sqlite3.h	/^  int mxLevel;                      \/* The largest iLevel value in the tree *\/$/;"	m	struct:sqlite3_rtree_query_info
+mxPathname	sqlite3.h	/^  int mxPathname;          \/* Maximum file pathname length *\/$/;"	m	struct:sqlite3_vfs
+my_getchar	font.cpp	/^char my_getchar(){$/;"	f
+my_input	font.cpp	/^int my_input(char arr[],int n){$/;"	f
+my_input1	font.cpp	/^int my_input1(char arr[],int n){$/;"	f
+my_input3	font.cpp	/^int my_input3(string &s,int n){$/;"	f
+my_ms_delay	font.cpp	/^void my_ms_delay(int n){$/;"	f
+nConstraint	sqlite3.h	/^  int nConstraint;           \/* Number of entries in aConstraint *\/$/;"	m	struct:sqlite3_index_info
+nCoord	sqlite3.h	/^  int nCoord;                       \/* Number of coordinates *\/$/;"	m	struct:sqlite3_rtree_query_info
+nOrderBy	sqlite3.h	/^  int nOrderBy;              \/* Number of terms in the ORDER BY clause *\/$/;"	m	struct:sqlite3_index_info
+nParam	sqlite3.h	/^  int nParam;                       \/* Number of function parameters *\/$/;"	m	struct:sqlite3_rtree_query_info
+nParam	sqlite3.h	/^  int nParam;                     \/* Size of array aParam[] *\/$/;"	m	struct:sqlite3_rtree_geometry
+nRef	sqlite3.h	/^  int nRef;                       \/* Number of open cursors *\/$/;"	m	struct:sqlite3_vtab
+name	player.h	/^    string name;	\/\/玩家名字$/;"	m	class:Player
+name	shop.h	/^	string name;	    \/\/名称$/;"	m	class:Actor
+nature	shop.h	/^	string nature;	    \/\/属性$/;"	m	class:Actor
+needToFreeIdxStr	sqlite3.h	/^  int needToFreeIdxStr;      \/* Free idxStr using sqlite3_free() if true *\/$/;"	m	struct:sqlite3_index_info
+new_cursor0	font.h	54;"	d
+new_cursor1	font.h	55;"	d
+new_cursor2	font.h	56;"	d
+new_cursor3	font.h	57;"	d
+new_cursor4	font.h	58;"	d
+new_cursor5	font.h	59;"	d
+new_cursor6	font.h	60;"	d
+new_cursor7	font.h	61;"	d
+new_cursor8	font.h	62;"	d
+new_cursor9	font.h	63;"	d
+ok	game.cpp	/^    int ok;$/;"	m	class:Sqlite3	file:
+omit	sqlite3.h	/^    unsigned char omit;      \/* Do not code a test for this constraint *\/$/;"	m	struct:sqlite3_index_info::sqlite3_index_constraint_usage
+op	sqlite3.h	/^     unsigned char op;         \/* Constraint operator *\/$/;"	m	struct:sqlite3_index_info::sqlite3_index_constraint
+operate_Sqlite3	game.cpp	/^    operate_Sqlite3(const char *db) : sqlite(db){}$/;"	f	class:operate_Sqlite3
+operate_Sqlite3	game.cpp	/^class operate_Sqlite3{$/;"	c	file:
+operator []	game.cpp	/^    char **operator[](int n){$/;"	f	class:Sqlite3
+orderByConsumed	sqlite3.h	/^  int orderByConsumed;       \/* True if output is already ordered *\/$/;"	m	struct:sqlite3_index_info
+otheR	shop.h	/^    otheR,$/;"	e	enum:RARE
+p	player.h	/^    Player(const Player &p)=delete;$/;"	m	class:Player
+p	shop.h	/^	Armor(const Armor &p)=delete;$/;"	m	class:Armor
+pAppData	sqlite3.h	/^  void *pAppData;                \/* Argument to xInit() and xShutdown() *\/$/;"	m	struct:sqlite3_mem_methods
+pAppData	sqlite3.h	/^  void *pAppData;          \/* Pointer to application-specific data *\/$/;"	m	struct:sqlite3_vfs
+pArg	sqlite3.h	/^  void *pArg;$/;"	m	struct:sqlite3_pcache_methods
+pArg	sqlite3.h	/^  void *pArg;$/;"	m	struct:sqlite3_pcache_methods2
+pBuf	sqlite3.h	/^  void *pBuf;        \/* The content of the page *\/$/;"	m	struct:sqlite3_pcache_page
+pContext	sqlite3.h	/^  void *pContext;                   \/* pContext from when function registered *\/$/;"	m	struct:sqlite3_rtree_query_info
+pContext	sqlite3.h	/^  void *pContext;                 \/* Copy of pContext passed to s_r_g_c() *\/$/;"	m	struct:sqlite3_rtree_geometry
+pExtra	sqlite3.h	/^  void *pExtra;      \/* Extra information associated with the page *\/$/;"	m	struct:sqlite3_pcache_page
+pMethods	sqlite3.h	/^  const struct sqlite3_io_methods *pMethods;  \/* Methods for an open file *\/$/;"	m	struct:sqlite3_file	typeref:struct:sqlite3_file::sqlite3_io_methods
+pModule	sqlite3.h	/^  const sqlite3_module *pModule;  \/* The module for this virtual table *\/$/;"	m	struct:sqlite3_vtab
+pNext	sqlite3.h	/^  sqlite3_vfs *pNext;      \/* Next registered VFS *\/$/;"	m	struct:sqlite3_vfs
+pUser	sqlite3.h	/^  void *pUser;                      \/* callback can use this, if desired *\/$/;"	m	struct:sqlite3_rtree_query_info
+pUser	sqlite3.h	/^  void *pUser;                    \/* Callback implementation user data *\/$/;"	m	struct:sqlite3_rtree_geometry
+pVtab	sqlite3.h	/^  sqlite3_vtab *pVtab;      \/* Virtual table of this cursor *\/$/;"	m	struct:sqlite3_vtab_cursor
+part	shop.h	/^	PARTS part;	    \/\/部位$/;"	m	class:Actor
+parts	player.h	/^    char parts[10]={};\/\/7个$/;"	m	class:Player
+pay	game.cpp	/^void Game::pay(char w,map<string,Player *>::iterator r,$/;"	f	class:Game
+pdb	game.cpp	/^    sqlite3 *pdb;$/;"	m	class:Sqlite3	file:
+player	game.h	/^    map<string,Player *>player;\/\/名字，玩家$/;"	m	class:Game
+pointS	shop.h	/^    int pointS;	\/\/点券	1元=10点$/;"	m	struct:Value
+produceArm	shop.cpp	/^Armor * Factory_All::produceArm(int i,int l,int w2,TYPE t,PARTS p,string n1,string n2,$/;"	f	class:Factory_All
+produce_goods	game.cpp	/^void Game::produce_goods(){$/;"	f	class:Game
+purple	font.h	84;"	d
+r	game.cpp	/^    int r;\/\/行row$/;"	m	class:Sqlite3	file:
+rParentScore	sqlite3.h	/^  sqlite3_rtree_dbl rParentScore;   \/* Score of parent node *\/$/;"	m	struct:sqlite3_rtree_query_info
+rScore	sqlite3.h	/^  sqlite3_rtree_dbl rScore;         \/* OUT: Write the score here *\/$/;"	m	struct:sqlite3_rtree_query_info
+rare	shop.h	/^    RARE rare;	\/\/稀有度$/;"	m	class:Attribute
+rares	player.h	/^    char rares[10]={};\/\/8个$/;"	m	class:Player
+read_bag_table	game.cpp	/^void read_bag_table(map<string ,Player *>&p,map<int,pair<Actor *,int> >g){$/;"	f
+read_goods_table	game.cpp	/^void read_goods_table(map<int,pair<Actor *,int> >&g){$/;"	f
+read_parts_table	game.cpp	/^void read_parts_table(map<string ,Player *>&p){$/;"	f
+read_player_table	game.cpp	/^void read_player_table(map<string ,Player *>&p){$/;"	f
+read_rares_table	game.cpp	/^void read_rares_table(map<string ,Player *>&p){$/;"	f
+recover_cursor	font.cpp	/^void recover_cursor(){$/;"	f
+red	font.h	80;"	d
+reduceAttr	player.cpp	/^void Player::reduceAttr(const Attribute &at){$/;"	f	class:Player
+res	shop.h	/^    int res;	\/\/魔法防御$/;"	m	class:Attribute
+run	game.cpp	/^int Game::run(){$/;"	f	class:Game
+save_cursor	font.cpp	/^void save_cursor(){$/;"	f
+seek_good	game.cpp	/^void Game::seek_good(char p[],char l[],char r[],char g[]){$/;"	f	class:Game
+set_cursor	font.cpp	/^void set_cursor(int x,int y){$/;"	f
+set_point_num	font.cpp	/^void set_point_num(int x,int y,int num){$/;"	f
+set_wallet1	player.h	/^    void set_wallet1(int n){wallet.golD=n;}$/;"	f	class:Player
+set_wallet2	player.h	/^    void set_wallet2(int n){wallet.dimonD=n;}$/;"	f	class:Player
+set_wallet3	player.h	/^    void set_wallet3(int n){wallet.pointS=n;}$/;"	f	class:Player
+set_wallet4	player.h	/^    void set_wallet4(int n){wallet.QB=n;}$/;"	f	class:Player
+set_wallet5	player.h	/^    void set_wallet5(int n){wallet.tokeN=n;}$/;"	f	class:Player
+shop	game.cpp	/^void Game::shop(map<string,Player *>::iterator r){$/;"	f	class:Game
+show	shop.cpp	/^void Attribute::show(){$/;"	f	class:Attribute
+show	shop.cpp	/^void BELT::show(){\/\/显示效果$/;"	f	class:BELT
+show	shop.cpp	/^void DRUG::show(){\/\/显示效果$/;"	f	class:DRUG
+show	shop.cpp	/^void HAT::show(){\/\/显示效果$/;"	f	class:HAT
+show	shop.cpp	/^void PANTS::show(){\/\/显示效果$/;"	f	class:PANTS
+show	shop.cpp	/^void SHIRT::show(){\/\/显示效果$/;"	f	class:SHIRT
+show	shop.cpp	/^void SHOES::show(){\/\/显示效果$/;"	f	class:SHOES
+show	shop.cpp	/^void WEAPON::show(){\/\/显示效果$/;"	f	class:WEAPON
+show2	shop.cpp	/^void BELT::show2(){\/\/显示效果$/;"	f	class:BELT
+show2	shop.cpp	/^void DRUG::show2(){\/\/显示效果$/;"	f	class:DRUG
+show2	shop.cpp	/^void HAT::show2(){\/\/显示效果$/;"	f	class:HAT
+show2	shop.cpp	/^void PANTS::show2(){\/\/显示效果$/;"	f	class:PANTS
+show2	shop.cpp	/^void SHIRT::show2(){\/\/显示效果$/;"	f	class:SHIRT
+show2	shop.cpp	/^void SHOES::show2(){\/\/显示效果$/;"	f	class:SHOES
+show2	shop.cpp	/^void WEAPON::show2(){\/\/显示效果$/;"	f	class:WEAPON
+show3	shop.cpp	/^void BELT::show3(){\/\/显示效果$/;"	f	class:BELT
+show3	shop.cpp	/^void DRUG::show3(){\/\/显示效果$/;"	f	class:DRUG
+show3	shop.cpp	/^void HAT::show3(){\/\/显示效果$/;"	f	class:HAT
+show3	shop.cpp	/^void PANTS::show3(){\/\/显示效果$/;"	f	class:PANTS
+show3	shop.cpp	/^void SHIRT::show3(){\/\/显示效果$/;"	f	class:SHIRT
+show3	shop.cpp	/^void SHOES::show3(){\/\/显示效果$/;"	f	class:SHOES
+show3	shop.cpp	/^void WEAPON::show3(){\/\/显示效果$/;"	f	class:WEAPON
+showAttr1	player.cpp	/^void Player::showAttr1(){$/;"	f	class:Player
+showAttr2	player.cpp	/^void Player::showAttr2(){$/;"	f	class:Player
+showAttr3	player.cpp	/^void Player::showAttr3(){$/;"	f	class:Player
+show_allplayer	game.cpp	/^void Game::show_allplayer(){$/;"	f	class:Game
+show_bag	game.cpp	/^void Game::show_bag(map<string,Player *>::iterator p){$/;"	f	class:Game
+show_bag_table	game.cpp	/^    void show_bag_table(){$/;"	f	class:operate_Sqlite3
+show_cursor	font.cpp	/^void show_cursor(){$/;"	f
+show_equip	game.cpp	/^void Game::show_equip(map<string,Player *>::iterator p){$/;"	f	class:Game
+show_equip_num	game.cpp	/^void Game::show_equip_num(map<string,Player *>::iterator p){$/;"	f	class:Game
+show_goods	game.cpp	/^void Game::show_goods(){$/;"	f	class:Game
+show_goods_table	game.cpp	/^    void show_goods_table(){$/;"	f	class:operate_Sqlite3
+show_parts_table	game.cpp	/^    void show_parts_table(){$/;"	f	class:operate_Sqlite3
+show_player_table	game.cpp	/^    void show_player_table(){$/;"	f	class:operate_Sqlite3
+show_rares_table	game.cpp	/^    void show_rares_table(){$/;"	f	class:operate_Sqlite3
+show_table	game.cpp	/^    void show_table(){$/;"	f	class:Sqlite3
+shownews	player.cpp	/^void Player::shownews(){$/;"	f	class:Player
+spd	shop.h	/^    float spd;	\/\/功速$/;"	m	class:Attribute
+spd2	shop.h	/^    float spd2;	\/\/移动速度$/;"	m	class:Attribute
+sql_buf	game.cpp	/^    char sql_buf[1024];\/\/定义缓存字符串拼接字符数组$/;"	m	class:operate_Sqlite3	file:
+sqlite	game.cpp	/^    Sqlite3 sqlite;\/\/定义操作数据库实例$/;"	m	class:operate_Sqlite3	file:
+sqlite3	sqlite3.h	/^typedef struct sqlite3 sqlite3;$/;"	t	typeref:struct:sqlite3
+sqlite3_api_routines	sqlite3.h	/^typedef struct sqlite3_api_routines sqlite3_api_routines;$/;"	t	typeref:struct:sqlite3_api_routines
+sqlite3_backup	sqlite3.h	/^typedef struct sqlite3_backup sqlite3_backup;$/;"	t	typeref:struct:sqlite3_backup
+sqlite3_blob	sqlite3.h	/^typedef struct sqlite3_blob sqlite3_blob;$/;"	t	typeref:struct:sqlite3_blob
+sqlite3_callback	sqlite3.h	/^typedef int (*sqlite3_callback)(void*,int,char**, char**);$/;"	t
+sqlite3_changegroup	sqlite3.h	/^typedef struct sqlite3_changegroup sqlite3_changegroup;$/;"	t	typeref:struct:sqlite3_changegroup
+sqlite3_changeset_iter	sqlite3.h	/^typedef struct sqlite3_changeset_iter sqlite3_changeset_iter;$/;"	t	typeref:struct:sqlite3_changeset_iter
+sqlite3_context	sqlite3.h	/^typedef struct sqlite3_context sqlite3_context;$/;"	t	typeref:struct:sqlite3_context
+sqlite3_data_directory	sqlite3.h	/^SQLITE_API SQLITE_EXTERN char *sqlite3_data_directory;$/;"	v
+sqlite3_destructor_type	sqlite3.h	/^typedef void (*sqlite3_destructor_type)(void*);$/;"	t
+sqlite3_file	sqlite3.h	/^struct sqlite3_file {$/;"	s
+sqlite3_file	sqlite3.h	/^typedef struct sqlite3_file sqlite3_file;$/;"	t	typeref:struct:sqlite3_file
+sqlite3_index_constraint	sqlite3.h	/^  struct sqlite3_index_constraint {$/;"	s	struct:sqlite3_index_info
+sqlite3_index_constraint_usage	sqlite3.h	/^  struct sqlite3_index_constraint_usage {$/;"	s	struct:sqlite3_index_info
+sqlite3_index_info	sqlite3.h	/^struct sqlite3_index_info {$/;"	s
+sqlite3_index_info	sqlite3.h	/^typedef struct sqlite3_index_info sqlite3_index_info;$/;"	t	typeref:struct:sqlite3_index_info
+sqlite3_index_orderby	sqlite3.h	/^  struct sqlite3_index_orderby {$/;"	s	struct:sqlite3_index_info
+sqlite3_int64	sqlite3.h	/^typedef sqlite_int64 sqlite3_int64;$/;"	t
+sqlite3_io_methods	sqlite3.h	/^struct sqlite3_io_methods {$/;"	s
+sqlite3_io_methods	sqlite3.h	/^typedef struct sqlite3_io_methods sqlite3_io_methods;$/;"	t	typeref:struct:sqlite3_io_methods
+sqlite3_mem_methods	sqlite3.h	/^struct sqlite3_mem_methods {$/;"	s
+sqlite3_mem_methods	sqlite3.h	/^typedef struct sqlite3_mem_methods sqlite3_mem_methods;$/;"	t	typeref:struct:sqlite3_mem_methods
+sqlite3_module	sqlite3.h	/^struct sqlite3_module {$/;"	s
+sqlite3_module	sqlite3.h	/^typedef struct sqlite3_module sqlite3_module;$/;"	t	typeref:struct:sqlite3_module
+sqlite3_mutex	sqlite3.h	/^typedef struct sqlite3_mutex sqlite3_mutex;$/;"	t	typeref:struct:sqlite3_mutex
+sqlite3_mutex_methods	sqlite3.h	/^struct sqlite3_mutex_methods {$/;"	s
+sqlite3_mutex_methods	sqlite3.h	/^typedef struct sqlite3_mutex_methods sqlite3_mutex_methods;$/;"	t	typeref:struct:sqlite3_mutex_methods
+sqlite3_pcache	sqlite3.h	/^typedef struct sqlite3_pcache sqlite3_pcache;$/;"	t	typeref:struct:sqlite3_pcache
+sqlite3_pcache_methods	sqlite3.h	/^struct sqlite3_pcache_methods {$/;"	s
+sqlite3_pcache_methods	sqlite3.h	/^typedef struct sqlite3_pcache_methods sqlite3_pcache_methods;$/;"	t	typeref:struct:sqlite3_pcache_methods
+sqlite3_pcache_methods2	sqlite3.h	/^struct sqlite3_pcache_methods2 {$/;"	s
+sqlite3_pcache_methods2	sqlite3.h	/^typedef struct sqlite3_pcache_methods2 sqlite3_pcache_methods2;$/;"	t	typeref:struct:sqlite3_pcache_methods2
+sqlite3_pcache_page	sqlite3.h	/^struct sqlite3_pcache_page {$/;"	s
+sqlite3_pcache_page	sqlite3.h	/^typedef struct sqlite3_pcache_page sqlite3_pcache_page;$/;"	t	typeref:struct:sqlite3_pcache_page
+sqlite3_rtree_dbl	sqlite3.h	/^  typedef double sqlite3_rtree_dbl;$/;"	t
+sqlite3_rtree_dbl	sqlite3.h	/^  typedef sqlite3_int64 sqlite3_rtree_dbl;$/;"	t
+sqlite3_rtree_geometry	sqlite3.h	/^struct sqlite3_rtree_geometry {$/;"	s
+sqlite3_rtree_geometry	sqlite3.h	/^typedef struct sqlite3_rtree_geometry sqlite3_rtree_geometry;$/;"	t	typeref:struct:sqlite3_rtree_geometry
+sqlite3_rtree_query_info	sqlite3.h	/^struct sqlite3_rtree_query_info {$/;"	s
+sqlite3_rtree_query_info	sqlite3.h	/^typedef struct sqlite3_rtree_query_info sqlite3_rtree_query_info;$/;"	t	typeref:struct:sqlite3_rtree_query_info
+sqlite3_session	sqlite3.h	/^typedef struct sqlite3_session sqlite3_session;$/;"	t	typeref:struct:sqlite3_session
+sqlite3_snapshot	sqlite3.h	/^typedef struct sqlite3_snapshot {$/;"	s
+sqlite3_snapshot	sqlite3.h	/^} sqlite3_snapshot;$/;"	t	typeref:struct:sqlite3_snapshot
+sqlite3_stmt	sqlite3.h	/^typedef struct sqlite3_stmt sqlite3_stmt;$/;"	t	typeref:struct:sqlite3_stmt
+sqlite3_syscall_ptr	sqlite3.h	/^typedef void (*sqlite3_syscall_ptr)(void);$/;"	t
+sqlite3_temp_directory	sqlite3.h	/^SQLITE_API SQLITE_EXTERN char *sqlite3_temp_directory;$/;"	v
+sqlite3_uint64	sqlite3.h	/^typedef sqlite_uint64 sqlite3_uint64;$/;"	t
+sqlite3_value	sqlite3.h	/^typedef struct sqlite3_value sqlite3_value;$/;"	t	typeref:struct:sqlite3_value
+sqlite3_version	sqlite3.h	/^SQLITE_API SQLITE_EXTERN const char sqlite3_version[];$/;"	v
+sqlite3_vfs	sqlite3.h	/^struct sqlite3_vfs {$/;"	s
+sqlite3_vfs	sqlite3.h	/^typedef struct sqlite3_vfs sqlite3_vfs;$/;"	t	typeref:struct:sqlite3_vfs
+sqlite3_vtab	sqlite3.h	/^struct sqlite3_vtab {$/;"	s
+sqlite3_vtab	sqlite3.h	/^typedef struct sqlite3_vtab sqlite3_vtab;$/;"	t	typeref:struct:sqlite3_vtab
+sqlite3_vtab_cursor	sqlite3.h	/^struct sqlite3_vtab_cursor {$/;"	s
+sqlite3_vtab_cursor	sqlite3.h	/^typedef struct sqlite3_vtab_cursor sqlite3_vtab_cursor;$/;"	t	typeref:struct:sqlite3_vtab_cursor
+sqlite_int64	sqlite3.h	/^  typedef SQLITE_INT64_TYPE sqlite_int64;$/;"	t
+sqlite_int64	sqlite3.h	/^  typedef __int64 sqlite_int64;$/;"	t
+sqlite_int64	sqlite3.h	/^  typedef long long int sqlite_int64;$/;"	t
+sqlite_uint64	sqlite3.h	/^    typedef SQLITE_UINT64_TYPE sqlite_uint64;$/;"	t
+sqlite_uint64	sqlite3.h	/^    typedef unsigned SQLITE_INT64_TYPE sqlite_uint64;$/;"	t
+sqlite_uint64	sqlite3.h	/^  typedef unsigned __int64 sqlite_uint64;$/;"	t
+sqlite_uint64	sqlite3.h	/^  typedef unsigned long long int sqlite_uint64;$/;"	t
+stTopart	game.cpp	/^PARTS stTopart(string &s){$/;"	f
+stTorare	game.cpp	/^RARE stTorare(string &s){$/;"	f
+state	shop.h	/^	int state;	    \/\/判断装备的状态,1:不是时装，2:是时装$/;"	m	class:Actor
+szOsFile	sqlite3.h	/^  int szOsFile;            \/* Size of subclassed sqlite3_file *\/$/;"	m	struct:sqlite3_vfs
+ten	shop.h	/^    int ten;	\/\/持久度$/;"	m	class:Attribute
+test	game.cpp	/^void Game::test(){$/;"	f	class:Game
+tokeN	shop.h	/^    int tokeN;	\/\/代币	游戏中获得$/;"	m	struct:Value
+type	shop.h	/^	TYPE type;	    \/\/类型$/;"	m	class:Actor
+usable	sqlite3.h	/^     unsigned char usable;     \/* True if this constraint is usable *\/$/;"	m	struct:sqlite3_index_info::sqlite3_index_constraint
+v	shop.h	/^    Value(const Value &v)=delete;$/;"	m	struct:Value
+value	shop.h	/^    Value value;$/;"	m	class:BELT
+value	shop.h	/^    Value value;$/;"	m	class:DRUG
+value	shop.h	/^    Value value;$/;"	m	class:HAT
+value	shop.h	/^    Value value;$/;"	m	class:PANTS
+value	shop.h	/^    Value value;$/;"	m	class:SHIRT
+value	shop.h	/^    Value value;$/;"	m	class:SHOES
+value	shop.h	/^    Value value;$/;"	m	class:WEAPON
+wallet	player.h	/^    Value wallet;	\/\/玩家钱包$/;"	m	class:Player
+weal	shop.h	/^    WEALTH weal;\/\/价值$/;"	m	class:Attribute
+weigh	player.h	/^    int weigh;		\/\/玩家负重 $/;"	m	class:Player
+weight	shop.h	/^	int weight;	    \/\/重量$/;"	m	class:Actor
+white	font.h	86;"	d
+xAccess	sqlite3.h	/^  int (*xAccess)(sqlite3_vfs*, const char *zName, int flags, int *pResOut);$/;"	m	struct:sqlite3_vfs
+xBegin	sqlite3.h	/^  int (*xBegin)(sqlite3_vtab *pVTab);$/;"	m	struct:sqlite3_module
+xBestIndex	sqlite3.h	/^  int (*xBestIndex)(sqlite3_vtab *pVTab, sqlite3_index_info*);$/;"	m	struct:sqlite3_module
+xCachesize	sqlite3.h	/^  void (*xCachesize)(sqlite3_pcache*, int nCachesize);$/;"	m	struct:sqlite3_pcache_methods
+xCachesize	sqlite3.h	/^  void (*xCachesize)(sqlite3_pcache*, int nCachesize);$/;"	m	struct:sqlite3_pcache_methods2
+xCheckReservedLock	sqlite3.h	/^  int (*xCheckReservedLock)(sqlite3_file*, int *pResOut);$/;"	m	struct:sqlite3_io_methods
+xClose	sqlite3.h	/^  int (*xClose)(sqlite3_file*);$/;"	m	struct:sqlite3_io_methods
+xClose	sqlite3.h	/^  int (*xClose)(sqlite3_vtab_cursor*);$/;"	m	struct:sqlite3_module
+xColumn	sqlite3.h	/^  int (*xColumn)(sqlite3_vtab_cursor*, sqlite3_context*, int);$/;"	m	struct:sqlite3_module
+xColumnCount	sqlite3.h	/^  int (*xColumnCount)(Fts5Context*);$/;"	m	struct:Fts5ExtensionApi
+xColumnSize	sqlite3.h	/^  int (*xColumnSize)(Fts5Context*, int iCol, int *pnToken);$/;"	m	struct:Fts5ExtensionApi
+xColumnText	sqlite3.h	/^  int (*xColumnText)(Fts5Context*, int iCol, const char **pz, int *pn);$/;"	m	struct:Fts5ExtensionApi
+xColumnTotalSize	sqlite3.h	/^  int (*xColumnTotalSize)(Fts5Context*, int iCol, sqlite3_int64 *pnToken);$/;"	m	struct:Fts5ExtensionApi
+xCommit	sqlite3.h	/^  int (*xCommit)(sqlite3_vtab *pVTab);$/;"	m	struct:sqlite3_module
+xConnect	sqlite3.h	/^  int (*xConnect)(sqlite3*, void *pAux,$/;"	m	struct:sqlite3_module
+xCreate	sqlite3.h	/^  int (*xCreate)(sqlite3*, void *pAux,$/;"	m	struct:sqlite3_module
+xCreate	sqlite3.h	/^  int (*xCreate)(void*, const char **azArg, int nArg, Fts5Tokenizer **ppOut);$/;"	m	struct:fts5_tokenizer
+xCreate	sqlite3.h	/^  sqlite3_pcache *(*xCreate)(int szPage, int bPurgeable);$/;"	m	struct:sqlite3_pcache_methods
+xCreate	sqlite3.h	/^  sqlite3_pcache *(*xCreate)(int szPage, int szExtra, int bPurgeable);$/;"	m	struct:sqlite3_pcache_methods2
+xCreateFunction	sqlite3.h	/^  int (*xCreateFunction)($/;"	m	struct:fts5_api
+xCreateTokenizer	sqlite3.h	/^  int (*xCreateTokenizer)($/;"	m	struct:fts5_api
+xCurrentTime	sqlite3.h	/^  int (*xCurrentTime)(sqlite3_vfs*, double*);$/;"	m	struct:sqlite3_vfs
+xCurrentTimeInt64	sqlite3.h	/^  int (*xCurrentTimeInt64)(sqlite3_vfs*, sqlite3_int64*);$/;"	m	struct:sqlite3_vfs
+xDelUser	sqlite3.h	/^  void (*xDelUser)(void *);       \/* Called by SQLite to clean up pUser *\/$/;"	m	struct:sqlite3_rtree_geometry
+xDelUser	sqlite3.h	/^  void (*xDelUser)(void*);          \/* function to free pUser *\/$/;"	m	struct:sqlite3_rtree_query_info
+xDelete	sqlite3.h	/^  int (*xDelete)(sqlite3_vfs*, const char *zName, int syncDir);$/;"	m	struct:sqlite3_vfs
+xDelete	sqlite3.h	/^  void (*xDelete)(Fts5Tokenizer*);$/;"	m	struct:fts5_tokenizer
+xDestroy	sqlite3.h	/^  int (*xDestroy)(sqlite3_vtab *pVTab);$/;"	m	struct:sqlite3_module
+xDestroy	sqlite3.h	/^  void (*xDestroy)(sqlite3_pcache*);$/;"	m	struct:sqlite3_pcache_methods
+xDestroy	sqlite3.h	/^  void (*xDestroy)(sqlite3_pcache*);$/;"	m	struct:sqlite3_pcache_methods2
+xDeviceCharacteristics	sqlite3.h	/^  int (*xDeviceCharacteristics)(sqlite3_file*);$/;"	m	struct:sqlite3_io_methods
+xDisconnect	sqlite3.h	/^  int (*xDisconnect)(sqlite3_vtab *pVTab);$/;"	m	struct:sqlite3_module
+xDlClose	sqlite3.h	/^  void (*xDlClose)(sqlite3_vfs*, void*);$/;"	m	struct:sqlite3_vfs
+xDlError	sqlite3.h	/^  void (*xDlError)(sqlite3_vfs*, int nByte, char *zErrMsg);$/;"	m	struct:sqlite3_vfs
+xDlOpen	sqlite3.h	/^  void *(*xDlOpen)(sqlite3_vfs*, const char *zFilename);$/;"	m	struct:sqlite3_vfs
+xEof	sqlite3.h	/^  int (*xEof)(sqlite3_vtab_cursor*);$/;"	m	struct:sqlite3_module
+xFetch	sqlite3.h	/^  int (*xFetch)(sqlite3_file*, sqlite3_int64 iOfst, int iAmt, void **pp);$/;"	m	struct:sqlite3_io_methods
+xFetch	sqlite3.h	/^  sqlite3_pcache_page *(*xFetch)(sqlite3_pcache*, unsigned key, int createFlag);$/;"	m	struct:sqlite3_pcache_methods2
+xFetch	sqlite3.h	/^  void *(*xFetch)(sqlite3_pcache*, unsigned key, int createFlag);$/;"	m	struct:sqlite3_pcache_methods
+xFileControl	sqlite3.h	/^  int (*xFileControl)(sqlite3_file*, int op, void *pArg);$/;"	m	struct:sqlite3_io_methods
+xFileSize	sqlite3.h	/^  int (*xFileSize)(sqlite3_file*, sqlite3_int64 *pSize);$/;"	m	struct:sqlite3_io_methods
+xFilter	sqlite3.h	/^  int (*xFilter)(sqlite3_vtab_cursor*, int idxNum, const char *idxStr,$/;"	m	struct:sqlite3_module
+xFindFunction	sqlite3.h	/^  int (*xFindFunction)(sqlite3_vtab *pVtab, int nArg, const char *zName,$/;"	m	struct:sqlite3_module
+xFindTokenizer	sqlite3.h	/^  int (*xFindTokenizer)($/;"	m	struct:fts5_api
+xFree	sqlite3.h	/^  void (*xFree)(void*);          \/* Free a prior allocation *\/$/;"	m	struct:sqlite3_mem_methods
+xFullPathname	sqlite3.h	/^  int (*xFullPathname)(sqlite3_vfs*, const char *zName, int nOut, char *zOut);$/;"	m	struct:sqlite3_vfs
+xGetAuxdata	sqlite3.h	/^  void *(*xGetAuxdata)(Fts5Context*, int bClear);$/;"	m	struct:Fts5ExtensionApi
+xGetLastError	sqlite3.h	/^  int (*xGetLastError)(sqlite3_vfs*, int, char *);$/;"	m	struct:sqlite3_vfs
+xGetSystemCall	sqlite3.h	/^  sqlite3_syscall_ptr (*xGetSystemCall)(sqlite3_vfs*, const char *zName);$/;"	m	struct:sqlite3_vfs
+xInit	sqlite3.h	/^  int (*xInit)(void*);           \/* Initialize the memory allocator *\/$/;"	m	struct:sqlite3_mem_methods
+xInit	sqlite3.h	/^  int (*xInit)(void*);$/;"	m	struct:sqlite3_pcache_methods
+xInit	sqlite3.h	/^  int (*xInit)(void*);$/;"	m	struct:sqlite3_pcache_methods2
+xInst	sqlite3.h	/^  int (*xInst)(Fts5Context*, int iIdx, int *piPhrase, int *piCol, int *piOff);$/;"	m	struct:Fts5ExtensionApi
+xInstCount	sqlite3.h	/^  int (*xInstCount)(Fts5Context*, int *pnInst);$/;"	m	struct:Fts5ExtensionApi
+xLock	sqlite3.h	/^  int (*xLock)(sqlite3_file*, int);$/;"	m	struct:sqlite3_io_methods
+xMalloc	sqlite3.h	/^  void *(*xMalloc)(int);         \/* Memory allocation function *\/$/;"	m	struct:sqlite3_mem_methods
+xMutexAlloc	sqlite3.h	/^  sqlite3_mutex *(*xMutexAlloc)(int);$/;"	m	struct:sqlite3_mutex_methods
+xMutexEnd	sqlite3.h	/^  int (*xMutexEnd)(void);$/;"	m	struct:sqlite3_mutex_methods
+xMutexEnter	sqlite3.h	/^  void (*xMutexEnter)(sqlite3_mutex *);$/;"	m	struct:sqlite3_mutex_methods
+xMutexFree	sqlite3.h	/^  void (*xMutexFree)(sqlite3_mutex *);$/;"	m	struct:sqlite3_mutex_methods
+xMutexHeld	sqlite3.h	/^  int (*xMutexHeld)(sqlite3_mutex *);$/;"	m	struct:sqlite3_mutex_methods
+xMutexInit	sqlite3.h	/^  int (*xMutexInit)(void);$/;"	m	struct:sqlite3_mutex_methods
+xMutexLeave	sqlite3.h	/^  void (*xMutexLeave)(sqlite3_mutex *);$/;"	m	struct:sqlite3_mutex_methods
+xMutexNotheld	sqlite3.h	/^  int (*xMutexNotheld)(sqlite3_mutex *);$/;"	m	struct:sqlite3_mutex_methods
+xMutexTry	sqlite3.h	/^  int (*xMutexTry)(sqlite3_mutex *);$/;"	m	struct:sqlite3_mutex_methods
+xNext	sqlite3.h	/^  int (*xNext)(sqlite3_vtab_cursor*);$/;"	m	struct:sqlite3_module
+xNextSystemCall	sqlite3.h	/^  const char *(*xNextSystemCall)(sqlite3_vfs*, const char *zName);$/;"	m	struct:sqlite3_vfs
+xOpen	sqlite3.h	/^  int (*xOpen)(sqlite3_vfs*, const char *zName, sqlite3_file*,$/;"	m	struct:sqlite3_vfs
+xOpen	sqlite3.h	/^  int (*xOpen)(sqlite3_vtab *pVTab, sqlite3_vtab_cursor **ppCursor);$/;"	m	struct:sqlite3_module
+xPagecount	sqlite3.h	/^  int (*xPagecount)(sqlite3_pcache*);$/;"	m	struct:sqlite3_pcache_methods
+xPagecount	sqlite3.h	/^  int (*xPagecount)(sqlite3_pcache*);$/;"	m	struct:sqlite3_pcache_methods2
+xPhraseCount	sqlite3.h	/^  int (*xPhraseCount)(Fts5Context*);$/;"	m	struct:Fts5ExtensionApi
+xPhraseFirst	sqlite3.h	/^  int (*xPhraseFirst)(Fts5Context*, int iPhrase, Fts5PhraseIter*, int*, int*);$/;"	m	struct:Fts5ExtensionApi
+xPhraseFirstColumn	sqlite3.h	/^  int (*xPhraseFirstColumn)(Fts5Context*, int iPhrase, Fts5PhraseIter*, int*);$/;"	m	struct:Fts5ExtensionApi
+xPhraseNext	sqlite3.h	/^  void (*xPhraseNext)(Fts5Context*, Fts5PhraseIter*, int *piCol, int *piOff);$/;"	m	struct:Fts5ExtensionApi
+xPhraseNextColumn	sqlite3.h	/^  void (*xPhraseNextColumn)(Fts5Context*, Fts5PhraseIter*, int *piCol);$/;"	m	struct:Fts5ExtensionApi
+xPhraseSize	sqlite3.h	/^  int (*xPhraseSize)(Fts5Context*, int iPhrase);$/;"	m	struct:Fts5ExtensionApi
+xQueryPhrase	sqlite3.h	/^  int (*xQueryPhrase)(Fts5Context*, int iPhrase, void *pUserData,$/;"	m	struct:Fts5ExtensionApi
+xRandomness	sqlite3.h	/^  int (*xRandomness)(sqlite3_vfs*, int nByte, char *zOut);$/;"	m	struct:sqlite3_vfs
+xRead	sqlite3.h	/^  int (*xRead)(sqlite3_file*, void*, int iAmt, sqlite3_int64 iOfst);$/;"	m	struct:sqlite3_io_methods
+xRealloc	sqlite3.h	/^  void *(*xRealloc)(void*,int);  \/* Resize an allocation *\/$/;"	m	struct:sqlite3_mem_methods
+xRekey	sqlite3.h	/^  void (*xRekey)(sqlite3_pcache*, sqlite3_pcache_page*, $/;"	m	struct:sqlite3_pcache_methods2
+xRekey	sqlite3.h	/^  void (*xRekey)(sqlite3_pcache*, void*, unsigned oldKey, unsigned newKey);$/;"	m	struct:sqlite3_pcache_methods
+xRelease	sqlite3.h	/^  int (*xRelease)(sqlite3_vtab *pVTab, int);$/;"	m	struct:sqlite3_module
+xRename	sqlite3.h	/^  int (*xRename)(sqlite3_vtab *pVtab, const char *zNew);$/;"	m	struct:sqlite3_module
+xRollback	sqlite3.h	/^  int (*xRollback)(sqlite3_vtab *pVTab);$/;"	m	struct:sqlite3_module
+xRollbackTo	sqlite3.h	/^  int (*xRollbackTo)(sqlite3_vtab *pVTab, int);$/;"	m	struct:sqlite3_module
+xRoundup	sqlite3.h	/^  int (*xRoundup)(int);          \/* Round up request size to allocation size *\/$/;"	m	struct:sqlite3_mem_methods
+xRowCount	sqlite3.h	/^  int (*xRowCount)(Fts5Context*, sqlite3_int64 *pnRow);$/;"	m	struct:Fts5ExtensionApi
+xRowid	sqlite3.h	/^  int (*xRowid)(sqlite3_vtab_cursor*, sqlite3_int64 *pRowid);$/;"	m	struct:sqlite3_module
+xRowid	sqlite3.h	/^  sqlite3_int64 (*xRowid)(Fts5Context*);$/;"	m	struct:Fts5ExtensionApi
+xSavepoint	sqlite3.h	/^  int (*xSavepoint)(sqlite3_vtab *pVTab, int);$/;"	m	struct:sqlite3_module
+xSectorSize	sqlite3.h	/^  int (*xSectorSize)(sqlite3_file*);$/;"	m	struct:sqlite3_io_methods
+xSetAuxdata	sqlite3.h	/^  int (*xSetAuxdata)(Fts5Context*, void *pAux, void(*xDelete)(void*));$/;"	m	struct:Fts5ExtensionApi
+xSetSystemCall	sqlite3.h	/^  int (*xSetSystemCall)(sqlite3_vfs*, const char *zName, sqlite3_syscall_ptr);$/;"	m	struct:sqlite3_vfs
+xShmBarrier	sqlite3.h	/^  void (*xShmBarrier)(sqlite3_file*);$/;"	m	struct:sqlite3_io_methods
+xShmLock	sqlite3.h	/^  int (*xShmLock)(sqlite3_file*, int offset, int n, int flags);$/;"	m	struct:sqlite3_io_methods
+xShmMap	sqlite3.h	/^  int (*xShmMap)(sqlite3_file*, int iPg, int pgsz, int, void volatile**);$/;"	m	struct:sqlite3_io_methods
+xShmUnmap	sqlite3.h	/^  int (*xShmUnmap)(sqlite3_file*, int deleteFlag);$/;"	m	struct:sqlite3_io_methods
+xShrink	sqlite3.h	/^  void (*xShrink)(sqlite3_pcache*);$/;"	m	struct:sqlite3_pcache_methods2
+xShutdown	sqlite3.h	/^  void (*xShutdown)(void*);      \/* Deinitialize the memory allocator *\/$/;"	m	struct:sqlite3_mem_methods
+xShutdown	sqlite3.h	/^  void (*xShutdown)(void*);$/;"	m	struct:sqlite3_pcache_methods
+xShutdown	sqlite3.h	/^  void (*xShutdown)(void*);$/;"	m	struct:sqlite3_pcache_methods2
+xSize	sqlite3.h	/^  int (*xSize)(void*);           \/* Return the size of an allocation *\/$/;"	m	struct:sqlite3_mem_methods
+xSleep	sqlite3.h	/^  int (*xSleep)(sqlite3_vfs*, int microseconds);$/;"	m	struct:sqlite3_vfs
+xSync	sqlite3.h	/^  int (*xSync)(sqlite3_file*, int flags);$/;"	m	struct:sqlite3_io_methods
+xSync	sqlite3.h	/^  int (*xSync)(sqlite3_vtab *pVTab);$/;"	m	struct:sqlite3_module
+xTokenize	sqlite3.h	/^  int (*xTokenize)(Fts5Context*, $/;"	m	struct:Fts5ExtensionApi
+xTokenize	sqlite3.h	/^  int (*xTokenize)(Fts5Tokenizer*, $/;"	m	struct:fts5_tokenizer
+xTruncate	sqlite3.h	/^  int (*xTruncate)(sqlite3_file*, sqlite3_int64 size);$/;"	m	struct:sqlite3_io_methods
+xTruncate	sqlite3.h	/^  void (*xTruncate)(sqlite3_pcache*, unsigned iLimit);$/;"	m	struct:sqlite3_pcache_methods
+xTruncate	sqlite3.h	/^  void (*xTruncate)(sqlite3_pcache*, unsigned iLimit);$/;"	m	struct:sqlite3_pcache_methods2
+xUnfetch	sqlite3.h	/^  int (*xUnfetch)(sqlite3_file*, sqlite3_int64 iOfst, void *p);$/;"	m	struct:sqlite3_io_methods
+xUnlock	sqlite3.h	/^  int (*xUnlock)(sqlite3_file*, int);$/;"	m	struct:sqlite3_io_methods
+xUnpin	sqlite3.h	/^  void (*xUnpin)(sqlite3_pcache*, sqlite3_pcache_page*, int discard);$/;"	m	struct:sqlite3_pcache_methods2
+xUnpin	sqlite3.h	/^  void (*xUnpin)(sqlite3_pcache*, void*, int discard);$/;"	m	struct:sqlite3_pcache_methods
+xUpdate	sqlite3.h	/^  int (*xUpdate)(sqlite3_vtab *, int, sqlite3_value **, sqlite3_int64 *);$/;"	m	struct:sqlite3_module
+xUserData	sqlite3.h	/^  void *(*xUserData)(Fts5Context*);$/;"	m	struct:Fts5ExtensionApi
+xWrite	sqlite3.h	/^  int (*xWrite)(sqlite3_file*, const void*, int iAmt, sqlite3_int64 iOfst);$/;"	m	struct:sqlite3_io_methods
+x_seat	font.h	38;"	d
+y_seat	font.h	39;"	d
+yellow	font.h	82;"	d
+zErrMsg	sqlite3.h	/^  char *zErrMsg;                  \/* Error message from sqlite3_mprintf() *\/$/;"	m	struct:sqlite3_vtab
+zName	sqlite3.h	/^  const char *zName;       \/* Name of this virtual file system *\/$/;"	m	struct:sqlite3_vfs
+~Factory	shop.h	/^    virtual ~Factory(){}$/;"	f	class:Factory
+~Factory_All	shop.h	/^    virtual ~Factory_All(){}$/;"	f	class:Factory_All
+~Sqlite3	game.cpp	/^    ~Sqlite3(){$/;"	f	class:Sqlite3

@@ -61,7 +61,7 @@ typedef struct{
 class Socket{
 private:
     string errmsg;              //错误信息
-    char type[3];               //消息类型
+    char type[4];               //消息类型
     Total_msg *sfd;             //服务端结构体
     Total_msg *cfd;             //客户端结构体
 public:
@@ -183,7 +183,7 @@ public:
             memcpy(pbuf, ResHead, sizeof(ResHead));
             memcpy(pbuf + 11, (char *)data, strlen((char *)data));
             
-            cout<<"serve:"<<cfd->buff<<endl;
+            cout<<"serve send data:"<<cfd->buff<<endl;
             int ret = write(cfd->fd, cfd->buff, strlen(cfd->buff));
             //int ret = send(cfd->fd, &(cfd->buff), sizeof(Msg_buff), 0);
             if(ret < 0){
@@ -246,14 +246,15 @@ public:
         }
         //这里要校验前8字节是否都为纯数字
         unsigned long pkg_len = atol(cfd->buff);
-        cout<<"pkg_len:"<<pkg_len<<endl;
+        cout<<"收到请求包体长度:"<<pkg_len<<endl;
         if(pkg_len <= 0 || pkg_len > REQ_MAX_LEN){
             cout<<"The Length oF Reqmsg Is Illigle Max["<<REQ_MAX_LEN<<"]!"<<endl;
             return -2;
         }
+        memset(this->type, 0, sizeof(this->type));
         memset(cfd->buff, 0, sizeof(cfd->buff));
-        //获取请求类型
         int nbyte = 3;
+        long tpkg_len = pkg_len;
         //每次最大读取 1024 字节
         char *pbuf = cfd->buff;
         while(nbyte){
@@ -272,17 +273,19 @@ public:
                 }
             }else if(count == 0){
                 errmsg = SocketShowAccept(false);                
-                return -6;
+                return 1;
                 //break;
             }/*
             else{
                 errmsg = "SocketServeRead Read Error!";
                 return -5;
             }*/
-            if(nbyte == 3 && strncmp(TempBuff, "#", 3) == 0){
+            if(nbyte == 3 && TempBuff[2] == '#'){
                 strcpy(this->type, TempBuff);
+                nbyte = tpkg_len > sizeof(TempBuff) ? sizeof(TempBuff) : tpkg_len;
             }else{
-                nbyte -= count;
+                tpkg_len -= count;
+                nbyte = tpkg_len > sizeof(TempBuff) ? sizeof(TempBuff) : tpkg_len;
                 memcpy(pbuf, TempBuff, count);
                 pbuf += count;
             }
@@ -413,36 +416,46 @@ public:
             cout<<"The Length oF Reqmsg Is Illigle Max["<<REQ_MAX_LEN<<"]!"<<endl;
             return -2;
         }
+        
+        memset(this->type, 0, sizeof(this->type));
         memset(cfd->buff, 0, sizeof(cfd->buff));
-        //获取请求类型
-        //this->type = "";
         int nbyte = 3;
         //每次最大读取 1024 字节
         char *pbuf = cfd->buff;
+        long tpkg_len = pkg_len;
+        cout<<"收到应答包体长度:"<<pkg_len<<endl;
         while(nbyte){
             char TempBuff[1024] = {0};
             count = read(cfd->fd, TempBuff, nbyte);
             if(count < 0){
                 if(errno == EINTR){
                     count = 0;
+                    errmsg = "SocketServeRead Read EINTR!";
+                    return -3;
                 }else{
                     char temp[12] = {0};
                     sprintf(temp, "%d", count);
                     errmsg = "Recv Type is None Or Error:[" + string(strerror(errno)) + "][" + string(temp) + "]!";
-                    return -3;
+                    return -4;
                 }
             }else if(count == 0){
                 errmsg = "SocketClientRead the EOF or Read 0 Byte!";
+                //return 1;
                 break;
             }/*
             else if(count == -1){
                 errmsg = "SocketClientRead Error:[" + string(strerror(errno)) + "]!";
             }*/
-            if(nbyte == 3 && strncmp(TempBuff, "#", 3) == 0){
-                //this->type = string(TempBuff);
+            
+            if(nbyte == 3 && TempBuff[2] == '#'){
                 strcpy(this->type, TempBuff);
+                //第一次读取消息内容，默认读取整个包长
+                //如果包长大于缓存大小，则每次最多接收缓存大小这么长的字节
+                //及时实际包长很长，没此最大获取 sizeof(TempBuff) 个字节，直到获取完毕
+                nbyte = tpkg_len > sizeof(TempBuff) ? sizeof(TempBuff) : tpkg_len;
             }else{
-                nbyte -= count;
+                tpkg_len -= count;
+                nbyte = tpkg_len > sizeof(TempBuff) ? sizeof(TempBuff) : tpkg_len;
                 memcpy(pbuf, TempBuff, count);
                 pbuf += count;
             }
