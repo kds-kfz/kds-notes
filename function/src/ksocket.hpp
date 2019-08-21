@@ -40,37 +40,45 @@ namespace kfz{
 
 //设计缘由，单独的缓存区，不管任何情况，每次先接顺序为：长度、类型、消息内容
 //根据每次接收的不同消息长度，选择循环读取还是一次性读取
-/*
-typedef struct{
-//    char type[2];
-    char info[BUFF_SIZE];//数据长度(8字节) + 数据类型(2字节) + '#' + 消息体(10字节之后到\0)
-}Msg_buff;
-*/
 
 //这是socket通信结构体，服务端于客户端公用
 typedef struct{
     int fd;
     struct sockaddr_in addr;
     char ip_buf[64];
-//    Msg_buff buff;
-    char buff[BUFF_SIZE];
 }Total_msg;
 
+/*
+serve:
+sfd
+cfd
+ip_buff
+cbuff
+Msg_buff
+
+client:
+cfd
+cbuff
+Msg_buff
+*/
 
 //套接字通信类
 class Socket{
 private:
     string errmsg;              //错误信息
     char type[4];               //消息类型
+    char buff[BUFF_SIZE];       //缓存内容
     Total_msg *sfd;             //服务端结构体
     Total_msg *cfd;             //客户端结构体
 public:
     Socket(){
         //TODO 这里考虑可以用集成关系搭建，目的是减少内存分配，设计合理，毕竟服务端与客户端各自通信时需要的内存不全相同
-        cfd = new Total_msg;
-        sfd = new Total_msg;
-        memset(sfd, 0, sizeof(Total_msg));
-        memset(cfd, 0, sizeof(Total_msg));
+        cfd = new Total_msg{0};
+        sfd = new Total_msg{0};
+        //memset(this->sfd,  0, sizeof(Total_msg));
+        //memset(this->cfd,  0, sizeof(Total_msg));
+        memset(this->type, 0, sizeof(this->type));
+        memset(this->buff, 0, sizeof(buff));
         sfd->fd = 0;
         cfd->fd = 0;
         errmsg = "none";
@@ -176,16 +184,16 @@ public:
     bool SocketServeSend(const char *type, void *data){
         if(!strcmp(type, "01#")){
             //测试请求类型
-            char *pbuf = cfd->buff;
-            memset(pbuf, 0, sizeof(cfd->buff));
+            char *pbuf = buff;
+            memset(pbuf, 0, sizeof(buff));
             char ResHead[11] = {0};
             sprintf(ResHead, "%8d01#", strlen((char *)data));
             memcpy(pbuf, ResHead, sizeof(ResHead));
             memcpy(pbuf + 11, (char *)data, strlen((char *)data));
             
-            cout<<"serve send data:"<<cfd->buff<<endl;
-            int ret = write(cfd->fd, cfd->buff, strlen(cfd->buff));
-            //int ret = send(cfd->fd, &(cfd->buff), sizeof(Msg_buff), 0);
+            cout<<"serve send data:"<<buff<<endl;
+            int ret = write(cfd->fd, buff, strlen(buff));
+            //int ret = send(cfd->fd, &(buff), sizeof(Msg_buff), 0);
             if(ret < 0){
                 errmsg = "Server Write To Client Fail!";
                 return false;
@@ -195,21 +203,30 @@ public:
         errmsg = "[" + string(type) + "]，该服务尚未实现!";
         return false;
     }
-/*
+
     bool SocketServeSetup(){
-        //8秒,有些系统未能精确到微秒
-        struct timeval tv = {8, 0};
+        //8.5秒,有些系统未能精确到微秒
+        //struct timeval tv = {3, 0};
+        struct timeval tv;
+        tv.tv_sec = 8;
+        tv.tv_usec = 500000;
+        #if 0
         //在send(), recv()过程有时由于网络等原因，收发不能如期进行，可设置收发时限
-        //接受时限
-        if(setsockopt(socket, SOL_S0CKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv)) == -1){
-            errmsg = "Error: Setup Socket Timeout Failed!";
+        //接受时限, 服务器接收请求，阻塞等待接收，当接收到半网络断开，超时后则需要重新接收
+        //一般不用设置，否则客户端超时，则 accept 处于非阻塞状态
+        if(setsockopt(sfd->fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv,sizeof(tv)) == -1){
+            errmsg = "Setup Socket SO_RCVTIMEO Timeout Failed! Error:[" + string(strerror(errno)) + "]!";
             return false;
         }
-        //发送时限
-        //setsockopt (socket，SOL_S0CKET,SO_SNDTIMEO，(char *)&nNetTimeout,sizeof(int));
+        #endif
+        //发送时限，服务器发送应答，数据过长，或者网络问题，应答超时,则重新发
+        if(setsockopt(sfd->fd, SOL_SOCKET, SO_SNDTIMEO, (char *)&tv, sizeof(tv)) == -1){
+            errmsg = "Setup Socket SO_SNDTIMEO Timeout Failed! Error:[" + string(strerror(errno)) + "]!";
+            return false;
+        }
         return true;
     }
-  */  
+
     int SocketServeRead(){
         //设置通信时间
         //timeval tv;
@@ -217,12 +234,12 @@ public:
         //tv.tv_usec = (timeout $ 1000) * 1000;
         //select(sfd->fd +1, sfd->buff, 0, 0, &tv);
         
-        memset(cfd->buff, 0, sizeof(cfd->buff));
+        memset(buff, 0, sizeof(buff));
         //读取的字节数大于 240*384 = 92160 = 90 * 1024, 90k
         //此时需要循环读取
         //而使用 recv 读取
 #if 0
-        int ret = read(cfd->fd, &(cfd->buff), sizeof(Msg_buff));
+        int ret = read(cfd->fd, &(buff), sizeof(Msg_buff));
         if(ret == 0){
             errmsg = SocketShowAccept(false);
             //errmsg = "SocketServeRead Fail, client is breaked!";
@@ -240,23 +257,22 @@ public:
 #endif
         int count = 0;
         //有可能接收的请求字节数超长，故先检验包体长度是否合法
-        if((count = read(cfd->fd, cfd->buff, 8)) != 8){
+        if((count = read(cfd->fd, buff, 8)) != 8){
             cout<<"Recv Header Error, break!"<<endl;
             return -1;
         }
         //这里要校验前8字节是否都为纯数字
-        unsigned long pkg_len = atol(cfd->buff);
+        unsigned long pkg_len = atol(buff);
         cout<<"收到请求包体长度:"<<pkg_len<<endl;
         if(pkg_len <= 0 || pkg_len > REQ_MAX_LEN){
             cout<<"The Length oF Reqmsg Is Illigle Max["<<REQ_MAX_LEN<<"]!"<<endl;
             return -2;
         }
-        memset(this->type, 0, sizeof(this->type));
-        memset(cfd->buff, 0, sizeof(cfd->buff));
+        memset(buff, 0, sizeof(buff));
         int nbyte = 3;
         long tpkg_len = pkg_len;
         //每次最大读取 1024 字节
-        char *pbuf = cfd->buff;
+        char *pbuf = buff;
         while(nbyte){
             char TempBuff[1024] = {0};
             count = read(cfd->fd, TempBuff, nbyte);
@@ -292,8 +308,8 @@ public:
         }
     }
     
-    char *SocketServeBuff(){
-        return cfd->buff;
+    char *SocketBuff(){
+        return buff;
     }
     
     //服务端 客户端 公共函数
@@ -355,10 +371,10 @@ public:
     bool SocketClientSend(const char *type, void *data){
         /*
         Msg_buff *cp = (Msg_buff *)data;
-        memset(&(cfd->buff), 0, sizeof(cfd->buff));
-        memcpy(&(cfd->buff), cp, sizeof(Msg_buff));
-        int ret = write(cfd->fd, &(cfd->buff), sizeof(cfd->buff));
-        //int ret = send(cfd->fd, &(cfd->buff), sizeof(Msg_buff), 0);
+        memset(&(buff), 0, sizeof(buff));
+        memcpy(&(buff), cp, sizeof(Msg_buff));
+        int ret = write(cfd->fd, &(buff), sizeof(buff));
+        //int ret = send(cfd->fd, &(buff), sizeof(Msg_buff), 0);
         if(ret < 0){
             errmsg = "Client Write To Server Fail!";
             return false;
@@ -367,16 +383,16 @@ public:
         */
         if(!strcmp(type, "01#")){
             //测试请求类型
-            char *pbuf = cfd->buff;
-            memset(pbuf, 0, sizeof(cfd->buff));
+            char *pbuf = buff;
+            memset(pbuf, 0, sizeof(buff));
             char ResHead[11] = {0};
             sprintf(ResHead, "%8d01#", strlen((char *)data));
             memcpy(pbuf, ResHead, sizeof(ResHead));
             memcpy(pbuf + 11, (char *)data, strlen((char *)data));
             
-            cout<<"clint send data:"<<cfd->buff<<endl;
-            int ret = write(cfd->fd, cfd->buff, strlen(cfd->buff));
-            //int ret = send(cfd->fd, &(cfd->buff), sizeof(Msg_buff), 0);
+            cout<<"clint send data:"<<buff<<endl;
+            int ret = write(cfd->fd, buff, strlen(buff));
+            //int ret = send(cfd->fd, &(buff), sizeof(Msg_buff), 0);
             if(ret < 0){
                 errmsg = "Server Write To Client Fail!";
                 return false;
@@ -390,8 +406,8 @@ public:
     //之所以客户端接收服务器应答也要校验，应答长度，应答类型，是因为有可能某个客户有多个请求类型
     int SocketClientRead(){
         /*
-        memset(&(cfd->buff), 0, sizeof(Msg_buff));
-        int ret = read(cfd->fd, &(cfd->buff), sizeof(Msg_buff));
+        memset(&(buff), 0, sizeof(Msg_buff));
+        int ret = read(cfd->fd, &(buff), sizeof(Msg_buff));
         //ret == -1
         if(ret == -1){
             errmsg = "SocketClientRead Error:[" + string(strerror(errno)) + "]!";
@@ -403,25 +419,25 @@ public:
         return true;
         */
         int count = 0;
-        memset(cfd->buff, 0, sizeof(cfd->buff));
+        memset(buff, 0, sizeof(buff));
         
         //有可能接收的请求字节数超长，故先检验包体长度是否合法
-        if((count = read(cfd->fd, cfd->buff, 8)) != 8){
+        if((count = read(cfd->fd, buff, 8)) != 8){
             cout<<"Recv Header Error, break!"<<endl;
             return -1;
         }
         //这里要校验前8字节是否都为纯数字
-        unsigned long pkg_len = atol(cfd->buff);
+        unsigned long pkg_len = atol(buff);
         if(pkg_len <= 0 || pkg_len > REQ_MAX_LEN){
             cout<<"The Length oF Reqmsg Is Illigle Max["<<REQ_MAX_LEN<<"]!"<<endl;
             return -2;
         }
         
         memset(this->type, 0, sizeof(this->type));
-        memset(cfd->buff, 0, sizeof(cfd->buff));
+        memset(buff, 0, sizeof(buff));
         int nbyte = 3;
         //每次最大读取 1024 字节
-        char *pbuf = cfd->buff;
+        char *pbuf = buff;
         long tpkg_len = pkg_len;
         cout<<"收到应答包体长度:"<<pkg_len<<endl;
         while(nbyte){
@@ -464,9 +480,8 @@ public:
     }
     
     char *SocketClientBuff(){
-        return cfd->buff;
+        return buff;
     }
-
 
 protected:
 };
