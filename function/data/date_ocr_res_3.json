@@ -10,13 +10,13 @@
 			"regions":	[{
 					"linNum":	1,
 					"lines":	[{
-							"content":	"49016196512025076",
+							"content":	"56093197711267809",
 							"height":	38,
 							"isRecog":	1,
 							"isVerified":	0,
 							"lineType":	1,
 							"line_no":	0,
-							"sn_Inner":	3,
+							"sn_Inner":	21,
 							"width":	377,
 							"x":	381,
 							"y":	643
@@ -25,13 +25,13 @@
 				}, {
 					"linNum":	1,
 					"lines":	[{
-							"content":	"第一代居民身份证",
+							"content":	"第二代身份证",
 							"height":	38,
 							"isRecog":	1,
 							"isVerified":	0,
 							"lineType":	1,
 							"line_no":	0,
-							"sn_Inner":	127,
+							"sn_Inner":	13,
 							"width":	377,
 							"x":	381,
 							"y":	643
@@ -40,13 +40,13 @@
 				}, {
 					"linNum":	1,
 					"lines":	[{
-							"content":	"阿诺斯瓦辛格",
+							"content":	"电竞王力宏",
 							"height":	38,
 							"isRecog":	1,
 							"isVerified":	0,
 							"lineType":	1,
 							"line_no":	0,
-							"sn_Inner":	2,
+							"sn_Inner":	10,
 							"width":	377,
 							"x":	381,
 							"y":	643

@@ -17,7 +17,7 @@ OBJ=$(patsubst %.cpp,%.o,$(SRC))
 all : 1.a.out 2.a.out ser.out cli.out main.out
 1.a.out : 1.生成ocr应答数据.o $(INCS)/cJSON.o
 	$(CXX) -o $@ $^ $(FLAG)
-2.a.out : 2.解析ocr应答数据.o $(INCS)/cJSON.o
+2.a.out : 5.解析ocr应答数据.o $(INCS)/cJSON.o
 	$(CXX) -o $@ $^ $(FLAG)
 ser.out : serve.o
 	$(CXX) -o $@ $^

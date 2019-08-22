@@ -21,7 +21,7 @@ cJSON *OcrResInit(int num){
     return obj;
 }
 
-cJSON *OcrResObj(const char *content, int type){
+cJSON *OcrResObj(const char *content, int type, int num){
 	
     cJSON* obj_1 = cJSON_CreateObject();
     cJSON* arr_1 = cJSON_CreateArray();
@@ -32,7 +32,7 @@ cJSON *OcrResObj(const char *content, int type){
     cJSON_AddNumberToObject(obj_1,"isVerified",0);
     cJSON_AddNumberToObject(obj_1,"lineType",1);
     cJSON_AddNumberToObject(obj_1,"line_no",0);
-    cJSON_AddNumberToObject(obj_1,"sn_Inner",3);
+    cJSON_AddNumberToObject(obj_1,"sn_Inner",num);
     cJSON_AddNumberToObject(obj_1,"width",377);
     cJSON_AddNumberToObject(obj_1,"x",381.0);
     cJSON_AddNumberToObject(obj_1,"y",643.0);
@@ -85,20 +85,31 @@ cJSON *OcrResList(int num, cJSON *arr_33){
 int main()
 {
 #if 1
-    cJSON *obj_1 = OcrResObj("49016196512025076", 1);
-    cJSON *obj_2 = OcrResObj("第一代居民身份证", 2);
-    cJSON *obj_3 = OcrResObj("阿诺斯瓦辛格", 3);
+    cJSON *obj_1 = OcrResObj("49016196512025076", 1, 3);
+    cJSON *obj_2 = OcrResObj("第一代居民身份证", 2, 127);
+    cJSON *obj_3 = OcrResObj("阿诺斯瓦辛格", 2, 2);
+    cJSON *obj_4 = OcrResObj("56093197711267809", 1, 21);
+    cJSON *obj_5 = OcrResObj("第二代身份证", 2, 13);
+    cJSON *obj_6 = OcrResObj("电竞王力宏", 2, 10);
 	
     //lines
-    cJSON *arr = cJSON_CreateArray();
-    cJSON_AddItemToArray(arr, obj_1);
-    cJSON_AddItemToArray(arr, obj_2);
-    cJSON_AddItemToArray(arr, obj_3);
+    cJSON *arr_1 = cJSON_CreateArray();
+    cJSON_AddItemToArray(arr_1, obj_1);
+    cJSON_AddItemToArray(arr_1, obj_2);
+    cJSON_AddItemToArray(arr_1, obj_3);
+    
+    cJSON *arr_2 = cJSON_CreateArray();
+    cJSON_AddItemToArray(arr_2, obj_4);
+    cJSON_AddItemToArray(arr_2, obj_5);
+    cJSON_AddItemToArray(arr_2, obj_6);
+    
+    //删除，数组中第一个节点，释放内存
+    //cJSON_DeleteItemFromArray(arr, 0);
 
     //list
-    cJSON *obj = OcrResList(3, arr);
+    cJSON *obj1 = OcrResList(3, arr_1);
     
-    char* p = cJSON_Print(obj);
+    char* p = cJSON_Print(obj1);
 	printf ("%s\n",p);
 	FILE* fp = fopen("../data/date_ocr_res_2.json","wb");
 	if(fp == NULL){
@@ -109,8 +120,26 @@ int main()
 	fclose(fp);
 
     //这里释放外层的cJSON *指针即可
-	cJSON_Delete(obj);
+	cJSON_Delete(obj1);
     free(p);
+
+    /************************************/
+    //list
+    cJSON *obj2 = OcrResList(3, arr_2);
+    
+    char* p2 = cJSON_Print(obj2);
+	printf ("%s\n",p);
+	FILE* fp2 = fopen("../data/date_ocr_res_3.json","wb");
+	if(fp2 == NULL){
+        cout<<"目录不存在"<<endl;
+        exit(1);
+    }
+    fwrite(p2, strlen(p2), 1, fp2);
+	fclose(fp2);
+
+    //这里释放外层的cJSON *指针即可
+	cJSON_Delete(obj2);
+    free(p2);
 #endif
 #if 0
     //原始实现方式
