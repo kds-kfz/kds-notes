@@ -91,13 +91,33 @@ protected:
 
 //日期处理类
 class Date{
+private:
+    time_t tmt;
+    struct tm *pTime;
+    char timeBuf[64];
+    string stime;
+public:
+    Date(){
+        this->tmt = time(NULL);
+        this->pTime = NULL;
+        memset(timeBuf, 0, sizeof(timeBuf));
+        stime = "";
+    }
+    
+    //获取本地时间
+    string GetTime(const string& fmt){
+        pTime = localtime(&tmt);
+        strftime(timeBuf, sizeof(timeBuf), fmt.c_str(), pTime);
+        stime = timeBuf;
+        return stime;
+    }
 
+    ~Date(){
+        pTime = NULL;
+    }
 };
 
 //日志处理类
-class Log{
-
-};
 
 //http通信类
 class Http{
