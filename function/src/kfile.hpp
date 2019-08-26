@@ -65,7 +65,7 @@ public:
                 _fd = open(filename, O_CREAT|flags, 0666);
             }
         }else if(flags == O_APPEND){
-            _fd = open(filename, O_CREAT|O_RDWR|flags, 0640);
+            _fd = open(filename, O_RDWR|flags);
         }
         /*
         if((_fd = open(filename, flags)) == -1){
@@ -243,10 +243,10 @@ public:
         //如果文件描述符非0，那么 _data 才有可能站有内存
         if(this->_fd){
             if(_data){
-                cout<<"正在析构all,fd="<<this->_fd<<",data="<<this->_data<<endl;
+                //cout<<"正在析构all,fd="<<this->_fd<<",data="<<this->_data<<endl;
                 Close();
             }else{
-                cout<<"正在析构,fd="<<this->_fd<<",data="<<this->_data<<endl;
+                //cout<<"正在析构,fd="<<this->_fd<<",data="<<this->_data<<endl;
                 close(this->_fd);
                 this->_size = 0;
             }

@@ -31,7 +31,8 @@ int CopyStringWithoutEmppty(char *dst, char *src, int len){
 
 //函数功能：读取目录下指定格式的所有文件路径到vector容器
 //demo：readFileList(".", ".md", files);
-int readFileList(const char *basePath, const char *mark, vector<string> &files){
+//新增，文件开头匹配，初略的比较
+int readFileList(const char *basePath, const char *mark, vector<string> &files, const char *head = NULL){
     DIR *dir;
     struct dirent *ptr;
     char base[1024] = {0};
@@ -48,6 +49,13 @@ int readFileList(const char *basePath, const char *mark, vector<string> &files){
                 memset(base, '\0', sizeof(base));
                 strcpy(base, basePath);
                 strcat(base, "/");
+                if(head){
+                    if(strstr(ptr->d_name, head) != 0){
+                        strcat(base, ptr->d_name);
+                        files.push_back(base);
+                    }
+                    continue;
+                }
                 strcat(base, ptr->d_name);
                 files.push_back(base);
             }
@@ -166,11 +174,17 @@ int main(int argc, char *argv[]){
     CopyStringWithoutEmppty(node.AppSysCode, tempstr, sizeof(tempstr));
     cout<<"["<<node.AppSysCode<<"]"<<endl;
 
-    //readFileList("/root/github/kds-notes", ".cpp", files);
+    readFileList("../log", ".log", files, "asdad-123");
     cout<<"有效字符个数："<<StringSplit((char *)":12:::& $2:3:4:a::33::", ':', files)<<endl;
     for(vector<string>::iterator it = files.begin(); it != files.end(); it++){
         cout<<*it<<endl;
     }
+    
+    string path = "../log/mount-service";
+    string yy = path.substr(0, path.find_last_of("/"));
+    cout<<yy<<endl;
+    yy = path.substr(path.find_last_of("/"));
+    cout<<yy<<endl;
     
     debugout("当前日期：%s", GetTime("%Y%m%d%H%M%S").c_str());
     return 0;
