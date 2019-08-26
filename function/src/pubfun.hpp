@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <vector>
-
+#include <sys/time.h>
 
 using namespace std;
 
@@ -176,20 +176,46 @@ class Date{
 private:
     time_t tmt;
     struct tm *pTime;
-    char timeBuf[64];
+    char timeBuf[128];
     string stime;
+    
+    struct timeval tv;
+    //struct timezone *ptz;
 public:
     Date(){
         this->tmt = time(NULL);
         this->pTime = NULL;
         memset(timeBuf, 0, sizeof(timeBuf));
         stime = "";
+        
+        //this->ptv = NULL;
+        //this->ptz = NULL;
     }
     
-    //获取本地时间
+    //支持传入格式，比较灵活
     string GetTime(const string& fmt){
         pTime = localtime(&tmt);
         strftime(timeBuf, sizeof(timeBuf), fmt.c_str(), pTime);
+        stime = timeBuf;
+        return stime;
+    }
+    
+    //获取本地时间
+    string GetTime(){
+        pTime = localtime(&tmt);
+
+        gettimeofday(&tv, NULL);
+        //gettimeofday(&tv, ptz);
+        //localtime_r(&ptv->tv_sec, pTime);//线程安全
+        
+        //XXX 这里指针访问不到 tv_usec，不知为什么
+        //sprintf(timeBuf, "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
+        //    pTime->tm_year + 1900, pTime->tm_mon + 1, pTime->tm_mday,
+        //    pTime->tm_hour, pTime->tm_min,pTime->tm_sec, ptv->tv_usec);
+            
+        sprintf(timeBuf, "%04d-%02d-%02d %02d:%02d:%02d.%06ld",
+            pTime->tm_year + 1900, pTime->tm_mon + 1, pTime->tm_mday,
+            pTime->tm_hour, pTime->tm_min, pTime->tm_sec, tv.tv_usec);
         stime = timeBuf;
         return stime;
     }

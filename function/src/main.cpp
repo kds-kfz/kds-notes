@@ -35,7 +35,8 @@ int main(int argc, char *argv[]){
     long sec = 0;
     while(1){
         sleep(1);
-        ERROR_LOG("测试[%ld]\n", sec++);
+        INFO_KLOG("测试[%ld]\n", sec++);
+        INFO_TLOG("测试[%ld]\n", sec++);
     }
     return 0;
 }

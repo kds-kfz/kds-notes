@@ -6,18 +6,16 @@
 #include <pwd.h>
 #include"kfile.hpp"
 #include"pubfun.hpp"
-//#include <stdlib.h>
 #include <map>
 
 namespace kfz{
 
-
 typedef enum{
-    ERROR = 1, INFO, DEBUG, TEST,
+    ERROR = 1, WARN, INFO, DEBUG, TEST,
 }LOG_TYPE;
 
 typedef enum{
-    KDS = 1, TC, OTHER,
+    KDS = 1, TC,
 }COMPANYS;
 
 //日志切割类型.按日志大小切割，建立天日志，建立小时日志
@@ -155,7 +153,7 @@ public:
     //设计的来源是 KDS 日志的实现，原版只是单一的cpp与头文件
     //重新设计成日志类，可更好的条调用日志方法，方法内不同地方设计成宏替换
     //该函数值输出不定参数的内容
-    void Log_Msg(LOG_TYPE type, const char *fmt, ... ){
+    void Log_Msg(COMPANYS company, LOG_TYPE type, const char *fmt, ... ){
         /*
         if(this->_plog->Handle() == 0){
             //追加方式打开
@@ -189,11 +187,23 @@ public:
         char buf[2048] = {0};
         char *pbuf = buf;
         Date date;
-        sprintf(pbuf, "TC %s %s %s",
+        #if 0
+        sprintf(pbuf, "%s %s %s %s",
+            ( company == KDS ? "KDS" : company == TC ? "TC" : "OTHER" ),
             ( type == ERROR ? "ERR" : type == DEBUG ? "DBG" : type == INFO ? "RUN" : "---" ),
             _logsource._author.c_str(),
             date.GetTime("%Y-%m-%d %H:%M:%S").c_str()
             );
+        #else
+        sprintf(pbuf, "%s %s %s %s",
+            ( company == KDS ? "KDS" : company == TC ? "TC" : "OTHER" ),
+            ( type == ERROR ? "ERR" : type == DEBUG ? "DBG" : type == INFO ? "RUN" : "---" ),
+            _logsource._author.c_str(),
+            date.GetTime().c_str()
+            );
+        #endif
+
+
         pbuf += strlen(buf);
         try{
             va_list ap;
@@ -210,54 +220,26 @@ public:
         delete _plog;
     }
 };
-#define DETAIL(level,fmt, args...) glog.Log_Msg(level, "[%s][%d]%s: " fmt, __FILE__, __LINE__, __FUNCTION__, ##args)
-#define ERROR_LOG(fmt, args...) DETAIL(ERROR, fmt, ##args)
-/*
+
+#define DETAIL(company, level, fmt, args...) glog.Log_Msg(company, level, \
+        " " "%d %d" " " LOG_MODULE "%s:%d %s: " fmt, \
+            getppid(), getpid(), __FILE__, __LINE__, __FUNCTION__, ##args)
+//天创日志
+#define ERROR_TLOG(fmt, args...) DETAIL(TC, ERROR, fmt, ##args)
+#define WARN_TLOG(fmt, args...)  DETAIL(TC, WARN,  fmt, ##args)
+#define INFO_TLOG(fmt, args...)  DETAIL(TC, INFO,  fmt, ##args)
+#define DEBUG_TLOG(fmt, args...) DETAIL(TC, DEBUG, fmt, ##args)
+#define TEST_TLOG(fmt, args...)  DETAIL(TC, TEST,  fmt, ##args)
+//盈通日志
+#define ERROR_KLOG(fmt, args...) DETAIL(KDS, ERROR, fmt, ##args)
+#define WARN_KLOG(fmt, args...)  DETAIL(KDS, WARN,  fmt, ##args)
+#define INFO_KLOG(fmt, args...)  DETAIL(KDS, INFO,  fmt, ##args)
+#define DEBUG_KLOG(fmt, args...) DETAIL(KDS, DEBUG, fmt, ##args)
+#define TEST_KLOG(fmt, args...)  DETAIL(KDS, TEST,  fmt, ##args)
+
 # ifndef LOG_MODULE
 # define LOG_MODULE "LOG "
 # endif
 
-# define ERR_LOG( fmt, args... ) \
-    logMsg( ERROR, LOG_MODULE " " "%s:%d:%s: "fmt"\n", __FILE__, __LINE__, __FUNCTION__, ##args )
-# define WARN_LOG( fmt, args... ) \
-    logMsg( INFO, LOG_MODULE " " "%s:%d:%s: "fmt"\n", __FILE__, __LINE__, __FUNCTION__, ##args )
-# define DBG_LOG( fmt, args... ) \
-    logMsg( DEBUG, LOG_MODULE " - " fmt "\n", ##args )
-# define TEST_LOG( fmt, args... ) \
-    logMsg( TEST, LOG_MODULE " - " fmt "\n", ##args )
-# define RUN_LOG( fmt, args... ) \
-    logMsg( INFO, LOG_MODULE " - " fmt "\n", ##args )
-*/
-/*
-// 系统运行相关日志宏
-# define SYSERR_LOG( fmt, args... ) \
-    SYSTEM_LOG( ERROR, fmt, ##args )
-
-# define SYSRUN_LOG( fmt, args... ) \
-    SYSTEM_LOG( INFO, fmt, ##args )
-
-# define SYSDBG_LOG( fmt, args... ) \
-    SYSTEM_LOG( DEBUG, fmt, ##args )
-
-# define SYSTEST_LOG( fmt, args... ) \
-    SYSTEM_LOG( TEST, fmt, ##args )
-
-// -----------------
-# define SYSTEM_LOG( type, fmt, args... ) \
-    do { \
- \
-        struct tm buf; \
-        struct timeval tv; \
-        Date date; \
- \
-        Log_Msg( type, \
-                "TS %s %s %d %ld " \
-                LOG_MODULE " %s:%d:%s: SYSTEM - - - - - - - " fmt "\n", \
-                (type == ERROR ? "ERR" : type == DEBUG ? "DBG" : type == INFO ? "RUN" : "---"), \
-                date.GetTime("%Y-%m-%d %H:%M:%S").c_str(), getpid(), getppid(), \
-                __FILE__, __LINE__, __FUNCTION__, ##args ); \
-    } while(0)
-}
-*/
 }
 #endif
