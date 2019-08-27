@@ -4,8 +4,8 @@
 #include <stdarg.h>
 #include <sys/types.h>
 #include <pwd.h>
-#include"kfile.hpp"
-#include"pubfun.hpp"
+#include "kfile.hpp"
+#include "kpubfun.hpp"
 #include <map>
 
 namespace kfz{
@@ -154,12 +154,10 @@ public:
     //重新设计成日志类，可更好的条调用日志方法，方法内不同地方设计成宏替换
     //该函数值输出不定参数的内容
     void Log_Msg(COMPANYS company, LOG_TYPE type, const char *fmt, ... ){
-        /*
-        if(this->_plog->Handle() == 0){
-            //追加方式打开
-            //这里需要判断，如果有文件，且文件大小没达到切割的条件则不要新创文件
-            this->_plog->Open(this->_logpatch.c_str(), O_APPEND);
-        }*/
+        if(type > TEST){
+            return;   
+        }
+
         if(IsAccord()){
             //先保存旧的目录
             string validpath = this->_logpatch;

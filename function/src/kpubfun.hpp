@@ -1,5 +1,5 @@
-#ifndef __PUBFUN__H__
-#define __PUBFUN__H__
+#ifndef __KPUBFUN__H__
+#define __KPUBFUN__H__
 
 #include <iostream>
 #include <string>
@@ -224,6 +224,23 @@ public:
         pTime = NULL;
     }
 };
+
+#if 0
+//函数功能：以任何格式打印出数据
+//demo：debugout("当前日期：%s", GetTime("%Y%m%d").c_str());
+void debugout(const char *fmt, ...){
+    char buf[512];
+    try{
+        va_list ap;
+        va_start(ap, fmt);
+        vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
+        va_end(ap);
+        cout<<buf<<endl;
+    }catch(...){
+        cout<<"exception in construct debug message"<<endl;
+    }
+}
+#endif
 
 //目录文件处理类
 class DirFile{

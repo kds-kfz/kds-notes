@@ -165,6 +165,147 @@ int stringSplit( const string str, const string sep, vector <string> &vec )
     return vec.size();
 }
 
+//守护进程初始化
+void init_dameon(){
+#ifdef __OS_LINUX_VER
+    int pid;
+    int i;
+    if(pid = fork()){//是父进程，结束父进程
+        exit(0);
+    }else if(pid < 0){//fork 失败，退出
+        exit(1);
+    }
+
+    //是第一子进程，后台继续执行
+    
+    //第一子进程成为新的会话组长和进程组长
+    setsid();
+    
+    //关闭打开的文件描述符
+    //for(i = 0; i < NOFILE; ++i){
+    //    close(i);
+    //}
+    //改变工作目录到 /tmp
+    //chdir("/tmp");
+
+    //重设文件创建掩模
+    umask(0);
+    close(0);
+    open("/dev/null", O_RDWR);
+    dup2(0, 1);
+    dup2(0, 2);
+
+    //signal(SIGCHLD, SIG_IGN);
+
+    return;
+#endif
+}
+
+//信号回调函数
+void SigHandlerProc(int signo){
+    if(signo == SIGCHLD){
+        cout<<"SigHandlerProc: signo = SIGCHLD"<<endl;
+        exit(0);
+    }else if(signo == SIGINT){
+        cout<<"SigHandlerProc: signo = SIGINT"<<endl;
+        delSem();
+        exit(0);
+    }else if(signo == SIGFPE || signo == SIGSEGV || signo == SIGBUS ||signo == SIGABRT){
+        string temp;
+        temp.clear();
+        if(signo == SIGFPE){
+            temp.appned("SIGFPE");
+        }else if(signo == SIGSEGV){
+            temp.append("SIGSEGV");
+        }else if(signo == SIGBUS){
+            temp.append("SIGBUS");
+        }else if(signo == SIGABRT){
+            temp.append("SIGABRT");
+        }
+
+        ZSocket so;
+        int ret = so.Connect("127.0.0.1", 5669);
+        if(ret){
+            cout<<"SigHandlerProc: signo = "<<temp<<" task process failed!"<<endl;
+            exit(0);
+        }else{
+            char msgbuff[1024] = {0}, *pmsg = NULL;
+            pmsg = msgbuff;
+            memcpy(msgbuff, "00000002", 8);
+            pmsg += 8;
+            memcpy(pmsg, "99", 2);
+            pmsg += 2;
+            ret = so.Send((void *)msgbuff, 10);
+            if(ret <= 0){
+                cout<<"SigHandlerProc: signo = "<<temp<<" task process msg failed!"<<endl;   
+                so.Close();
+                exit(0);
+            }
+        }
+
+        close(so.Handle());
+        cout<<"SigHandlerProc signo = "<<temp<<endl;
+        exit(0);
+    }
+}
+
+
+//信号处理函数
+int initSigProc(){
+    //SIGINT 程序终止（interrupt）信号，在用户键入INTR(通常是ctrl - c)时发出，用于通知前台进程组终止程序
+    if(SIG_ERR == signal(SIGINT, SigHandlerProc)){
+        return -1;
+    }
+    if(SIG_ERR == signal(SIGPIPE, SigHandlerProc)){
+        return -1;
+    }
+    if(SIG_ERR == signal(SIGFPE, SigHandlerProc)){
+        return -1;
+    }
+
+    //设置信号处理
+    struct sigaction sa;
+    sa.sa_handler = SigHandlerProc;
+
+    //一般情况下，当信号处理函数运行时，内核将阻塞给定信号
+    //但是如果设置了 SA_NODEFER 标记，那么在该信号处理函数运行时，内核不会阻塞该信号
+    sa.sa_flags = SA_NODEFER;
+
+    //清空信号集
+    sigemptyset(&sa.sa_mask);
+
+    //查询或设置信号处理方式
+    //SIGSEGV 试图访问为分配给自己的内存，或者试图往没有权限的内存地址写数据
+    /*
+    int ret = sigaction(SIGSEGV, &sz, NULL);
+    if(ret < 0){
+        cout<<"Error: 设置信号 SIGSEGV 处理方式失败"<<endl;
+        return ret;
+    }
+    ret = sigaction(SIGBUS, &sz, NULL);
+    if(ret < 0){
+        cout<<"Error: 设置信号 SIGBUS 处理方式失败"<<endl;
+        return ret;
+    }
+    ret = sigaction(SIGABRT, &sz, NULL);
+    if(ret < 0){
+        cout<<"Error: 设置信号 SIGABRT 处理方式失败"<<endl;
+        return ret;
+    }
+    */
+
+    //SIG_IGN 这个符号表示忽略该信号，执行了相当于 signal() 调用后，进程会忽略类型为 sig 的信号
+    sa.sa_handler = SIG_IGN;
+    sa.sa_flags |= SA_NOCLDWAIT;
+    int ret = sigaction(SIGCHLD, &sa, NULL);
+    if(ret < 0){
+        cout<<"Error: 设置信号 SIGCHLD 处理方式失败"<<endl;
+        return ret;
+    }
+
+    return ret;
+}
+
 int main(int argc, char *argv[]){
     task_node_t node;
     vector<string> files;
