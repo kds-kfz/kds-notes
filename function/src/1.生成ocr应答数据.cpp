@@ -73,12 +73,59 @@ cJSON *OcrResList(int num, cJSON *arr_33){
     //向对象中插入对象
 	cJSON_AddStringToObject(obj_3,"RstCode","0000");
     //对象中添加对象
-    cJSON_AddItemToObject(obj_3, "dataList", arr_2);
+
+    //cJSON_AddItemToObject(obj_3, "dataList", arr_2);
     //向对象中插入对象，值是空
+    cJSON* obj_4 = cJSON_CreateObject();
+    cJSON_AddItemToObject(obj_4, "dataList", arr_2);
+    char *p = cJSON_Print(obj_4);
+    string temp;
+    temp = "[" + string(p) + "]";
+    //cout<<temp<<endl;
+    cJSON_AddStringToObject(obj_3,"RstMesg", temp.c_str());
+
 	cJSON_AddNullToObject(obj_3,"IDFilewPath");
 	cJSON_AddNullToObject(obj_3,"HeadFilePath");
 	cJSON_AddNullToObject(obj_3,"filename");
     
+    free(p);
+    return obj_3;
+}
+
+cJSON *OcrResListNull(){
+    cJSON *obj = OcrResInit(0);
+    
+    //对象中添加对象
+    cJSON_AddNullToObject(obj, "regions");
+    //在此对象中添加剩余对象
+	//cJSON_AddNumberToObject(obj,"regionType",1);
+    
+    //向数组中添加对象
+	cJSON* arr_2 = cJSON_CreateArray();
+    cJSON_AddItemToArray(arr_2, obj);
+    //向对象中插入对象
+    cJSON_AddNumberToObject(obj,"dataNum",1);
+
+    cJSON* obj_3 = cJSON_CreateObject();
+    //向对象中插入对象
+	cJSON_AddStringToObject(obj_3,"RstCode","0000");
+    //对象中添加对象
+
+    //cJSON_AddItemToObject(obj_3, "dataList", arr_2);
+    //向对象中插入对象，值是空
+    cJSON* obj_4 = cJSON_CreateObject();
+    cJSON_AddItemToObject(obj_4, "dataList", arr_2);
+    char *p = cJSON_Print(obj_4);
+    string temp;
+    temp = "[" + string(p) + "]";
+    //cout<<temp<<endl;
+    cJSON_AddStringToObject(obj_3,"RstMesg", temp.c_str());
+
+	cJSON_AddNullToObject(obj_3,"IDFilewPath");
+	cJSON_AddNullToObject(obj_3,"HeadFilePath");
+	cJSON_AddNullToObject(obj_3,"filename");
+    
+    free(p);
     return obj_3;
 }
 
@@ -110,7 +157,7 @@ int main()
     cJSON *obj1 = OcrResList(3, arr_1);
     
     char* p = cJSON_Print(obj1);
-	printf ("%s\n",p);
+	//printf ("%s\n",p);
 	FILE* fp = fopen("../data/date_ocr_res_2.json","wb");
 	if(fp == NULL){
         cout<<"目录不存在"<<endl;
@@ -128,7 +175,7 @@ int main()
     cJSON *obj2 = OcrResList(3, arr_2);
     
     char* p2 = cJSON_Print(obj2);
-	printf ("%s\n",p);
+	//printf ("%s\n",p);
 	FILE* fp2 = fopen("../data/date_ocr_res_3.json","wb");
 	if(fp2 == NULL){
         cout<<"目录不存在"<<endl;
@@ -140,6 +187,23 @@ int main()
     //这里释放外层的cJSON *指针即可
 	cJSON_Delete(obj2);
     free(p2);
+
+    /************************************/
+    cJSON *obj3 = OcrResListNull();
+    
+    char* p3 = cJSON_Print(obj3);
+	//printf ("%s\n",p);
+	FILE* fp3 = fopen("../data/date_ocr_res_5.json","wb");
+	if(fp2 == NULL){
+        cout<<"目录不存在"<<endl;
+        exit(1);
+    }
+    fwrite(p3, strlen(p3), 1, fp3);
+	fclose(fp3);
+
+    //这里释放外层的cJSON *指针即可
+	cJSON_Delete(obj3);
+    free(p3);
 #endif
 #if 0
     //原始实现方式
