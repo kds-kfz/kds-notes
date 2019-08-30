@@ -14,6 +14,7 @@ cJSON *OcrResInit(int num){
 	cJSON_AddNumberToObject(obj,"all_ocr",0);
 	cJSON_AddNumberToObject(obj,"dataDataLen",0);
 	cJSON_AddNumberToObject(obj,"dataFormat",0);
+    cJSON_AddNumberToObject(obj,"dataIndex",0);
 	cJSON_AddNumberToObject(obj,"pattern_sn",0);
 	cJSON_AddNumberToObject(obj,"processRst",0);
     cJSON_AddNumberToObject(obj,"regionNum",num);
@@ -103,18 +104,16 @@ cJSON *OcrResListNull(){
     //向数组中添加对象
 	cJSON* arr_2 = cJSON_CreateArray();
     cJSON_AddItemToArray(arr_2, obj);
-    //向对象中插入对象
-    cJSON_AddNumberToObject(obj,"dataNum",1);
 
     cJSON* obj_3 = cJSON_CreateObject();
     //向对象中插入对象
 	cJSON_AddStringToObject(obj_3,"RstCode","0000");
     //对象中添加对象
 
-    //cJSON_AddItemToObject(obj_3, "dataList", arr_2);
-    //向对象中插入对象，值是空
+    //创建 dataList 对象
     cJSON* obj_4 = cJSON_CreateObject();
     cJSON_AddItemToObject(obj_4, "dataList", arr_2);
+    cJSON_AddNumberToObject(obj_4,"dataNum",1);
     char *p = cJSON_Print(obj_4);
     string temp;
     temp = "[" + string(p) + "]";

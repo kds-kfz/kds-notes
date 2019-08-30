@@ -162,8 +162,105 @@ void ParseOcr(const char *patch, map<int, string> &data){
 	cJSON_Delete(obj);
     fclose(fp);
 }
+#if 0
+{
+    "RstCode":  "0000",
+    "RstMesg":  "[{\n\t\"dataList\":\t[{\n\t\t\t\"all_ocr\":\t0,\n\t\t\t\"dataDataLen\":\t0,\n\t\t\t\"dataFormat\":\t0,\n\t\t\t\"pattern_sn\":\t0,\n\t\t\t\
+"processRst\":\t0,\n\t\t\t\"regionNum\":\t0,\n\t\t\t\"regions\":\tnull,\n\t\t\t\"dataNum\":\t1\n\t\t}]\n}]",
+    "IDFilewPath":  null,
+    "HeadFilePath": null,
+    "filename": null
+}
+#endif
+
+void MakeOcrRes(const char *destpatch, map<int, string> &data){
+    //公共应答部分一
+    cJSON* obj = cJSON_CreateObject();
+    cJSON_AddNumberToObject(obj,"all_ocr",0);
+    cJSON_AddNumberToObject(obj,"dataDataLen",0);
+    cJSON_AddNumberToObject(obj,"dataFormat",0);
+    cJSON_AddNumberToObject(obj,"dataIndex",0);
+
+    int Num = 0;
+    if(!data.empty()){
+        Num = data.size();
+        cJSON_AddNumberToObject(obj,"pattern_sn",1001);
+        cJSON_AddNumberToObject(obj,"processRst",-1268136496);
+        cJSON_AddNumberToObject(obj,"regionNum",Num);
+        
+        //对象中添加对象，对象值为 map 的值
+        //cJSON_AddNullToObject(obj, "regions");
+        cJSON *arr1 = cJSON_CreateArray();
+        map<int, string>::iterator it = data.begin();
+        for(; it != data.end(); it++){
+            cJSON *obj1 = cJSON_Parse(it->second.c_str());
+            //向数组中添加对象
+            cJSON_AddItemToArray(arr1, obj1);
+        }
+        
+        //对象中添加对象
+        cJSON_AddItemToObject(obj, "regions", arr1);
 
 
+    }else{
+        //重新生成应答数据，如果没有任何切片识别成功，则默认返回空
+        
+        //在此对象中添加剩余对象
+    	cJSON_AddNumberToObject(obj,"pattern_sn",0);
+    	cJSON_AddNumberToObject(obj,"processRst",0);
+        cJSON_AddNumberToObject(obj,"regionNum",Num);
+        
+        //对象中添加对象，对象值为空
+        cJSON_AddNullToObject(obj, "regions");
+    }
+
+    //公共应答部分二
+    //向数组中添加对象
+    //dataList 对象值是个数组 arr2
+    cJSON* arr2 = cJSON_CreateArray();
+    cJSON_AddItemToArray(arr2, obj);
+
+    //cJSON *obj2 = cJSON_CreateObject();
+    //cJSON_AddItemToObject(obj2, "dataList", arr2);
+
+    cJSON* obj_3 = cJSON_CreateObject();
+    //向对象中插入对象
+    cJSON_AddStringToObject(obj_3,"RstCode","0000");
+    //对象中添加对象
+    
+    //创建 dataList 对象
+    cJSON* obj_4 = cJSON_CreateObject();
+    cJSON_AddItemToObject(obj_4, "dataList", arr2);
+    //向对象中插入对象
+    cJSON_AddNumberToObject(obj_4,"dataNum",1);
+    char *p = cJSON_Print(obj_4);
+    string temp;
+    temp = "[" + string(p) + "]";
+    
+    cJSON_AddStringToObject(obj_3,"RstMesg", temp.c_str());
+    
+    cJSON_AddNullToObject(obj_3,"IDFilewPath");
+    cJSON_AddNullToObject(obj_3,"HeadFilePath");
+    cJSON_AddNullToObject(obj_3,"filename");
+    
+    //将新应答写到文件
+    char *p2 = cJSON_Print(obj_3);
+    cout<<"\n~~~新应答数据:\n"<<p2<<endl;
+	FILE* fp2 = fopen(destpatch, "wb");
+	if(fp2 == NULL){
+        cout<<"目录不存在"<<endl;
+        exit(1);
+    }
+    fwrite(p2, strlen(p2), 1, fp2);
+	fclose(fp2);
+
+    //这里释放外层的cJSON *指针即可
+    free(p2);
+    cJSON_Delete(obj);
+}
+
+//该函数 有个bug，基数据必须是一个非空的应答数据，而且 regions 非空值
+//MakeOcrRes("../data/date_ocr_res_4.json", "../data/date_ocr_res_3.json", TotalMap);
 void MakeOcrRes(const char *destpatch, const char *srcpatch, map<int, string> &data){
 	FILE* fp = fopen(srcpatch, "rb");
     if(fp == NULL){
@@ -283,25 +380,10 @@ int main()
     MapAgin(TotalMap, NewMap);
     ParseOcr("../data/date_ocr_res_2.json", NewMap);
     MapAgin(TotalMap, NewMap);
-    //ParseOcr("../data/date_ocr_res_3.json", NewMap);
-    //MapAgin(TotalMap, NewMap);
+    ParseOcr("../data/date_ocr_res_3.json", NewMap);
+    MapAgin(TotalMap, NewMap);
     
-    //这里有个bug，基数据必须是一个非空的应答数据，而且 regions 非空值
-    MakeOcrRes("../data/date_ocr_res_4.json", "../data/date_ocr_res_3.json", TotalMap);
-    
-#if 0
-    //指定起始 sn_Inner 号，并插入旧容器
-    if(MapAgin(LastMap, NowMap)){
-        /*
-        map<int, string>::iterator it = LastMap.begin();
-        for(;it != LastMap.end(); it ++){
-            //cout<<(*it).first<<endl;
-            cout<<(*it).second<<endl;
-        }
-        */
-        //重新生成应答数据，更新原来生成的应答数据文件
-        MakeOcrRes("../data/date_ocr_res_4.json", "../data/date_ocr_res_2.json", LastMap);
-    }
+    MakeOcrRes("../data/date_ocr_res_4.json", TotalMap);   
 #endif    
 	return 0;
 }
