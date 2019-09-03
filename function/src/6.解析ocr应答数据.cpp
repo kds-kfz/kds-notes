@@ -373,6 +373,7 @@ void MakeOcrRes(const char *destpatch, const char *srcpatch, map<int, string> &d
 
 int main()
 {
+#if 1
     map<int, string> TotalMap, NewMap;
 
     //解析 json 数据到容器

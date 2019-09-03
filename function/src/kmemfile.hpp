@@ -1,19 +1,19 @@
-#ifndef __ANSIMEMFILE_H__
-#define __ANSIMEMFILE_H__
+#ifndef __KMEMFILE_H__
+#define __KMEMFILE_H__
 
 #include <malloc.h>
 #include <assert.h>
 
-class CAnsiMenFile{
+class KMemFile{
 protected:
     unsigned int  m_nGrowBytes;
     unsigned long m_nPosition;
     unsigned long m_nBufferSize;
-    unsigned long m_nFilesSize;
+    unsigned long m_nFileSize;
     unsigned char *m_lpBuffer;
     bool m_bAutoDelete;
 
-    unsigned char Alloc(unsigned long nBytes){
+    unsigned char *Alloc(unsigned long nBytes){
         return (unsigned char *)malloc((unsigned int)nBytes);
     }
 
@@ -22,9 +22,9 @@ protected:
     }
 
 #pragma intrinsic(memcpy){
-    unsigned char *Memcpy(unsigned char *lpMenTarget, const unsigned char *lpMenSource){
-    assert(lpMenTarget != NULL);
-    assert(lpMenSource != NULL);
+    unsigned char *Memcpy(unsigned char *lpMenTarget, const unsigned char *lpMenSource, unsigned int nBytes){
+        assert(lpMenTarget != NULL);
+        assert(lpMenSource != NULL);
     return (unsigned char *)memcpy(lpMenTarget, lpMenSource, nBytes);
     }
 #pragma function(memcpy)
@@ -34,10 +34,10 @@ protected:
         free(lpMen);
      }
 
-     void GrowFile(unsigned log dwNewLen){
+     void GrowFile(unsigned long dwNewLen){
         assert(this);
 
-        if(dwNeLen > m_nBufferSize){
+        if(dwNewLen > m_nBufferSize){
             // grow the buffer
             unsigned long dwNewBufferSize = (unsigned long)m_nBufferSize;
 
@@ -53,7 +53,7 @@ protected:
             if(m_lpBuffer == NULL){
                 lpNew = Alloc(dwNewBufferSize);
             }else{
-                lpNew = Rwalloc(m_lpBuffer, dwNewBufferSize);
+                lpNew = Realloc(m_lpBuffer, dwNewBufferSize);
             }
 
             m_lpBuffer = lpNew;
@@ -68,28 +68,28 @@ public:
 
      // NGrowBytes 读取文件需要增大时的增大粒度 (每次增大 nGrowBytes 个字节)
      // 有参构造
-     CAnsiMenFile(unsigned int nGrowBytes = 1024){
+     KMemFile(unsigned int nGrowBytes = 1024){
         m_nGrowBytes = nGrowBytes;
         m_nPosition = 0;
         m_nBufferSize = 0;
-        m_nFilesSize = 0;
+        m_nFileSize = 0;
         m_lpBuffer = NULL;
         m_bAutoDelete = true;
      }
 
      // 相对于构造后调用 Attach
      // 有参构造
-     CAnsiMenFile(char *lpBuffer, unsigned int nBufferSize, unsigned int nGrowBytes = 0){
+     KMemFile(unsigned char *lpBuffer, unsigned int nBufferSize, unsigned int nGrowBytes = 0){
         m_nGrowBytes = nGrowBytes;
         m_nPosition = 0;
         m_nBufferSize = nBufferSize;
-        m_nFilesSize = nGrowBytes == 0 ? nBufferSize : 0;
+        m_nFileSize = nGrowBytes == 0 ? nBufferSize : 0;
         m_lpBuffer = lpBuffer;
         m_bAutoDelete = false;
      }
 
      // 析构
-     ~CAnsiMenFile(){
+     ~KMemFile(){
         // Close should have already been called, but we check anyway
         if(m_lpBuffer){
             Close();
@@ -99,22 +99,22 @@ public:
         m_nGrowBytes = 0;
         m_nPosition = 0;
         m_nBufferSize = 0;
-        m_nFilesSize = 0;
+        m_nFileSize = 0;
      }
 
      // 取属性
-     unsigned log GetPosition() const{
+     unsigned long GetPosition() const{
         assert(this);
         return m_nPosition;
      }
 
      // 取得文件的当前大小
-     unsigned log GetLength() const{
-        unsigned log dsLen, dwCur;
+     unsigned long GetLength() const{
+        unsigned long dwLen, dwCur;
         // Seek is a non const operation
-        CAnsiMenFile *pFlie = (CAnsiMenFile *)this;
-        dwCur = pFlie->Seek(0L, current);
-        dsLen = pFlie->SeekToEnd();
+        KMemFile *pFile = (KMemFile *)this;
+        dwCur = pFile->Seek(0L, current);
+        dwLen = pFile->SeekToEnd();
         pFile->Seek(dwCur, begin);
 
         return dwLen;
@@ -129,7 +129,7 @@ public:
     // 操作
     // 设置自动增长尺寸
     void SetGrowBytes(unsigned int nGrowBytes = 1024){
-        assert(nGrowBytes <= unsigned int_MAX);
+        //assert(nGrowBytes <= unsigned int_MAX);
 
         m_nGrowBytes = nGrowBytes;
     }
@@ -142,17 +142,18 @@ public:
         m_nGrowBytes = nGrowBytes;
         m_nPosition = 0;
         m_nBufferSize = nBufferSize;
-        m_nFileSize = lpBuffer;
-        m_nAutoDelete = false;
+        m_nFileSize = nGrowBytes == 0 ? nBufferSize : 0;
+        m_lpBuffer = lpBuffer;
+        m_bAutoDelete = false;
     }
 
     // 接触该文件和他当前占用的内存块的关联
     // 返回该内存块的指针
     unsigned char *Detach(){
-        unsigned char *lpBuffer = m_lpBUffer;
+        unsigned char *lpBuffer = m_lpBuffer;
         m_lpBuffer = NULL;
         m_nFileSize= 0;
-        m_nBUfferSize = 0;
+        m_nBufferSize = 0;
         m_nPosition = 0;
 
         return lpBuffer;
@@ -160,12 +161,12 @@ public:
 
     // 移动读写文职到文件最后
     unsigned long SeekToEnd(){
-        return Seek(0, CAnsiMenFile::end);
+        return Seek(0, KMemFile::end);
     }
 
     // 移动读写位置到文件开头
     void SeekToBegin(){
-        Seek(0, CAnsiMenFile::begin);
+        Seek(0, KMemFile::begin);
     }
 
     // 改变文件长度
@@ -205,7 +206,7 @@ public:
             nRead = nCount;
         }
 
-        Mencpy((unsigned char *)lpBuf, (unsigned char *)m_lpBuffer + m_nPosition, nRead);
+        Memcpy((unsigned char *)lpBuf, (unsigned char *)m_lpBuffer + m_nPosition, nRead);
         m_nPosition += nRead;
 
         assert(this);
@@ -236,13 +237,13 @@ public:
 
         assert(m_nPosition + nCount <= m_nBufferSize);
 
-        memset((unsigned char *)m_nlpBuffer + m_nPosition, ch, nCount);
+        memset((unsigned char *)m_lpBuffer + m_nPosition, ch, nCount);
         if(bRightAlign && (nDataLen < nCount)){
             //memset((unsigned char *)m_lpBuffer + m_nPosition, '', nDataLen - nCount);
-            Mencpy((unsigned char *)m_nlpBuffer + m_nPosition - nDataLen,
+            Memcpy((unsigned char *)m_lpBuffer + m_nPosition - nDataLen,
                     (unsigned char *)lpBuf, nDataLen);
         }else{
-            Mencpy((unsigned char *)m_lpBuffer + m_nPosition,
+            Memcpy((unsigned char *)m_lpBuffer + m_nPosition,
                     (unsigned char *)lpBuf, nDataLen < nCount ? nDataLen : nCount);
         }
         
@@ -256,7 +257,7 @@ public:
     }
 
     // 模板函数
-    template <typename>
+    template <typename T>
     void Write(const T &buf){
         Write(&buf, sizeof(buf));
     }
@@ -279,7 +280,7 @@ public:
         }else if(nFrom == end){
             lNewPos = m_nFileSize + loff;
         }else{
-            retuen -1;
+            return -1;
         }
 
         if(lNewPos < 0){
@@ -312,8 +313,7 @@ public:
         }
         m_lpBuffer = NULL;
     }
-}
 
 };
 
-#endif //__ANSIMENFILE_H__
+#endif //__KMENFILE_H__
