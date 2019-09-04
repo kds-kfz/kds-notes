@@ -32,4 +32,4 @@ main.out : main.o
 	$(CXX) -o $@ -c $< -std=c++0x
 
 clean:
-	rm $(OBJ) $(COMMONOBJS) *.out *.o -f
+	rm $(OBJ) $(COMMONOBJS) *.out *.o ../log/*.log -f 

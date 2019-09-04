@@ -39,8 +39,9 @@ private:
     string _logpatch;
     LOG_TYPE _logtype;
     LOG_SOURCE _logsource;
-    bool _slice;             //切割标志
-    unsigned long _targetsize;                //文件大小
+    bool _slice;                            //切割标志
+    unsigned long _targetsize;              //文件大小
+    static LOG_TYPE _gLogLevel;             //类内静态成日志级别
 public:
     //无参构造
     /*
@@ -154,7 +155,9 @@ public:
     //重新设计成日志类，可更好的条调用日志方法，方法内不同地方设计成宏替换
     //该函数值输出不定参数的内容
     void Log_Msg(COMPANYS company, LOG_TYPE type, const char *fmt, ... ){
-        if(type > TEST){
+        //这句话很关键，如果锁调用的日志函数的日志别大于设置的级别则不打印
+        //要想把日志全部输出则将日志级别设置最高，即 TEST
+        if(type > _gLogLevel){
             return;   
         }
 
@@ -188,14 +191,14 @@ public:
         #if 0
         sprintf(pbuf, "%s %s %s %s",
             ( company == KDS ? "KDS" : company == TC ? "TC" : "OTHER" ),
-            ( type == ERROR ? "ERR" : type == DEBUG ? "DBG" : type == INFO ? "RUN" : "---" ),
+            ( type == ERROR ? "ERR" : type == WARN ? "WARN" : type == INFO ? "RUN" : type == DEBUG ? "DEBUG" : type == TEST ? "TEST" : "---"),
             _logsource._author.c_str(),
             date.GetTime("%Y-%m-%d %H:%M:%S").c_str()
             );
         #else
         sprintf(pbuf, "%s %s %s %s",
             ( company == KDS ? "KDS" : company == TC ? "TC" : "OTHER" ),
-            ( type == ERROR ? "ERR" : type == DEBUG ? "DBG" : type == INFO ? "RUN" : "---" ),
+            ( type == ERROR ? "ERR" : type == WARN ? "WARN" : type == INFO ? "RUN" : type == DEBUG ? "DEBUG" : type == TEST ? "TEST" : "---"),
             _logsource._author.c_str(),
             date.GetTime().c_str()
             );
@@ -238,6 +241,10 @@ public:
 # ifndef LOG_MODULE
 # define LOG_MODULE "LOG "
 # endif
+
+//静态成员类外初始化，只初始化一次
+LOG_TYPE Log::_gLogLevel = WARN;
+//Log::_gLogLevel = TEST;//函数内赋值，只在读取配置文件后再给支静态变量
 
 }
 #endif

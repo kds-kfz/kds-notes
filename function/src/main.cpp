@@ -37,6 +37,8 @@ int main(int argc, char *argv[]){
         sleep(1);
         INFO_KLOG("测试[%ld]\n", sec++);
         INFO_TLOG("测试[%ld]\n", sec++);
+        
+        WARN_TLOG("测试[%ld]\n", sec++);
     }
     return 0;
 }

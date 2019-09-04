@@ -4,6 +4,8 @@
 #include <malloc.h>
 #include <assert.h>
 
+//TODO 待优化，使用 c++ 语言风格，封装成类似 string 自动递增的内存管理方式
+
 class KMemFile{
 protected:
     unsigned int  m_nGrowBytes;
