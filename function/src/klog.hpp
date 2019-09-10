@@ -8,7 +8,8 @@
 #include "kpubfun.hpp"
 #include <map>
 
-namespace kfz{
+//namespace kfz{
+
 
 typedef enum{
     ERROR = 1, WARN, INFO, DEBUG, TEST,
@@ -33,15 +34,20 @@ typedef struct{
     COMPANYS _company;
 }LOG_SOURCE;
 
+//此句位置声明很重要
+extern LOG_TYPE _gLogLevel;
+
 class Log{
-private:
+public:
+    //由于其他文件共享同一日志文件，故为公共变量
     Files *_plog;
+private:
     string _logpatch;
     LOG_TYPE _logtype;
     LOG_SOURCE _logsource;
     bool _slice;                            //切割标志
     unsigned long _targetsize;              //文件大小
-    static LOG_TYPE _gLogLevel;             //类内静态成日志级别
+    //static LOG_TYPE _gLogLevel;             //类内静态成日志级别
 public:
     //无参构造
     /*
@@ -222,7 +228,9 @@ public:
     }
 };
 
-#define DETAIL(company, level, fmt, args...) glog.Log_Msg(company, level, \
+extern Log *glog;
+
+#define DETAIL(company, level, fmt, args...) glog->Log_Msg(company, level, \
         " " "%d %d" " " LOG_MODULE "%s:%d %s: " fmt, \
             getppid(), getpid(), __FILE__, __LINE__, __FUNCTION__, ##args)
 //天创日志
@@ -239,12 +247,13 @@ public:
 #define TEST_KLOG(fmt, args...)  DETAIL(KDS, TEST,  fmt, ##args)
 
 # ifndef LOG_MODULE
-# define LOG_MODULE "LOG "
+# define LOG_MODULE "KLOG "
 # endif
 
+//Log glog("../log/mount-service");
+
 //静态成员类外初始化，只初始化一次
-LOG_TYPE Log::_gLogLevel = WARN;
 //Log::_gLogLevel = TEST;//函数内赋值，只在读取配置文件后再给支静态变量
 
-}
+//}
 #endif

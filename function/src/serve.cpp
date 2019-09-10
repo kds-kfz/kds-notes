@@ -2,7 +2,7 @@
 #include<sys/wait.h>
 
 using namespace std;
-using namespace kfz;
+//using namespace kfz;
 
 //服务器，才用预编译，选择不同的服务器
 

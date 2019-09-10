@@ -23,8 +23,8 @@ ser.out : serve.o
 	$(CXX) -o $@ $^
 cli.out : client.o
 	$(CXX) -o $@ $^
-main.out : main.o
-	$(CXX) -o $@ $^
+main.out : main.o kcfg.o $(INCS)/cJSON.o
+	$(CXX) -o $@ $^ $(FLAG)
 
 %.o : %.c
 	$(CC) -o $@ -c $<

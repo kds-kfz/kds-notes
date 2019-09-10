@@ -43,7 +43,15 @@ class Base{
     static Base *createInstance(){
 	return instance;
     }
+    //注意，单例模式纯虚函数的使用，配置必须重写该函数
+    //virtual void show()=0;
 };
+
+class A : public Base{
+    void show();
+};
+//同时不能为虚函数申请空间，只能定义指针变量，然后改指针变量指向派生类空间
+//例如：Base *Base::instance=NULL; instance = new Base();之后才有几倍指针访问派生类
 //初始化申请空间 
 Base *Base::instance=new Base;
 int main(){

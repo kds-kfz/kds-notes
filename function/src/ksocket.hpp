@@ -35,7 +35,7 @@
 
 using namespace std;
 
-namespace kfz{
+//namespace kfz{
 
 #define BUFF_SIZE (1024 * 8)
 #define REQ_MAX_LEN (1024 * 7)
@@ -574,6 +574,6 @@ public:
 protected:
 };
 
-}
+//}
 
 #endif

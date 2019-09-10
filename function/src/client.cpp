@@ -2,7 +2,7 @@
 #include <unistd.h>
 
 using namespace std;
-using namespace kfz;
+//using namespace kfz;
 
 //单进程客户端
 //多线程客户端，模拟高迸发请求

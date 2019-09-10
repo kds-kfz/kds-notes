@@ -17,7 +17,7 @@
 
 using namespace std;
 
-namespace kfz{
+//namespace kfz{
 
 //文件处理类
 class Files{
@@ -228,7 +228,7 @@ public:
     long Size(){
         return _size;
     }
-    char *Date(){
+    char *Data(){
         return _data;
     }
     //禁止调用该方法，否则会出现意外的段错误
@@ -274,6 +274,6 @@ public:
 #endif
 };
 
-}
+//}
 
 #endif

@@ -1,11 +1,15 @@
 #include"klog.hpp"
+#include"kcfg.hpp"
 
 # ifndef LOG_MODULE
 # define LOG_MODULE "LOG "
 # endif
 
 using namespace std;
-using namespace kfz;
+//using namespace kfz;
+//开发测试阶段
+LOG_TYPE _gLogLevel = TEST;
+Log *glog;
 
 int main(int argc, char *argv[]){
 #if 0
@@ -21,6 +25,7 @@ int main(int argc, char *argv[]){
 
 
 #endif
+#if 0
     //字符串测试
     String str;
     char str_1[128] = {0};
@@ -31,14 +36,20 @@ int main(int argc, char *argv[]){
     //cout<<time1.GetTime("%Y%m%d-%H%M%S.log")<<endl;
 
     //初始化，后续得放到对象池中，同一初始化
-    Log glog("../log/mount-service");
+    //Log glog("../log/mount-service");
+    glog = new Log("../log/mount-service");
     long sec = 0;
     while(1){
         sleep(1);
         INFO_KLOG("测试[%ld]\n", sec++);
         INFO_TLOG("测试[%ld]\n", sec++);
-        
         WARN_TLOG("测试[%ld]\n", sec++);
     }
+#else
+    //读配置文件测试
+    glog = new Log("../log/mount-service");
+    JsonInfo k;
+    k.LoadConfig("../etc/config.json");
     return 0;
+#endif
 }

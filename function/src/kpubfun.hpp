@@ -15,7 +15,7 @@
 
 using namespace std;
 
-namespace kfz{
+//namespace kfz{
 
 //字符串处理类
 class String{
@@ -335,6 +335,6 @@ class Xml{
 
 //负载均衡
 
-}
+//}
 
 #endif
