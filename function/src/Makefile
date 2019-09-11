@@ -19,11 +19,11 @@ all : 1.a.out 2.a.out ser.out cli.out main.out
 	$(CXX) -o $@ $^ $(FLAG)
 2.a.out : 6.解析ocr应答数据.o $(INCS)/cJSON.o
 	$(CXX) -o $@ $^ $(FLAG)
-ser.out : serve.o
+ser.out : serve.o klog.o kfile.o ksocket.o
 	$(CXX) -o $@ $^
-cli.out : client.o
+cli.out : client.o klog.o kfile.o ksocket.o
 	$(CXX) -o $@ $^
-main.out : main.o kcfg.o $(INCS)/cJSON.o
+main.out : main.o kcfg.o kfile.o klog.o $(INCS)/cJSON.o
 	$(CXX) -o $@ $^ $(FLAG)
 
 %.o : %.c

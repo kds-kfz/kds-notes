@@ -2,14 +2,6 @@
 #include"klog.hpp"
 #include "../common/cJSON.h"
 
-# ifndef LOG_MODULE
-# define LOG_MODULE "KCFG "
-# endif
-
-using namespace std;
-//using namespace kfz;
-
-
 bool JsonInfo::LoadConfig(string fileName){
     if(fileName.empty() || fileName == ""){
         ERROR_TLOG("配置文件路径不存在!\n");

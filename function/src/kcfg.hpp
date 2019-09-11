@@ -19,11 +19,13 @@
 
 //配置文件的读取与内存文件读写不一样，前者只读一次，后者存在多次读写
 
-//namespace kfz{
+# ifndef LOG_MODULE
+# define LOG_MODULE "CFG "
+# endif
 
-enum CfgType{ TCSTY = 1, KDSSTY, OTHERS,};              //配置类型
-typedef map < string, string > Values;      //键值对
-typedef map < CfgType, Values > ValueDesc;  //描述 + 键值对
+enum CfgType{ TCSTY = 1, KDSSTY, OTHERS, };              //配置类型
+typedef std::map < std::string, std::string > Values;      //键值对
+typedef std::map < CfgType, Values > ValueDesc;  //描述 + 键值对
 
 //设计出发点，考虑有可能有多中配置文件，故统一设计成字符型键值对
 
@@ -41,9 +43,9 @@ public:
     }*/
     //JsBase(const JsBase &p) = delete;       //禁止拷贝构造
     JsBase &operator=(const JsBase &p) = delete;    //禁止赋值拷贝
-    virtual bool LoadConfig(string fileName)=0;  //纯虚函数，读配置到容器
-    //virtual void GetCfgValue(string key)=0;      //纯虚函数，读容器中配置
-    //virtual void GetCfgValue(string pkey, string tkey)=0;    //纯虚函数，读容器中配置
+    virtual bool LoadConfig(std::string fileName)=0;  //纯虚函数，读配置到容器
+    //virtual void GetCfgValue(std::string key)=0;      //纯虚函数，读容器中配置
+    //virtual void GetCfgValue(std::string pkey, std::string tkey)=0;    //纯虚函数，读容器中配置
     //virtual void ShowCfgValue(CfgType = OTHERS)=0;    //显示某配置文件配置
     ~JsBase(){}
 };
@@ -57,9 +59,9 @@ class JsonInfo : public JsBase{
 public:
     //JsonInfo() = delete;//禁止无参构造
     //JsonInfo(const JsonInfo &p) = delete;   //禁止拷贝构造
-    bool LoadConfig(string fileName);       //纯虚函数，读配置到容器
-    void GetCfgValue(string key);           //纯虚函数，读容器中配置
-    void GetCfgValue(string pkey, string tkey);    //纯虚函数，读容器中配置
+    bool LoadConfig(std::string fileName);       //纯虚函数，读配置到容器
+    void GetCfgValue(std::string key);           //纯虚函数，读容器中配置
+    void GetCfgValue(std::string pkey, std::string tkey);    //纯虚函数，读容器中配置
     void ShowCfgValue(CfgType = OTHERS);         //显示某配置文件配置
     ~JsonInfo(){}
 };
@@ -70,9 +72,9 @@ class DocInfo : public JsBase{
 public:
     //DocInfo() = delete;//禁止无参构造
     //DocInfo(const DocInfo &p) = delete;     //禁止拷贝构造
-    bool LoadConfig(string fileName);       //纯虚函数，读配置到容器
-    void GetCfgValue(string key);           //纯虚函数，读容器中配置
-    void GetCfgValue(string pkey, string tkey);    //纯虚函数，读容器中配置
+    bool LoadConfig(std::string fileName);       //纯虚函数，读配置到容器
+    void GetCfgValue(std::string key);           //纯虚函数，读容器中配置
+    void GetCfgValue(std::string pkey, std::string tkey);    //纯虚函数，读容器中配置
     void ShowCfgValue(CfgType = OTHERS);         //显示某配置文件配置
 };
 
@@ -81,5 +83,4 @@ class NodeInfo{
 
 };
 
-//}
 #endif

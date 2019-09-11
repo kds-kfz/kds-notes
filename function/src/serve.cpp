@@ -1,20 +1,26 @@
 #include"ksocket.hpp"
 #include<sys/wait.h>
-
-using namespace std;
-//using namespace kfz;
+#include"klog.hpp"
 
 //服务器，才用预编译，选择不同的服务器
+# ifndef LOG_MODULE
+# define LOG_MODULE "SERVER "
+# endif
+
+LOG_TYPE _gLogLevel = TEST;
+Log *glog;
 
 void handle(int n){
     int wai = waitpid(-1, NULL, WNOHANG);
-    printf("waitpid = %d\n", wai);
+    WARN_TLOG("waitpid = %d\n", wai);
 }
 
 int main(int argc, char *argv[]){
+    glog = new Log("../log/mount-service");
+    
     //套接字测试
     if(argc<2){
-        printf("./a.out less port\n");
+        ERROR_TLOG("./a.out less port\n");
         exit(-1);
     }
 
@@ -22,37 +28,36 @@ int main(int argc, char *argv[]){
     Socket serve;
     
     if(!serve.SocketServeInit("127.0.0.1", argv[1], 128) || !serve.SocketServeSetup()){
-        cout<<serve.SocketErrmsg()<<endl;
-        cout<<"SocketServeInit Fail!"<<endl;
+        ERROR_TLOG("SocketServeInit Fail Error:[%s]\n", serve.SocketErrmsg().c_str());
         exit(-1);
     }
-    cout<<"SocketServeInit Success!"<<endl;
+    INFO_TLOG("SocketServeInit Success!\n");
 
     //默认应答客户端数据
     while(1){
-        printf("Serve is waiting ...\n");
+        INFO_TLOG("Serve is waiting ...\n");
         if(serve.SocketServeAccept()){
-            cout<<serve.SocketShowAccept()<<endl;
+            INFO_TLOG("%s\n", serve.SocketShowAccept().c_str());
             if((pid = fork()) == -1){
-                cout<<"fork fail"<<endl;
+                INFO_TLOG("fork fail\n");
                 exit(-1);
             }else if(pid == 0){
                 if(!serve.SocketServeClose()){
-                    cout<<"close sfd fail!"<<endl;
+                    INFO_TLOG("close sfd fail!\n");
                     exit(-1);
                 }
                 
                 while(1){
                     int ret = serve.SocketServeRead();
                     if(ret == -3){
-                        cout<<serve.SocketErrmsg()<<endl;
+                        ERROR_TLOG("%s\n", serve.SocketErrmsg().c_str());
                         continue;
                     }
-                    cout<<"收到请求类型:"<<serve.SocketType()<<endl;
-                    cout<<"收到请求内容:"<<serve.SocketBuff()<<endl;
+                    INFO_TLOG("收到请求类型:[%s]\n", serve.SocketType());
+                    INFO_TLOG("收到请求内容:[%s]\n", serve.SocketBuff());
                     char res[64] = "已收到测试请求包，正在处理...";
                     if(!serve.SocketServeSend("01#", res)){
-                        cout<<serve.SocketErrmsg()<<endl;
+                        INFO_TLOG("%s\n", serve.SocketErrmsg().c_str());
                     }
                 }
             }else{
@@ -60,7 +65,7 @@ int main(int argc, char *argv[]){
                 signal(SIGCHLD, handle);
             }
         }else{
-            cout<<serve.SocketErrmsg()<<endl;
+            ERROR_TLOG("%s\n", serve.SocketErrmsg().c_str());
             exit(-1);
         }
     }

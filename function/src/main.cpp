@@ -2,11 +2,9 @@
 #include"kcfg.hpp"
 
 # ifndef LOG_MODULE
-# define LOG_MODULE "LOG "
+# define LOG_MODULE "MAIN "
 # endif
 
-using namespace std;
-//using namespace kfz;
 //开发测试阶段
 LOG_TYPE _gLogLevel = TEST;
 Log *glog;
