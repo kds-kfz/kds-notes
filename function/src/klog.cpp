@@ -1,5 +1,5 @@
 #include"klog.hpp"
-
+#include"kipc.hpp"
 
 void Log::Log_Msg(COMPANYS company, LOG_TYPE type, const char *fmt, ... ){
     //这句话很关键，如果锁调用的日志函数的日志别大于设置的级别则不打印
@@ -53,11 +53,15 @@ void Log::Log_Msg(COMPANYS company, LOG_TYPE type, const char *fmt, ... ){
 
     pbuf += strlen(buf);
     try{
+        // 等待资源
+        sem_p(); 
         va_list ap;
         va_start(ap, fmt);
         vsnprintf(pbuf, sizeof(buf) - strlen(buf), fmt, ap);
         va_end(ap);
         _plog->Write(buf);
+        // 释放资源
+        sem_v();
     }catch(...){
         cout<<"exception in construct Log_Msg message"<<endl;
     }

@@ -1,6 +1,7 @@
 #include"ksocket.hpp"
 #include<sys/wait.h>
 #include"klog.hpp"
+#include"kipc.hpp"
 
 //服务器，才用预编译，选择不同的服务器
 # ifndef LOG_MODULE
@@ -17,11 +18,18 @@ void handle(int n){
 
 int main(int argc, char *argv[]){
     glog = new Log("../log/mount-service");
-    
     //套接字测试
     if(argc<2){
         ERROR_TLOG("./a.out less port\n");
         exit(-1);
+    }
+    //创建信号量集
+    if(!creatSem()){
+        exit(1);
+    }
+    //初始化信号量
+    if(!initSem(1)){
+        exit(1);
     }
 
     pid_t pid;

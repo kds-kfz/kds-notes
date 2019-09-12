@@ -11,7 +11,7 @@ LOG_TYPE _gLogLevel = TEST;
 Log *glog;
 
 int main(int argc,char *argv[]){
-    sleep(2);
+    //sleep(2);
     glog = new Log("../log/mount-service");
     
     if(argc<2){

@@ -54,6 +54,15 @@ public:
     //生成一个新文件，先调用 Open 函数，在调用 Read 和 Write 函数
     bool Write(const char *basePath, const char *newfile, const char *content = NULL);
     
+    //TODO 当前系统是套接字多进程客户端，考虑文件的读写问题，做到"独占写，共享读"
+    //有两种有效方案
+    //(1) 使用 flock 函数对文件加锁、解锁、读取，根据返回的错误码，进行后处理；其中触发信号SIGBUS
+    //可对系统注册该信号，对其进行处理
+    //(2) 使用 互斥锁 + 条件变量 来实现文件锁
+    //(3) 使用信号量 sem_op
+    //(4) 使用共享内存，速度快
+    //方案一缺点：独占写时会占用系统资源，其他进程处于阻塞等待，频繁对文件申请读写权限，耗时，与可能某些进程长时间申请不到，无法被写入
+    
     //单一功能写入指定内容
     bool Write(const char *content);
 
