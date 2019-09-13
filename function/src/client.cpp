@@ -26,6 +26,7 @@ int main(int argc,char *argv[]){
         exit(-1);
     }
     INFO_TLOG("SocketClientInit Success!\n");
+    int count = 0;
     while(1){
         sleep(3);
         char buff[64] = "hello world";
@@ -36,6 +37,7 @@ int main(int argc,char *argv[]){
             ERROR_TLOG("%s\n", client.SocketErrmsg().c_str());
         }else{
             //已收到应答
+            INFO_TLOG("客户端接收到数据[%d]\n", count++);
             INFO_TLOG("收到应答类型:[%s]\n", client.SocketType());
             INFO_TLOG("收到应答内容:[%s]\n", client.SocketClientBuff());
         }

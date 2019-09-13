@@ -30,15 +30,42 @@
  * 本文件就是针对这五种进程间通信方法进行实现
  * 设计理念：处理多进程通信资源共享时存在的系列问题
  **********************************************************************************/
+extern int g_msqid;
+extern int g_semid;
+extern int g_shmid;
+extern char *g_shm;
+extern key_t key;
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 管 道 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 有 名 管 道 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 信 号 量 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 消 息 队 列 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+//消息结构体，用于收发消息队列内容，可以自定义该结构体
+#if 0
+struct msgbuf{
+    long mtype;         /* type of message */
+    char mtext[512];      /* message text */
+};
+#endif
+//消息队列标识符
+//int g_msqid = 0;
+
+//创建新的消息队列或获取已有的消息队列
+bool creatMsg(int msgflg);
+//接收消息队列内容
+bool Recvmsg(int msqid, long mtype);
+//发送消息队列内容
+bool Sendmsg(int msqid, long mtype, const char *text, const char *content);
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 信 号 量 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 #define IPC_MODE (IPC_CREAT | SHM_R | SHM_W)
+
+//IPC通讯 (消息队列、信号量和共享内存)
+//key_t key = 0;
+//信号量的键值
+//int g_semid = 0;
+
 //联合体，用于semctl初始化
 union semun{
     int val;                    /*value for SETVAL*/
@@ -47,9 +74,9 @@ union semun{
     struct seminfo *__buf;      /*buffer for IPC_INFO*/
 };
 
-extern int g_semid;
+//int g_semid;
 //创建信号量集
-bool creatSem();
+bool creatSem(int shmflg);
 //初始化信号量
 bool initSem(int val);
 //信号量 v 操作
@@ -60,5 +87,20 @@ bool sem_p();
 bool delsem();
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 共 享 内 存 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+//共享内存的标识符
+//int g_shmid = 0;
+//指向共享内存段的指针
+//char *g_shm ;
+
+//创建共享内存
+bool creatShm(key_t key, int shmflg);
+//链接共享内存
+bool linkShm();
+//共享内存初始化(服务器)
+bool initShms();
+//共享内存初始化(客户端)
+bool initShmc();
+//删除共享内存
+bool delShm();
 
 #endif

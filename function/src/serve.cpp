@@ -1,5 +1,10 @@
-#include"ksocket.hpp"
 #include<sys/wait.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
+#include <sys/shm.h>
+
+#include"ksocket.hpp"
 #include"klog.hpp"
 #include"kipc.hpp"
 
@@ -24,7 +29,7 @@ int main(int argc, char *argv[]){
         exit(-1);
     }
     //创建信号量集
-    if(!creatSem()){
+    if(!creatSem(IPC_MODE)){
         exit(1);
     }
     //初始化信号量
@@ -40,7 +45,7 @@ int main(int argc, char *argv[]){
         exit(-1);
     }
     INFO_TLOG("SocketServeInit Success!\n");
-
+    int count = 0;
     //默认应答客户端数据
     while(1){
         INFO_TLOG("Serve is waiting ...\n");
@@ -61,6 +66,7 @@ int main(int argc, char *argv[]){
                         ERROR_TLOG("%s\n", serve.SocketErrmsg().c_str());
                         continue;
                     }
+                    INFO_TLOG("服务器接收数据[%d]\n", count++);
                     INFO_TLOG("收到请求类型:[%s]\n", serve.SocketType());
                     INFO_TLOG("收到请求内容:[%s]\n", serve.SocketBuff());
                     char res[64] = "已收到测试请求包，正在处理...";
@@ -77,5 +83,8 @@ int main(int argc, char *argv[]){
             exit(-1);
         }
     }
+    //删除信号量
+    delsem();
+    
     return 0;
 }
