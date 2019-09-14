@@ -1,5 +1,8 @@
 #include"ksocket.hpp"
 #include <unistd.h>
+#include"kipc.hpp"
+
+#include <sys/msg.h>
 
 //单进程客户端
 //多线程客户端，模拟高迸发请求
@@ -11,14 +14,14 @@ LOG_TYPE _gLogLevel = TEST;
 Log *glog;
 
 int main(int argc,char *argv[]){
-    //sleep(2);
     glog = new Log("../log/mount-service");
     
+#if 0
+    //套接字测试
     if(argc<2){
         ERROR_TLOG("./a.out less port\n");
 	    exit(-1);
     }
-    
     Socket client;
     
     if(!client.SocketClientInit("127.0.0.1", argv[1])){
@@ -42,6 +45,27 @@ int main(int argc,char *argv[]){
             INFO_TLOG("收到应答内容:[%s]\n", client.SocketClientBuff());
         }
     }
+#else
+    //共享内存测试
+    //共享内存初始化(客户端)
+    if(!initShmc()){
+        cout<<"共享内存客户端初始化失败!"<<endl;
+        exit(-1);
+    }
+    
+    /*
+    cout<<"g_msqid = "<<g_msqid<<endl;
+    cout<<"g_semid = "<<g_semid<<endl;
+    cout<<"g_shmid = "<<g_shmid<<endl;
+    cout<<"g_key = "<<g_key<<endl;
+    */
 
+    while(1){
+        Sendmsg(1001, "#9001", "2019年9月13日,中秋快乐!");
+        sleep(2);
+        Sendmsg(1001, "#9002", "");
+        break;
+    }
+#endif
     return  0;
 }

@@ -4,6 +4,8 @@
 #include <sys/sem.h>
 #include <sys/shm.h>
 
+#include <sys/msg.h>
+
 #include"ksocket.hpp"
 #include"klog.hpp"
 #include"kipc.hpp"
@@ -23,6 +25,9 @@ void handle(int n){
 
 int main(int argc, char *argv[]){
     glog = new Log("../log/mount-service");
+    INFO_TLOG("挂载系统初始化成功...\n");
+
+#if 0
     //套接字测试
     if(argc<2){
         ERROR_TLOG("./a.out less port\n");
@@ -85,6 +90,32 @@ int main(int argc, char *argv[]){
     }
     //删除信号量
     delsem();
+#else
+    //共享内存测试
+    //共享内存初始化(服务器)
+    if(!initShms()){
+        cout<<"共享内存服务器初始化失败!"<<endl;
+        exit(-1);
+    }
     
+    /*
+    cout<<"g_msqid = "<<g_msqid<<endl;
+    cout<<"g_semid = "<<g_semid<<endl;
+    cout<<"g_shmid = "<<g_shmid<<endl;
+    cout<<"g_key = "<<g_key<<endl;
+    */
+
+    bool flag = true;
+    while(flag){
+        //读数据
+        Recvmsg(1001, flag);
+    }
+
+    //删除共享内存
+    if(delShm()){
+        cout<<"已经删除共享内存，谢谢!"<<endl;
+    }
+#endif
+    INFO_TLOG("挂载系统正在退出，欢迎使用...\n");
     return 0;
 }

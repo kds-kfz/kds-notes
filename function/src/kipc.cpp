@@ -9,16 +9,25 @@
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 消 息 队 列 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-struct msgbuf msg;
+//服务端消息结构体
+struct msgbuff msgs;
+//客户端消息结构体
+struct msgbuff msgc;
+
+//消息队列标识符
 int g_msqid = 0;
+//信号量的键值
 int g_semid = 0;
+//共享内存的标识符
 int g_shmid = 0;
-key_t key = 0;
+//指向共享内存段的指针
 char *g_shm  =  NULL;
+//IPC通讯 (消息队列、信号量和共享内存)
+key_t g_key = 0;
 
 //创建新的消息队列或获取已有的消息队列
 bool creatMsg(int msgflg){
-    if ((g_msqid = msgget(key, msgflg)) == -1){
+    if ((g_msqid = msgget(g_key, msgflg)) == -1){
         ERROR_TLOG("msgget Error errno = [%d], errmsg = [%s]\n",
                 errno, strerror(errno));
         return false;
@@ -27,32 +36,37 @@ bool creatMsg(int msgflg){
 }
 
 //接收消息队列内容
-bool Recvmsg(int msqid, long mtype, const char *content){
-    memset(&msg, 0, sizeof(msgbuf));
-    if(msgrcv(msqid, &msg, 1, mtype, 0) == -1){
+bool Recvmsg(long mtype, bool &flag){
+    memset(&msgs, 0, sizeof(msgbuff));
+    if(msgrcv(g_msqid, &msgs, sizeof(msgs.mtext), mtype, 0) == -1){
         ERROR_TLOG("msgrcv Error errno = [%d], errmsg = [%s]\n",
                 errno, strerror(errno));
         return false;
     }
-
-    //比对消息队列内容是否与 content 一致
-    if(!strcmp(msg.mtext, content)){
-        sem_p();
+    //以下是判断消息内容
+    if(!strcmp(msgs.mtext, "#9001")){
         INFO_TLOG("已接收到共享内存的消息内容:[%s]\n", g_shm);
-        sem_v();
+    }else if(!strcmp(msgs.mtext, "#9002")){
+        INFO_TLOG("收到退出指令, 正在退出...\n");
+        flag = false;
+    }else{
+        return false;
     }
     return true;
 }
 
 //发送消息队列内容
-bool Sendmsg(int msqid, long mtype, const char *text, const char *content){
-    memset(&msg, 0, sizeof(msgbuf));
-    sem_p();
-    memcpy(g_shm, content, strlen(content));
-    sem_v();
-    msg.mtype = mtype;
-    memcpy(msg.mtext, text, strlen(text));
-    if(msgsnd(msqid, &msg, sizeof(msg.mtext), 0) == -1){
+bool Sendmsg(long mtype, const char *text, const char *content){
+    if(!strcmp(content, "")){
+        clearShm();
+    }else{
+        writeShm(content);
+    }
+
+    memset(&msgc, 0, sizeof(msgbuff));
+    msgc.mtype = mtype;
+    memcpy(msgc.mtext, text, strlen(text));
+    if(msgsnd(g_msqid, &msgc, sizeof(msgc.mtext), 0) == -1){
         ERROR_TLOG("msgsnd Error errno = [%d], errmsg = [%s]\n",
                 errno, strerror(errno));
         return false;
@@ -64,18 +78,19 @@ bool Sendmsg(int msqid, long mtype, const char *text, const char *content){
 
 //创建IPC通讯 (消息队列、信号量和共享内存) 的ID值
 //创建信号灯的键值
-bool creatID(key_t key){
-    if((key = ftok(".", 'a')) < 0){
+bool creatID(){
+    if((g_key = ftok(".", 'a')) < 0){
         ERROR_TLOG("ftok Error errno = [%d], errmsg = [%s]\n",
                 errno, strerror(errno));
         return false;
     }
+    return true;
 }
 
 //创建信号量集
 bool creatSem(int shmflg){
     //创建一个新的信号量或获取一个已经存在的信号量的键值
-    if((g_semid = semget(key, 1, shmflg)) == -1){
+    if((g_semid = semget(g_key, 1, shmflg)) == -1){
         ERROR_TLOG("semget Error errno = [%d], errmsg = [%s]\n",
                 errno, strerror(errno));
         return false;
@@ -146,15 +161,16 @@ bool delsem(){
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 共 享 内 存 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 //创建共享内存
-bool creatShm(key_t key, int shmflg){
+bool creatShm(int shmflg){
     //创建共享内存的键值
-    if(!creatID(key)){
+    if(!creatID()){
+        ERROR_TLOG("g_key = %d", g_key);
         return false;
     }
 
     //建立共享内存的长度,1 至 4096，则实际申请到的共享内存大小为 4K (一页)
     //4097 到 8192，则实际申请到的共享内存大小为 8K (两页)
-    if((g_shmid = shmget(key, 1024, shmflg)) == -1){
+    if((g_shmid = shmget(g_key, SHM_MAX_SIZE, shmflg)) == -1){
         ERROR_TLOG("shmget Error errno = [%d], errmsg = [%s]\n",
                 errno, strerror(errno));
         return false;
@@ -174,19 +190,38 @@ bool linkShm(){
 
 //共享内存初始化(服务器)
 bool initShms(){
-    //创建共享内存 + 链接共享内存 + 创建新的消息队列或获取已有的消息队列 + 获取 key 值 + 创建信号量集 + 信号量初始化
+    //创建 key 值 + 创建共享内存 + 链接共享内存 + 创建新的消息队列或获取已有的消息队列 + 创建信号量集 + 信号量初始化
     
-    return !creatShm(key, IPC_CREAT|0666) ? false : !linkShm() ? false : 
-        !creatMsg(IPC_CREAT|0777) ? false : !creatID(key) ? false :
-        !creatSem(IPC_MODE) ? false : !initSem(1) ? false : true;
+    return !creatShm(IPC_CREAT|0666) ? false : !linkShm() ? false : 
+        !creatMsg(IPC_CREAT|0777) ? false :!creatSem(IPC_MODE) ? false : !initSem(1) ? false : true;
 }
 
 //共享内存初始化(客户端)
 bool initShmc(){
     //创建共享内存 + 链接共享内存 + 创建新的消息队列或获取已有的消息队列 + 创建信号量集
 
-    return !creatShm(key, 0) ? false : !linkShm() ? false :
+    return !creatShm(0) ? false : !linkShm() ? false :
         !creatMsg(0) ? false :!creatSem(0) ? false : true;
+}
+
+//清空共享内存内容
+bool clearShm(){
+    sem_p();
+    memset(g_shm, 0, SHM_MAX_SIZE);
+    sem_v();
+    return true;
+}
+
+//向共享内存写入内容
+unsigned int writeShm(const char *content){
+    if(strlen(content) > SHM_MAX_SIZE){
+        ERROR_TLOG("writeShm content gt %d\n", SHM_MAX_SIZE);
+        return false;
+    }
+    sem_p();
+    memcpy(g_shm, content, strlen(content));
+    sem_v();
+    return strlen(content);
 }
 
 //删除共享内存
