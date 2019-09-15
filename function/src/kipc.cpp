@@ -25,6 +25,17 @@ char *g_shm  =  NULL;
 //IPC通讯 (消息队列、信号量和共享内存)
 key_t g_key = 0;
 
+//创建IPC通讯 (消息队列、信号量和共享内存) 的ID值
+//创建信号灯的键值
+bool creatID(){
+    if((g_key = ftok(".", 'a')) < 0){
+        ERROR_TLOG("ftok Error errno = [%d], errmsg = [%s]\n",
+                errno, strerror(errno));
+        return false;
+    }
+    return true;
+}
+
 //创建新的消息队列或获取已有的消息队列
 bool creatMsg(int msgflg){
     if ((g_msqid = msgget(g_key, msgflg)) == -1){
@@ -35,34 +46,39 @@ bool creatMsg(int msgflg){
     return true;
 }
 
+//TODO 消息队列收发待优化，考虑队列写满，读取数据读不到的情况
+//消息队列初始化
+bool initMsg(){
+    //创建消息队列的键值
+    if(!creatID()){
+        ERROR_TLOG("g_key = %d", g_key);
+        return false;
+    }
+    //创建新的消息队列或获取已有的消息队列
+    //IPC_CREAT 如果消息队列对象不存在，则创建之，否则则进行打开操作
+    return creatMsg(IPC_CREAT|0777);
+}
+
 //接收消息队列内容
-bool Recvmsg(long mtype, bool &flag){
-    memset(&msgs, 0, sizeof(msgbuff));
-    if(msgrcv(g_msqid, &msgs, sizeof(msgs.mtext), mtype, 0) == -1){
+bool recvMsg(long mtype, struct msgbuff *pmsg, bool &flag){
+    memset(pmsg, 0, sizeof(msgbuff));
+    //接收这一类型的第一个消息
+    if(msgrcv(g_msqid, pmsg, sizeof(pmsg->mtext), mtype, 0) == -1){
         ERROR_TLOG("msgrcv Error errno = [%d], errmsg = [%s]\n",
                 errno, strerror(errno));
         return false;
     }
-    //以下是判断消息内容
-    if(!strcmp(msgs.mtext, "#9001")){
-        INFO_TLOG("已接收到共享内存的消息内容:[%s]\n", g_shm);
-    }else if(!strcmp(msgs.mtext, "#9002")){
-        INFO_TLOG("收到退出指令, 正在退出...\n");
+    if(pmsg && !strcmp(pmsg->mtext, "#9002")){
+        INFO_TLOG("收到退出指令:[%s], 正在退出...\n", pmsg->mtext);
         flag = false;
     }else{
-        return false;
+        INFO_TLOG("读取消息队列内容:[%s]\n", pmsg->mtext);
     }
     return true;
 }
 
 //发送消息队列内容
-bool Sendmsg(long mtype, const char *text, const char *content){
-    if(!strcmp(content, "")){
-        clearShm();
-    }else{
-        writeShm(content);
-    }
-
+bool sendMsg(long mtype, const char *text){
     memset(&msgc, 0, sizeof(msgbuff));
     msgc.mtype = mtype;
     memcpy(msgc.mtext, text, strlen(text));
@@ -74,18 +90,43 @@ bool Sendmsg(long mtype, const char *text, const char *content){
     return true;
 }
 
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 信 号 量 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+//接收消息队列内容 + 读取共享内存内容
+bool recvshm(long mtype, bool &flag){
+    //以下是判断消息内容
+    bool mflag = false;
+    if(recvMsg(mtype, &msgs, mflag) && !strcmp(msgs.mtext, "#9001")){
+        INFO_TLOG("已接收到共享内存的消息内容:[%s]\n", g_shm);
+    }else if(!strcmp(msgs.mtext, "#9002")){
+        INFO_TLOG("收到退出指令, 正在退出...\n");
+        flag = false;
+    }else{
+        return false;
+    }
+    return true;
+}
 
-//创建IPC通讯 (消息队列、信号量和共享内存) 的ID值
-//创建信号灯的键值
-bool creatID(){
-    if((g_key = ftok(".", 'a')) < 0){
-        ERROR_TLOG("ftok Error errno = [%d], errmsg = [%s]\n",
+//写入共享内存内容 + 发送消息队列内容
+bool sendshm(long mtype, const char *text, const char *content){
+    if(!strcmp(content, "")){
+        clearShm();
+    }else{
+        writeShm(content);
+    }
+
+    return sendMsg(mtype, text);
+}
+
+//删除消息队列
+bool delMsg(){
+    if(msgctl(g_msqid, IPC_RMID, 0) == -1){
+        ERROR_TLOG("msgctl IPC_RMID  Error errno = [%d], errmsg = [%s]\n",
                 errno, strerror(errno));
         return false;
     }
     return true;
 }
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 信 号 量 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 //创建信号量集
 bool creatSem(int shmflg){
@@ -224,33 +265,28 @@ unsigned int writeShm(const char *content){
     return strlen(content);
 }
 
-//删除共享内存
-bool delShm(){
-    //断开共享内存
+//断开共享内存
+bool disconshm(){
     if(shmdt(g_shm) == -1){
         ERROR_TLOG("shmdt Error errno = [%d], errmsg = [%s]\n",
                 errno, strerror(errno));
         return false;
     }
+    return true;
+}
 
-    //删除共享内存
-    if(shmctl(g_shmid, IPC_RMID, 0) == -1){
+//删除共享内存
+bool delshm(){
+    //断开共享内存 + 删除共享内存
+    if(disconshm() && (shmctl(g_shmid, IPC_RMID, 0) == -1)){
         ERROR_TLOG("shmctl IPC_RMID Error errno = [%d], errmsg = [%s]\n",
                 errno, strerror(errno));
         return false;
     }
-
-    //删除消息队列
-    if(msgctl(g_msqid, IPC_RMID, 0) == -1){
-        ERROR_TLOG("msgctl IPC_RMID  Error errno = [%d], errmsg = [%s]\n",
-                errno, strerror(errno));
-        return false;
-    }
-
-    //删除信号量
-    if(!delsem()){
-        return false;
-    }
-
     return true;
+}
+
+//删除共享内存 + 删除消息队列 + 删除信号量
+bool delShm(){
+    return !delshm() ? false : !delMsg() ? false : !delsem() ? false : true;
 }

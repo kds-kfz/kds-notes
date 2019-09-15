@@ -4,8 +4,6 @@
 #include <sys/sem.h>
 #include <sys/shm.h>
 
-#include <sys/msg.h>
-
 #include"ksocket.hpp"
 #include"klog.hpp"
 #include"kipc.hpp"
@@ -15,6 +13,8 @@
 # define LOG_MODULE "SERVER "
 # endif
 
+#define TEST_MODE 2
+extern struct msgbuff msgs;
 LOG_TYPE _gLogLevel = TEST;
 Log *glog;
 
@@ -27,7 +27,7 @@ int main(int argc, char *argv[]){
     glog = new Log("../log/mount-service");
     INFO_TLOG("挂载系统初始化成功...\n");
 
-#if 0
+#if TEST_MODE == 1
     //套接字测试
     if(argc<2){
         ERROR_TLOG("./a.out less port\n");
@@ -90,7 +90,7 @@ int main(int argc, char *argv[]){
     }
     //删除信号量
     delsem();
-#else
+#elif TEST_MODE == 2
     //共享内存测试
     //共享内存初始化(服务器)
     if(!initShms()){
@@ -107,14 +107,34 @@ int main(int argc, char *argv[]){
 
     bool flag = true;
     while(flag){
-        //读数据
-        Recvmsg(1001, flag);
+        //读消息队列数据
+        recvshm(1001, flag);
     }
 
     //删除共享内存
     if(delShm()){
         cout<<"已经删除共享内存，谢谢!"<<endl;
     }
+#elif TEST_MODE == 3
+    //测试消息队列
+    //消息队列初始化(服务器)
+    cout<<"测试模式:"<<TEST_MODE<<endl;
+    if(!initMsg()){
+        cout<<"消息队列服务器初始化失败!"<<endl;
+        exit(-1);
+    }
+    cout<<"消息队列初始化成功"<<endl;
+    bool flag = true;
+    while(flag){
+        //读消息队列数据
+        recvMsg(1001, &msgs, flag);
+        sleep(1);
+    }
+    //删除消息队列
+    if(delMsg()){
+        cout<<"已经删除消息队列，谢谢!"<<endl;
+    }
+
 #endif
     INFO_TLOG("挂载系统正在退出，欢迎使用...\n");
     return 0;

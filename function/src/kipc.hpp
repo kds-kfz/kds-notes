@@ -26,6 +26,8 @@
  * -- 共享内存是最快的一种 IPC，因为进程是直接对内存进行存取
  * -- 因为多个进程可以同时操作，所以需要进行同步
  * -- 信号量 + 共享内存通常结合在一起使用，信号量用来同步对共享内存的访问
+ * -- 注意：使用消息对量作为标识，需要使用信号量，不然又可能造成写已满，读阻塞，造成程序空转
+ * -- 其原因有：读的代码耗时过长，恰好这时，其他进程又不断向队列写，造成队列已满
  * 
  * 本文件就是针对这五种进程间通信方法进行实现
  * 设计理念：处理多进程通信资源共享时存在的系列问题
@@ -33,6 +35,17 @@
 # ifndef LOG_MODULE
 # define LOG_MODULE "KIPC "
 # endif
+
+/* 
+ * ipcs -a  是默认的输出信息 打印出当前系统中所有的进程间通信方式的信息
+ * ipcrm -s SemaphoreID //删除信号量
+ * ipcrm -m SharedMemoryID //删除共享内存段
+ * ipcrm -q MessageID //删除消息队列
+ *
+ * ipcs -s  打印出使用信号进行进程间通信的信息
+ * ipcs -m  打印出使用共享内存进行进程间通信的信息
+ * ipcs -q   打印出使用消息队列进行进程间通信的信息
+ */
 
 //消息队列标识符
 extern int g_msqid;
@@ -44,6 +57,11 @@ extern int g_shmid;
 extern char *g_shm;
 //IPC通讯 (消息队列、信号量和共享内存)
 extern key_t g_key;
+
+
+//创建消息队列的键值 | 信号灯的键值 | 共享内存的键值
+//IPC通讯 (消息队列、信号量和共享内存)
+bool creatID();
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 管 道 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -58,10 +76,14 @@ struct msgbuff{
 
 //创建新的消息队列或获取已有的消息队列
 bool creatMsg(int msgflg);
+//消息队列初始化
+bool initMsg();
 //接收消息队列内容
-bool Recvmsg(long mtype, bool &flag);
+bool recvMsg(long mtype, struct msgbuff *pmsg, bool &flag);
 //发送消息队列内容
-bool Sendmsg(long mtype, const char *text, const char *content);
+bool sendMsg(long mtype, const char *text);
+//删除消息队列
+bool delMsg();
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 信 号 量 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 #define IPC_MODE (IPC_CREAT | SHM_R | SHM_W)
@@ -95,8 +117,6 @@ bool delsem();
 bool clearShm();
 //向共享内存写入内容
 unsigned int writeShm(const char *content);
-//创建信号灯的键值
-bool creatID();
 
 //创建共享内存
 bool creatShm(int shmflg);
@@ -106,7 +126,15 @@ bool linkShm();
 bool initShms();
 //共享内存初始化(客户端)
 bool initShmc();
+//接收消息队列内容 + 读取共享内存内容
+bool recvshm(long mtype, bool &flag);
+//发送消息队列内容 + 写入共享内存内容
+bool sendshm(long mtype, const char *text, const char *content);
+//断开共享内存
+bool disconshm();
 //删除共享内存
+bool delshm();
+//删除共享内存 + 删除消息队列 + 删除信号量
 bool delShm();
 
 #endif

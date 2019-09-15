@@ -2,13 +2,13 @@
 #include <unistd.h>
 #include"kipc.hpp"
 
-#include <sys/msg.h>
-
 //单进程客户端
 //多线程客户端，模拟高迸发请求
 # ifndef LOG_MODULE
 # define LOG_MODULE "CLIENT "
 # endif
+
+#define TEST_MODE 2
 
 LOG_TYPE _gLogLevel = TEST;
 Log *glog;
@@ -16,7 +16,7 @@ Log *glog;
 int main(int argc,char *argv[]){
     glog = new Log("../log/mount-service");
     
-#if 0
+#if TEST_MODE == 1
     //套接字测试
     if(argc<2){
         ERROR_TLOG("./a.out less port\n");
@@ -45,7 +45,7 @@ int main(int argc,char *argv[]){
             INFO_TLOG("收到应答内容:[%s]\n", client.SocketClientBuff());
         }
     }
-#else
+#elif TEST_MODE == 2
     //共享内存测试
     //共享内存初始化(客户端)
     if(!initShmc()){
@@ -61,9 +61,25 @@ int main(int argc,char *argv[]){
     */
 
     while(1){
-        Sendmsg(1001, "#9001", "2019年9月13日,中秋快乐!");
+        sendshm(1001, "#9001", "2019年9月13日,中秋快乐!");
         sleep(2);
-        Sendmsg(1001, "#9002", "");
+        sendshm(1001, "#9002", "");
+        break;
+    }
+#elif TEST_MODE == 3
+    //测试消息队列
+    //消息队列初始化(客户端)
+    if(!initMsg()){
+        cout<<"消息队列服务器初始化失败!"<<endl;
+        exit(-1);
+    }
+    
+    bool flag = true;
+    while(flag){
+        //向队列写入数据
+        sendMsg(1001, "#9001");
+        sleep(2);
+        sendMsg(1001, "#9002");
         break;
     }
 #endif
