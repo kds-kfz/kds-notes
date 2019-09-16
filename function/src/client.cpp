@@ -8,10 +8,12 @@
 # define LOG_MODULE "CLIENT "
 # endif
 
-#define TEST_MODE 2
+#define TEST_MODE 5
 
 LOG_TYPE _gLogLevel = TEST;
 Log *glog;
+
+extern char fifobuff[PIPE_MAX_SIZE];
 
 int main(int argc,char *argv[]){
     glog = new Log("../log/mount-service");
@@ -82,6 +84,19 @@ int main(int argc,char *argv[]){
         sendMsg(1001, "#9002");
         break;
     }
+#elif TEST_MODE == 5
+    //有名管道测试
+    if(readfifo(fifobuff) < 0){
+        cout<<"有名管道读取数据失败!"<<endl;
+    }
+    cout<<"已读取有名管道内容:"<<fifobuff<<endl;
+    
+    string cmd;
+    cmd.clear();
+    cmd.append("rm -f ");
+    cmd.append(FIFO_FILE_NAME);
+    system(cmd.c_str());
+    cout<<"已清除有名管道文件"<<endl;
 #endif
     return  0;
 }

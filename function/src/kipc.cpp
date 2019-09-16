@@ -6,6 +6,126 @@
 
 #include"kipc.hpp"
 #include"klog.hpp"
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 管 道 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+//两个文件描述符，一写一读，半双工通信
+//数据从父进程流向子进程；关闭父进程读端，关闭子进程写端
+//数据从子进程流向父进程：关闭子进程读端，关闭父进程写端
+int fd[2] = {0, 0};
+char pipebuff[PIPE_MAX_SIZE];
+
+//管道初始化
+bool initPipe(){
+    //创建无名管道
+    if(pipe(fd) < 0){
+        ERROR_TLOG("pipe Error errno = [%d], errmsg = [%s]\n",
+                errno, strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+//数据从父进程流向子进程
+ssize_t writechild(const char *content){
+    //关闭读端
+    close(fd[0]);
+    if(content == NULL){
+        ERROR_TLOG("无名管道通信，向子进程写入数据时，内容非法!\n");
+        return -1;
+    }
+    ssize_t len = write(fd[1], content, PIPE_MAX_SIZE);
+    INFO_TLOG("向子进程写入的数据为:[%s]\n", content);
+    return len;
+}
+
+//从子进程读数据
+ssize_t readchild(char *pbuf){
+    //关闭读端
+    close(fd[1]);
+    bzero(pbuf, PIPE_MAX_SIZE);
+    ssize_t len = read(fd[0], pbuf, PIPE_MAX_SIZE);
+    INFO_TLOG("读取子进程中的数据为:[%s]\n", pbuf);
+    return len;
+}
+
+//数据从子进程流向父进程
+ssize_t writefather(const char *content){
+    //关闭读端
+    close(fd[1]);
+    if(content == NULL){
+        ERROR_TLOG("无名管道通信，向父进程写入数据时，内容非法!\n");
+        return -1;
+    }
+    ssize_t len = write(fd[0], content, PIPE_MAX_SIZE);
+    INFO_TLOG("向父进程写入的数据为:[%s]\n", content);
+    return len;
+}
+
+//从父进程读数据
+ssize_t readfather(char *pbuf){
+    //关闭读端
+    close(fd[0]);
+    bzero(pbuf, PIPE_MAX_SIZE);
+    ssize_t len = read(fd[1], pbuf, PIPE_MAX_SIZE);
+    INFO_TLOG("读取父进程中的数据为:[%s]\n", pbuf);
+    return len;
+}
+
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 有 名 管 道 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+char fifobuff[PIPE_MAX_SIZE];
+
+//有名管道文件是一种特殊设备文件，存在于系统文件中
+//有名管道初始化
+bool initfifo(){
+    //创建 fifo 有名管道
+    if(mkfifo(FIFO_FILE_NAME, 0640) < 0 && errno != EEXIST){
+        ERROR_TLOG("创建 fifo 有名管道失败, Error [%d], errmsg [%s]\n",
+                errno, strerror(errno));
+        return false;
+    }
+    return true;
+}
+
+//向有名管道文件写入数据
+ssize_t writefifo(const char *content){
+    if(content == NULL){
+        ERROR_TLOG("有名管道通信，写入内容非法，写入失败!\n");
+        return -1;
+    }
+    
+    int fd;
+    if((fd = open(FIFO_FILE_NAME, O_WRONLY)) == -1){
+        ERROR_TLOG("有名管道通信，文件[%s]打开失败!\n", FIFO_FILE_NAME);
+        return -2;
+    }
+    
+    int len = write(fd, content, strlen(content));
+    if(len == -1){
+        ERROR_TLOG("向有名管道写入数据失败!\n");
+        return -3;
+    }else{
+        INFO_TLOG("向有名管道写入数据为:[%s]\n", content);
+    }
+    close(fd);
+    return len;
+}
+
+//读取有名管道数据
+ssize_t readfifo(char *pbuf){
+    bzero(pbuf, PIPE_MAX_SIZE);
+    int fd;
+    if((fd = open(FIFO_FILE_NAME, O_RDONLY)) == -1){
+        ERROR_TLOG("有名管道通信，文件[%s]打开失败!\n", FIFO_FILE_NAME);
+        return -1;
+    }
+    
+    int len = read(fd, pbuf, PIPE_MAX_SIZE);
+    pbuf[len] = '\0';
+    INFO_TLOG("读取名管道的数据为:[%s]\n", pbuf);
+    close(fd);
+    return len;
+}
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 消 息 队 列 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
@@ -290,3 +410,4 @@ bool delshm(){
 bool delShm(){
     return !delshm() ? false : !delMsg() ? false : !delsem() ? false : true;
 }
+

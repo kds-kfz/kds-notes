@@ -13,10 +13,13 @@
 # define LOG_MODULE "SERVER "
 # endif
 
-#define TEST_MODE 2
+#define TEST_MODE 5
+
 extern struct msgbuff msgs;
 LOG_TYPE _gLogLevel = TEST;
 Log *glog;
+
+extern char pipebuff[PIPE_MAX_SIZE];
 
 void handle(int n){
     int wai = waitpid(-1, NULL, WNOHANG);
@@ -134,7 +137,29 @@ int main(int argc, char *argv[]){
     if(delMsg()){
         cout<<"已经删除消息队列，谢谢!"<<endl;
     }
-
+#elif TEST_MODE == 4
+    pid_t pid;
+    //无名管道测试
+    if(!initPipe()){
+        cout<<"无名管道服务器初始化失败!"<<endl;
+        exit(-1);
+    }
+    if((pid = fork()) < 0){
+        ERROR_TLOG("fork fail!\n");
+        exit(-1);
+    }else if(pid > 0){//父进程
+        writechild("迎接国庆!");
+    }else{
+        readchild(pipebuff);
+    }
+#elif TEST_MODE == 5
+    //有名管道测试
+    if(!initfifo()){
+        cout<<"有名管道服务器初始化失败!"<<endl;
+    }
+    if(writefifo("国庆倒计时中!") < 0){
+        cout<<"有名管道写入数据失败!"<<endl;
+    }
 #endif
     INFO_TLOG("挂载系统正在退出，欢迎使用...\n");
     return 0;
