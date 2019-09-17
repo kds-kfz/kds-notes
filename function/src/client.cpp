@@ -8,12 +8,10 @@
 # define LOG_MODULE "CLIENT "
 # endif
 
-#define TEST_MODE 5
+#define TEST_MODE 1
 
 LOG_TYPE _gLogLevel = TEST;
 Log *glog;
-
-extern char fifobuff[PIPE_MAX_SIZE];
 
 int main(int argc,char *argv[]){
     glog = new Log("../log/mount-service");
@@ -50,7 +48,7 @@ int main(int argc,char *argv[]){
 #elif TEST_MODE == 2
     //共享内存测试
     //共享内存初始化(客户端)
-    if(!initShmc()){
+    if(!KIPC::initShmc()){
         cout<<"共享内存客户端初始化失败!"<<endl;
         exit(-1);
     }
@@ -63,15 +61,15 @@ int main(int argc,char *argv[]){
     */
 
     while(1){
-        sendshm(1001, "#9001", "2019年9月13日,中秋快乐!");
+        KIPC::sendshm(1001, "#9001", "2019年9月13日,中秋快乐!");
         sleep(2);
-        sendshm(1001, "#9002", "");
+        KIPC::sendshm(1001, "#9002", "");
         break;
     }
 #elif TEST_MODE == 3
     //测试消息队列
     //消息队列初始化(客户端)
-    if(!initMsg()){
+    if(!KIPC::initMsg()){
         cout<<"消息队列服务器初始化失败!"<<endl;
         exit(-1);
     }
@@ -79,17 +77,17 @@ int main(int argc,char *argv[]){
     bool flag = true;
     while(flag){
         //向队列写入数据
-        sendMsg(1001, "#9001");
+        KIPC::sendMsg(1001, "#9001");
         sleep(2);
-        sendMsg(1001, "#9002");
+        KIPC::sendMsg(1001, "#9002");
         break;
     }
 #elif TEST_MODE == 5
     //有名管道测试
-    if(readfifo(fifobuff) < 0){
+    if(KIPC::readfifo(KIPC::buff) < 0){
         cout<<"有名管道读取数据失败!"<<endl;
     }
-    cout<<"已读取有名管道内容:"<<fifobuff<<endl;
+    cout<<"已读取有名管道内容:"<<KIPC::buff<<endl;
     
     string cmd;
     cmd.clear();

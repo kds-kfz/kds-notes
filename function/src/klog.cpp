@@ -54,14 +54,14 @@ void Log::Log_Msg(COMPANYS company, LOG_TYPE type, const char *fmt, ... ){
     pbuf += strlen(buf);
     try{
         // 等待资源
-        sem_p(); 
+        KIPC::sem_p(); 
         va_list ap;
         va_start(ap, fmt);
         vsnprintf(pbuf, sizeof(buf) - strlen(buf), fmt, ap);
         va_end(ap);
         _plog->Write(buf);
         // 释放资源
-        sem_v();
+        KIPC::sem_v();
     }catch(...){
         cout<<"exception in construct Log_Msg message"<<endl;
     }

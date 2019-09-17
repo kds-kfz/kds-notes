@@ -13,13 +13,12 @@
 # define LOG_MODULE "SERVER "
 # endif
 
-#define TEST_MODE 5
+#define TEST_MODE 1
 
-extern struct msgbuff msgs;
 LOG_TYPE _gLogLevel = TEST;
 Log *glog;
 
-extern char pipebuff[PIPE_MAX_SIZE];
+//extern char pipebuff[PIPE_MAX_SIZE];
 
 void handle(int n){
     int wai = waitpid(-1, NULL, WNOHANG);
@@ -29,20 +28,21 @@ void handle(int n){
 int main(int argc, char *argv[]){
     glog = new Log("../log/mount-service");
     INFO_TLOG("挂载系统初始化成功...\n");
+    
+    //创建信号量集
+    if(!KIPC::creatSem(IPC_MODE)){
+        exit(1);
+    }
+    //初始化信号量
+    if(!KIPC::initSem(1)){
+        exit(1);
+    }
 
 #if TEST_MODE == 1
     //套接字测试
     if(argc<2){
         ERROR_TLOG("./a.out less port\n");
         exit(-1);
-    }
-    //创建信号量集
-    if(!creatSem(IPC_MODE)){
-        exit(1);
-    }
-    //初始化信号量
-    if(!initSem(1)){
-        exit(1);
     }
 
     pid_t pid;
@@ -61,11 +61,11 @@ int main(int argc, char *argv[]){
             INFO_TLOG("%s\n", serve.SocketShowAccept().c_str());
             if((pid = fork()) == -1){
                 INFO_TLOG("fork fail\n");
-                exit(-1);
+                break;
             }else if(pid == 0){
                 if(!serve.SocketServeClose()){
                     INFO_TLOG("close sfd fail!\n");
-                    exit(-1);
+                    break;
                 }
                 
                 while(1){
@@ -88,15 +88,15 @@ int main(int argc, char *argv[]){
             }
         }else{
             ERROR_TLOG("%s\n", serve.SocketErrmsg().c_str());
-            exit(-1);
+            break;
         }
     }
     //删除信号量
-    delsem();
+    KIPC::delsem();
 #elif TEST_MODE == 2
     //共享内存测试
     //共享内存初始化(服务器)
-    if(!initShms()){
+    if(!KIPC::initShms()){
         cout<<"共享内存服务器初始化失败!"<<endl;
         exit(-1);
     }
@@ -111,18 +111,18 @@ int main(int argc, char *argv[]){
     bool flag = true;
     while(flag){
         //读消息队列数据
-        recvshm(1001, flag);
+        KIPC::recvshm(1001, flag);
     }
 
     //删除共享内存
-    if(delShm()){
+    if(KIPC::delShm()){
         cout<<"已经删除共享内存，谢谢!"<<endl;
     }
 #elif TEST_MODE == 3
     //测试消息队列
     //消息队列初始化(服务器)
     cout<<"测试模式:"<<TEST_MODE<<endl;
-    if(!initMsg()){
+    if(!KIPC::initMsg()){
         cout<<"消息队列服务器初始化失败!"<<endl;
         exit(-1);
     }
@@ -130,17 +130,17 @@ int main(int argc, char *argv[]){
     bool flag = true;
     while(flag){
         //读消息队列数据
-        recvMsg(1001, &msgs, flag);
+        KIPC::recvMsg(1001, &KIPC::msg, flag);
         sleep(1);
     }
     //删除消息队列
-    if(delMsg()){
+    if(KIPC::delMsg()){
         cout<<"已经删除消息队列，谢谢!"<<endl;
     }
 #elif TEST_MODE == 4
     pid_t pid;
     //无名管道测试
-    if(!initPipe()){
+    if(!KIPC::initPipe()){
         cout<<"无名管道服务器初始化失败!"<<endl;
         exit(-1);
     }
@@ -148,16 +148,16 @@ int main(int argc, char *argv[]){
         ERROR_TLOG("fork fail!\n");
         exit(-1);
     }else if(pid > 0){//父进程
-        writechild("迎接国庆!");
+        KIPC::writechild("迎接国庆!");
     }else{
-        readchild(pipebuff);
+        KIPC::readchild(KIPC::buff);
     }
 #elif TEST_MODE == 5
     //有名管道测试
-    if(!initfifo()){
+    if(!KIPC::initfifo()){
         cout<<"有名管道服务器初始化失败!"<<endl;
     }
-    if(writefifo("国庆倒计时中!") < 0){
+    if(KIPC::writefifo("国庆倒计时中!") < 0){
         cout<<"有名管道写入数据失败!"<<endl;
     }
 #endif
