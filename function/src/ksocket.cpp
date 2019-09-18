@@ -31,7 +31,7 @@ int Socket::SocketServeRead(){
     int count = 0;
     //有可能接收的请求字节数超长，故先检验包体长度是否合法
     if((count = read(cfd->fd, buff, 8)) != 8){
-        ERROR_TLOG("Recv Header Error, break!\n");
+        WARN_TLOG("Recv Header Error, break!\n");
         return -1;
     }
     //这里要校验前8字节是否都为纯数字

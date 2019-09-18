@@ -4,9 +4,10 @@
 #include <sys/sem.h>
 #include <sys/shm.h>
 
-#include"ksocket.hpp"
-#include"klog.hpp"
-#include"kipc.hpp"
+#include "ksocket.hpp"
+#include "klog.hpp"
+#include "kipc.hpp"
+#include "ksignal.hpp"
 
 //服务器，才用预编译，选择不同的服务器
 # ifndef LOG_MODULE
@@ -37,7 +38,12 @@ int main(int argc, char *argv[]){
     if(!KIPC::initSem(1)){
         exit(1);
     }
-
+#if 1
+    //信号注册
+    if(!initSigProc()){
+        exit(1);
+    }
+#endif
 #if TEST_MODE == 1
     //套接字测试
     if(argc<2){
@@ -61,11 +67,11 @@ int main(int argc, char *argv[]){
             INFO_TLOG("%s\n", serve.SocketShowAccept().c_str());
             if((pid = fork()) == -1){
                 INFO_TLOG("fork fail\n");
-                break;
+                exit(1);
             }else if(pid == 0){
                 if(!serve.SocketServeClose()){
                     INFO_TLOG("close sfd fail!\n");
-                    break;
+                    exit(1);
                 }
                 
                 while(1){
@@ -74,21 +80,22 @@ int main(int argc, char *argv[]){
                         ERROR_TLOG("%s\n", serve.SocketErrmsg().c_str());
                         continue;
                     }
-                    INFO_TLOG("服务器接收数据[%d]\n", count++);
+                    INFO_TLOG("接收到第[%d]个请求\n", count++);
                     INFO_TLOG("收到请求类型:[%s]\n", serve.SocketType());
                     INFO_TLOG("收到请求内容:[%s]\n", serve.SocketBuff());
                     char res[64] = "已收到测试请求包，正在处理...";
                     if(!serve.SocketServeSend("01#", res)){
-                        INFO_TLOG("%s\n", serve.SocketErrmsg().c_str());
+                        WARN_TLOG("%s\n", serve.SocketErrmsg().c_str());
+                        break;
                     }
                 }
             }else{
                 serve.SocketClientClose();
-                signal(SIGCHLD, handle);
+                //signal(SIGCHLD, handle);
             }
         }else{
-            ERROR_TLOG("%s\n", serve.SocketErrmsg().c_str());
-            break;
+            WARN_TLOG("%s\n", serve.SocketErrmsg().c_str());
+            //exit(1);
         }
     }
     //删除信号量
