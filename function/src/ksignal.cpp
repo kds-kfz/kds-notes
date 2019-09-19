@@ -1,4 +1,4 @@
-#include<sys/wait.h>
+#include <sys/wait.h>
 #include <signal.h>
 #include"klog.hpp"
 #include"kipc.hpp"
@@ -56,6 +56,59 @@
  * SIG_IGN ：忽略的处理方式
  */
 
+//回调函数体
+string handler_SIGCHLD(){
+    int status = 0;
+    pid_t pid = 0;
+    string errmsg = "";
+    do{
+        pid = waitpid(-1, &status, WNOHANG);
+        if(pid < -1){
+            errmsg = "等待进程组识别码为 pid 绝对值的任何子进程";
+        }else if(pid == -1){
+            errmsg = "等待任何子进程";
+        }else if(pid == 0){
+            errmsg = "等待进程组识别码与目前进程相同的任何子进程";
+        }else{
+            errmsg = "等待任何子进程识别码为 pid 的子进程";
+        }
+    }while(pid > 0);
+    //while((pid = waitpid(-1, &status, WNOHANG)) > 0){
+    //    INFO_TLOG("the child exit status is [%s], pid = [%d], signo = SIGCHLD\n", WEXITSTATUS(status), pid);
+    //}
+    return errmsg;
+}
+
+string handler_SIGINT(){
+    INFO_TLOG("正在删除信号量...\n");
+    INFO_TLOG("挂载系统正在退出，欢迎使用...\n");
+    KIPC::delsem();
+    exit(0); 
+}
+
+string handler_SIGFPE(){return "默认执行成功";}
+string handler_SIGSEGV(){return "默认执行成功";}
+string handler_SIGBUS(){return "默认执行成功";}
+string handler_SIGABRT(){return "默认执行成功";}
+
+string SigToString(int signo){
+    string result = "";
+    switch(signo){
+        case SIGCHLD: result = "SIGCHLD"; break;
+        case SIGINT:  result = "SIGINT"; break;
+        case SIGFPE:  result = "SIGFPE"; break;
+        case SIGSEGV: result = "SIGSEGV"; break;
+        case SIGBUS:  result = "SIGBUS"; break;
+        case SIGABRT: result = "SIGABRT"; break;
+        default: result = "unknow signo"; break;
+    }
+    return result;
+}
+
+void installHandle( string functionName, FuncHandle h){
+    funcHandleMap[functionName] = h;
+}
+
 bool initSigProc(){
 #if 0
     if(SIG_ERR == signal(SIGINT, SigHandlerProc)){
@@ -70,7 +123,7 @@ bool initSigProc(){
         ERROR_TLOG("signal SIGCHLD SigHandlerProc Error!\n");
         return false;
     }
-#endif
+#else
     struct sigaction sa;
     sa.sa_handler = SigHandlerProc;
     //一般情况下，当信号处理函数运行时，内核将阻塞该给定信号
@@ -81,37 +134,44 @@ bool initSigProc(){
     //避免 zombie 的方法
     sa.sa_flags |= SA_NOCLDWAIT;
     
+    installHandle("handler_SIGCHLD", handler_SIGCHLD);
     int ret = sigaction(SIGCHLD, &sa, NULL);
     if(ret < 0){
         ERROR_TLOG("Error: 设置 SIGCHLD 信号处理方式失败!\n");
         return false;
     }
+    installHandle("handler_SIGINT", handler_SIGINT);
     ret = sigaction(SIGINT, &sa, NULL);
     if(ret < 0){
         ERROR_TLOG("Error: 设置 SIGINT 信号处理方式失败!\n");
         return false;
     }
 
+    installHandle("handler_SIGFPE", handler_SIGFPE);
     ret = sigaction(SIGFPE, &sa, NULL);
     if(ret < 0){
         ERROR_TLOG("Error: 设置 SIGFPE 信号处理方式失败!\n");
         return false;
     }
+    installHandle("handler_SIGSEGV", handler_SIGSEGV);
     ret = sigaction(SIGSEGV, &sa, NULL);
     if(ret < 0){
         ERROR_TLOG("Error: 设置 SIGSEGV 信号处理方式失败!\n");
         return false;
     }
+    installHandle("handler_SIGBUS", handler_SIGBUS);
     ret = sigaction(SIGBUS, &sa, NULL);
     if(ret < 0){
         ERROR_TLOG("Error: 设置 SIGBUS 信号处理方式失败!\n");
         return false;
     }
+    installHandle("handler_SIGABRT", handler_SIGABRT);
     ret = sigaction(SIGABRT, &sa, NULL);
     if(ret < 0){
         ERROR_TLOG("Error: 设置 SIGABRT 信号处理方式失败!\n");
         return false;
     }
+    
     /*
     //忽略该信号
     //SIG_IGN 这个符号表示忽略该信号，进程会忽略该信号
@@ -122,11 +182,13 @@ bool initSigProc(){
         return false;
     }
     */
+#endif
     return true;
 }
 
 //信号回调
 void SigHandlerProc(int signo){
+#if 0
     if(signo == SIGCHLD){
         int status = 0;
         pid_t pid = 0;
@@ -151,5 +213,25 @@ void SigHandlerProc(int signo){
         }
         INFO_TLOG("SigHandlerProc: signo = [%s]\n", errmsg.c_str());
     }
+#else
+    //查找功能回调函数
+    string funcname, errorCode;
+    funcname.clear();
+    funcname.append("handler_");
+
+    string sig = SigToString(signo);
+    if(sig == string("unknow signo")){
+        INFO_TLOG("Error errmsg:[尚未注册该信号回调函数!]\n");
+        return ;
+    }
+    funcname = funcname + sig;
+    FuncHandleMap::iterator it = funcHandleMap.find(funcname);
+    if(it != funcHandleMap.end()){
+        INFO_TLOG("正在执行[%s]回调函数\n", funcname.c_str());
+        FuncHandle &handle = it->second;
+        errorCode = handle();
+        INFO_TLOG("执行结果:[%s]\n", errorCode.c_str());
+    }
+#endif
 }
 

@@ -17,15 +17,27 @@
  * 设计理念：更好的管理信号，让系统更加稳定，资源合理调配
  * 加入守护进程
  **********************************************************************************/
-//由于信号较多，每个信号有自己的处理函数，在此考虑使用函数指针
+//信号注册,  由于信号较多，每个信号有自己的处理函数，在此考虑使用函数指针
 
-//typedef void (*sighandler_t)(int);
-//typedef void (*Func)(int);
-//typedef std::map<std::string, FuncHandle> FuncHandleMap
+typedef std::string (*FuncHandle)();
+typedef std::map<std::string, FuncHandle> FuncHandleMap;
+static FuncHandleMap funcHandleMap;
 
 //信号注册
 bool initSigProc();
 //信号回调
 void SigHandlerProc(int signo);
+//注册信号回调函数
+void installHandle(string functionName, FuncHandle h);
+//信号转 string
+string SigToString(int signo);
+
+//回调函数体
+string handler_SIGCHLD();
+string handler_SIGINT();
+string handler_SIGFPE();
+string handler_SIGSEGV();
+string handler_SIGBUS();
+string handler_SIGABRT();
 
 #endif /* KSIGNAL */
