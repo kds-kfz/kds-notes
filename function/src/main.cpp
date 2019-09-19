@@ -1,4 +1,6 @@
 #include"klog.hpp"
+#include"kipc.hpp"
+#include"ksignal.hpp"
 #include"kcfg.hpp"
 
 # ifndef LOG_MODULE
@@ -10,6 +12,21 @@ LOG_TYPE _gLogLevel = TEST;
 Log *glog;
 
 int main(int argc, char *argv[]){
+    //读配置文件测试
+    glog = new Log("../log/mount-service");
+    INFO_TLOG("挂载系统初始化成功...\n");
+    //创建信号量集
+    if(!KIPC::creatSem(IPC_MODE)){
+        exit(1);
+    }
+    //初始化信号量
+    if(!KIPC::initSem(1)){
+        exit(1);
+    }
+    //信号注册
+    if(!initSigProc()){
+        exit(1);
+    }
 #if 0
     //文件测试
     Files fd;
@@ -44,10 +61,18 @@ int main(int argc, char *argv[]){
         WARN_TLOG("测试[%ld]\n", sec++);
     }
 #else
-    //读配置文件测试
-    glog = new Log("../log/mount-service");
-    JsonInfo k;
+    //测试配置文件函数
+    cJsonInfo k;
     k.LoadConfig("../etc/config.json");
+    k.ShowCfgValue();
+    string sztmp = "";
+    if(k.GetCfgValue("expire_time", sztmp)){
+        INFO_TLOG("已读取到配置为:[%s]\n", sztmp.c_str());
+    }
+    
+    INFO_TLOG("挂载系统正在退出，欢迎使用...\n");
+    //删除信号量
+    KIPC::delsem();
     return 0;
 #endif
 }

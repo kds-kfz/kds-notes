@@ -38,12 +38,10 @@ int main(int argc, char *argv[]){
     if(!KIPC::initSem(1)){
         exit(1);
     }
-#if 1
     //信号注册
     if(!initSigProc()){
         exit(1);
     }
-#endif
 #if TEST_MODE == 1
     //套接字测试
     if(argc<2){

@@ -23,7 +23,7 @@ ser.out : serve.o klog.o kfile.o ksocket.o kipc.o ksignal.o
 	$(CXX) -o $@ $^
 cli.out : client.o klog.o kfile.o ksocket.o kipc.o
 	$(CXX) -o $@ $^
-main.out : main.o kcfg.o kfile.o klog.o $(INCS)/cJSON.o kipc.o
+main.out : main.o kcfg.o kfile.o klog.o $(INCS)/cJSON.o kipc.o ksignal.o
 	$(CXX) -o $@ $^ $(FLAG)
 
 %.o : %.c

@@ -20,12 +20,14 @@
 //配置文件的读取与内存文件读写不一样，前者只读一次，后者存在多次读写
 
 # ifndef LOG_MODULE
-# define LOG_MODULE "CFG "
+# define LOG_MODULE "KCFG "
 # endif
 
 enum CfgType{ TCSTY = 1, KDSSTY, OTHERS, };              //配置类型
 typedef std::map < std::string, std::string > Values;      //键值对
 typedef std::map < CfgType, Values > ValueDesc;  //描述 + 键值对
+
+static ValueDesc g_cfg;
 
 //设计出发点，考虑有可能有多中配置文件，故统一设计成字符型键值对
 
@@ -36,46 +38,55 @@ protected:
     ValueDesc CfgValue;     //所有的配置信息键值对
 public:
     Files file;             //文件读写类
-    /*
-    JsBase(){
-        CfgValue.clear();
-        instance = 
-    }*/
+    JsBase(){}
+    ~JsBase(){}
     //JsBase(const JsBase &p) = delete;       //禁止拷贝构造
     JsBase &operator=(const JsBase &p) = delete;    //禁止赋值拷贝
-    virtual bool LoadConfig(std::string fileName)=0;  //纯虚函数，读配置到容器
-    //virtual void GetCfgValue(std::string key)=0;      //纯虚函数，读容器中配置
-    //virtual void GetCfgValue(std::string pkey, std::string tkey)=0;    //纯虚函数，读容器中配置
-    //virtual void ShowCfgValue(CfgType = OTHERS)=0;    //显示某配置文件配置
-    ~JsBase(){}
+    virtual bool LoadConfig(std::string fileName, CfgType ctype = TCSTY)=0;  //纯虚函数，读配置到容器
+    virtual bool GetCfgValue(std::string key, std::string &value, CfgType ctype = TCSTY)=0;      //纯虚函数，读容器中配置
+    //virtual std::string GetCfgValue(std::string pkey, std::string tkey)=0;    //纯虚函数，读容器中配置
+    virtual void ShowCfgValue(CfgType ctype = TCSTY)=0;    //显示某配置文件配置
 };
 
 //初始化申请空间
 //JsBase *JsBase::instance=NULL;
 
 //json 配置文件解析，由于有两种方式解析，考虑使用继承
-//派生类
+//cjson 派生类，配置文件中不能含有注释
+class cJsonInfo : public JsBase{
+public:
+    cJsonInfo(){}
+    ~cJsonInfo(){}
+    //JsonInfo(const JsonInfo &p) = delete;   //禁止拷贝构造
+    bool LoadConfig(std::string fileName, CfgType ctype = TCSTY);       //纯虚函数，读配置到容器
+    bool GetCfgValue(std::string key, std::string &value, CfgType ctype = TCSTY);           //纯虚函数，读容器中配置
+    //std::string GetCfgValue(std::string pkey, std::string tkey);    //纯虚函数，读容器中配置
+    void ShowCfgValue(CfgType ctype = TCSTY);         //显示某配置文件配置
+};
+
+//jsoncpp 派生类
 class JsonInfo : public JsBase{
 public:
-    //JsonInfo() = delete;//禁止无参构造
-    //JsonInfo(const JsonInfo &p) = delete;   //禁止拷贝构造
-    bool LoadConfig(std::string fileName);       //纯虚函数，读配置到容器
-    void GetCfgValue(std::string key);           //纯虚函数，读容器中配置
-    void GetCfgValue(std::string pkey, std::string tkey);    //纯虚函数，读容器中配置
-    void ShowCfgValue(CfgType = OTHERS);         //显示某配置文件配置
+    JsonInfo(){}
     ~JsonInfo(){}
+    //JsonInfo(const JsonInfo &p) = delete;   //禁止拷贝构造
+    bool LoadConfig(std::string fileName, CfgType ctype = TCSTY);       //纯虚函数，读配置到容器
+    bool GetCfgValue(std::string key, std::string &value, CfgType ctype = TCSTY);           //纯虚函数，读容器中配置
+    //std::string GetCfgValue(std::string pkey, std::string tkey);    //纯虚函数，读容器中配置
+    void ShowCfgValue(CfgType ctype = TCSTY);         //显示某配置文件配置
 };
 
 //xml 配置文件解析
 //派生类
 class DocInfo : public JsBase{
 public:
-    //DocInfo() = delete;//禁止无参构造
+    DocInfo(){}
+    ~DocInfo(){}
     //DocInfo(const DocInfo &p) = delete;     //禁止拷贝构造
-    bool LoadConfig(std::string fileName);       //纯虚函数，读配置到容器
-    void GetCfgValue(std::string key);           //纯虚函数，读容器中配置
-    void GetCfgValue(std::string pkey, std::string tkey);    //纯虚函数，读容器中配置
-    void ShowCfgValue(CfgType = OTHERS);         //显示某配置文件配置
+    bool LoadConfig(std::string fileName, CfgType ctype = TCSTY);       //纯虚函数，读配置到容器
+    bool GetCfgValue(std::string key, std::string &value, CfgType ctype = TCSTY);           //纯虚函数，读容器中配置
+    //std::string GetCfgValue(std::string pkey, std::string tkey);    //纯虚函数，读容器中配置
+    void ShowCfgValue(CfgType ctype = OTHERS);         //显示某配置文件配置
 };
 
 //节点 配置文件解析
