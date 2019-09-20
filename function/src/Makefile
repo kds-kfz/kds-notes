@@ -24,12 +24,12 @@ ser.out : serve.o klog.o kfile.o ksocket.o kipc.o ksignal.o
 cli.out : client.o klog.o kfile.o ksocket.o kipc.o
 	$(CXX) -o $@ $^
 main.out : main.o kcfg.o kfile.o klog.o $(INCS)/cJSON.o kipc.o ksignal.o
-	$(CXX) -o $@ $^ $(FLAG)
+	$(CXX) -o $@ $^
 
 %.o : %.c
 	$(CC) -o $@ -c $<
 %.o : %.cpp
-	$(CXX) -o $@ -c $< -std=c++0x
+	$(CXX) -o $@ -c $< -std=c++0x $(libs) -g
 
 clean:
 	rm $(OBJ) $(COMMONOBJS) *.out *.o ../log/*.log -f 

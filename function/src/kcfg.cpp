@@ -1,6 +1,31 @@
 #include"kcfg.hpp"
 #include"klog.hpp"
-#include "../common/cJSON.h"
+//TODO 目前最多只支持三层key查找，多了就不行了，后续优化考虑采取不定参数作为形参，或是采用字段分隔
+bool cJsonInfo::InsertKeyValue(cJSON *item, Values &mapkv, string preName, string tailName, string Name, int flag){
+    cJSON* obj = cJSON_GetObjectItem(item, preName.c_str());
+    if(obj && obj->type == cJSON_String){
+        if(tailName == ""){
+            mapkv.insert(make_pair(preName, obj->valuestring));
+        }else{
+            string newKey;
+            if(Name == ""){
+                newKey = tailName + "/" + preName;
+            }else{
+                newKey = Name + "/" + tailName + "/" + preName;
+            }
+            mapkv.insert(make_pair(newKey, obj->valuestring));
+        }
+        return true;
+    }else if(obj && obj->type == cJSON_Object){
+        if(!flag && tailName != ""){
+            InsertKeyValue(obj, mapkv, tailName, preName, Name, 1);
+        }
+        if(flag == 1 && Name != ""){
+            InsertKeyValue(obj, mapkv, Name, preName, tailName);
+        }
+    }
+    return false;
+}
 
 bool cJsonInfo::LoadConfig(string fileName, CfgType ctype){
     if(fileName.empty() || fileName == ""){
@@ -18,82 +43,33 @@ bool cJsonInfo::LoadConfig(string fileName, CfgType ctype){
     cJSON* item = cJSON_Parse(b->file.Data());
     if(!item){
         ERROR_TLOG("配置文件 %s, json 数据格式错误，请耐心检查!\n", fileName.c_str());
+        delete b;
         return false;
     }
 
     Values readkv;
     readkv.clear();
-    cJSON* obj = cJSON_GetObjectItem(item, "log_path");
-    if(obj && obj->type == cJSON_String){
-        readkv.insert(make_pair("log_path", obj->valuestring));
-    }
-    obj = cJSON_GetObjectItem(item, "log_level");
-    if(obj && obj->type == cJSON_String){
-        readkv.insert(make_pair("log_level", obj->valuestring));
-    }
-    obj = cJSON_GetObjectItem(item, "gearman");
-    if(obj && obj->type == cJSON_Object){
-        cJSON* obj1 = cJSON_GetObjectItem(obj, "client_timeout");
-        if(obj1 && obj1->type == cJSON_String){
-            readkv.insert(make_pair("gearman/client_timeout", obj1->valuestring));
-        }
-        obj1 = cJSON_GetObjectItem(obj, "connectMode");
-        if(obj1 && obj1->type == cJSON_String){
-            readkv.insert(make_pair("gearman/connectMode", obj1->valuestring));
-        }
-        obj1 = cJSON_GetObjectItem(obj, "server_info");
-        if(obj1 && obj1->type == cJSON_Object){
-            cJSON* obj2 = cJSON_GetObjectItem(obj1, "server_1");
-            if(obj2 && obj2->type == cJSON_String){
-                readkv.insert(make_pair("gearman/server_info/server_1", obj2->valuestring));
-            }
-        }
-    }
-    obj = cJSON_GetObjectItem(item, "enable_redis");
-    if(obj && obj->type == cJSON_String){
-        readkv.insert(make_pair("enable_redis", obj->valuestring));
-    }
-    obj = cJSON_GetObjectItem(item, "redis");
-    if(obj && obj->type == cJSON_Object){
-        cJSON* obj1 = cJSON_GetObjectItem(obj, "ip");
-        if(obj1 && obj1->type == cJSON_String){
-            readkv.insert(make_pair("redis/ip", obj1->valuestring));
-        }
-        obj1 = cJSON_GetObjectItem(obj, "port");
-        if(obj1 && obj1->type == cJSON_String){
-            readkv.insert(make_pair("redis/port", obj1->valuestring));
-        }
-        obj1 = cJSON_GetObjectItem(obj, "expire_time");
-        if(obj1 && obj1->type == cJSON_String){
-            readkv.insert(make_pair("redis/expire_time", obj1->valuestring));
-        }
-        obj1 = cJSON_GetObjectItem(obj, "zqxx_expire_time");
-        if(obj1 && obj1->type == cJSON_String){
-            readkv.insert(make_pair("redis/zqxx_expire_time", obj1->valuestring));
-        }
-        obj1 = cJSON_GetObjectItem(obj, "login_expire_time");
-        if(obj1 && obj1->type == cJSON_String){
-            readkv.insert(make_pair("redis/login_expire_time", obj1->valuestring));
-        }
-        obj1 = cJSON_GetObjectItem(obj, "enable_hq_redis");
-        if(obj1 && obj1->type == cJSON_String){
-            readkv.insert(make_pair("redis/enable_hq_redis", obj1->valuestring));
-        }
-        obj1 = cJSON_GetObjectItem(obj, "hq_redis_cfg_path");
-        if(obj1 && obj1->type == cJSON_String){
-            readkv.insert(make_pair("redis/hq_redis_cfg_path", obj1->valuestring));
-        }
-    }
-    obj = cJSON_GetObjectItem(item, "runningMod");
-    if(obj && obj->type == cJSON_String){
-        readkv.insert(make_pair("runningMod", obj->valuestring));
-    }
-
+    InsertKeyValue(item, readkv, "log_path", "", "");
+    InsertKeyValue(item, readkv, "log_level", "", "");
+    InsertKeyValue(item, readkv, "gearman", "server_info", "server_1");
+    InsertKeyValue(item, readkv, "gearman", "client_timeout", "");
+    InsertKeyValue(item, readkv, "gearman", "connectMode", "");
+    InsertKeyValue(item, readkv, "enable_redis", "", "");
+    InsertKeyValue(item, readkv, "redis", "ip", "");
+    InsertKeyValue(item, readkv, "redis", "port", "");
+    InsertKeyValue(item, readkv, "redis", "expire_time", "");
+    InsertKeyValue(item, readkv, "redis", "zqxx_expire_time", "");
+    InsertKeyValue(item, readkv, "redis", "login_expire_time", "");
+    InsertKeyValue(item, readkv, "redis", "enable_hq_redis", "");
+    InsertKeyValue(item, readkv, "redis", "hq_redis_cfg_path", "");
+    InsertKeyValue(item, readkv, "runningMod", "", "");
     g_cfg.insert(make_pair(ctype, readkv));
     
+    delete b;
     cJSON_Delete(item);
     return true;
 }
+
 bool cJsonInfo::GetCfgValue(string key, string &value, CfgType ctype){
     if (g_cfg.empty()){
         ERROR_TLOG("为读取到有效的配置文件, 请耐心检查!\n");
@@ -139,3 +115,40 @@ void cJsonInfo::ShowCfgValue(CfgType ctype){
         }
     }
 }
+
+static Json::Value gCfg;
+
+bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
+    if(fileName.empty() || fileName == ""){
+        ERROR_TLOG("配置文件路径不存在!\n");
+        return false;
+    }
+    JsBase *b = NULL;
+    b = new JsonInfo();
+    if(!b){
+        ERROR_TLOG("配置文件基类空间申请失败，请稍后尝试!\n");
+        return false;
+    }
+    //读文件
+    b->file.Open(fileName.c_str(), O_RDONLY);
+    cout<<b->file.Data()<<endl;
+
+    Json::Reader reader;
+    if(!reader.parse(string(b->file.Data()), gCfg)){
+        ERROR_TLOG("配置文件 %s, json 数据格式错误，请耐心检查!\n", fileName.c_str());
+        delete b;
+        return false;
+    }
+
+    delete b;
+}
+
+bool JsonInfo::GetCfgValue(string key, string &value, CfgType ctype){
+
+}
+
+void JsonInfo::ShowCfgValue(CfgType ctype){
+
+}
+
+

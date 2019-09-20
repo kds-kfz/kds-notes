@@ -66,7 +66,7 @@ int main(int argc, char *argv[]){
     k.LoadConfig("../etc/config.json");
     k.ShowCfgValue();
     string sztmp = "";
-    if(k.GetCfgValue("expire_time", sztmp)){
+    if(k.GetCfgValue("login_expire_time", sztmp)){
         INFO_TLOG("已读取到配置为:[%s]\n", sztmp.c_str());
     }
     

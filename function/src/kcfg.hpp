@@ -4,6 +4,7 @@
 #include "kfile.hpp"
 #include<string>
 #include<map>
+#include "../common/cJSON.h"
 
 /******************************* 标 签 *******************************
  * 作者：kfz
@@ -23,9 +24,11 @@
 # define LOG_MODULE "KCFG "
 # endif
 
+using namespace std;
+
 enum CfgType{ TCSTY = 1, KDSSTY, OTHERS, };              //配置类型
-typedef std::map < std::string, std::string > Values;      //键值对
-typedef std::map < CfgType, Values > ValueDesc;  //描述 + 键值对
+typedef map < string, string > Values;      //键值对
+typedef map < CfgType, Values > ValueDesc;  //描述 + 键值对
 
 static ValueDesc g_cfg;
 
@@ -40,12 +43,10 @@ public:
     Files file;             //文件读写类
     JsBase(){}
     ~JsBase(){}
-    //JsBase(const JsBase &p) = delete;       //禁止拷贝构造
-    JsBase &operator=(const JsBase &p) = delete;    //禁止赋值拷贝
-    virtual bool LoadConfig(std::string fileName, CfgType ctype = TCSTY)=0;  //纯虚函数，读配置到容器
-    virtual bool GetCfgValue(std::string key, std::string &value, CfgType ctype = TCSTY)=0;      //纯虚函数，读容器中配置
-    //virtual std::string GetCfgValue(std::string pkey, std::string tkey)=0;    //纯虚函数，读容器中配置
-    virtual void ShowCfgValue(CfgType ctype = TCSTY)=0;    //显示某配置文件配置
+    JsBase &operator=(const JsBase &p) = delete;                            //禁止赋值拷贝
+    virtual bool LoadConfig(string fileName, CfgType ctype = TCSTY)=0; //纯虚函数，读配置到容器
+    virtual bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY)=0;      //纯虚函数，读容器中配置
+    virtual void ShowCfgValue(CfgType ctype = TCSTY)=0;                     //显示某配置文件配置
 };
 
 //初始化申请空间
@@ -57,11 +58,10 @@ class cJsonInfo : public JsBase{
 public:
     cJsonInfo(){}
     ~cJsonInfo(){}
-    //JsonInfo(const JsonInfo &p) = delete;   //禁止拷贝构造
-    bool LoadConfig(std::string fileName, CfgType ctype = TCSTY);       //纯虚函数，读配置到容器
-    bool GetCfgValue(std::string key, std::string &value, CfgType ctype = TCSTY);           //纯虚函数，读容器中配置
-    //std::string GetCfgValue(std::string pkey, std::string tkey);    //纯虚函数，读容器中配置
-    void ShowCfgValue(CfgType ctype = TCSTY);         //显示某配置文件配置
+    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                   //纯虚函数，读配置到容器
+    bool InsertKeyValue(cJSON* item, Values &mapkv, string preName, string tailName, string Name, int flag = 0);
+    bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY);   //纯虚函数，读容器中配置
+    void ShowCfgValue(CfgType ctype = TCSTY);                                       //显示某配置文件配置
 };
 
 //jsoncpp 派生类
@@ -69,11 +69,9 @@ class JsonInfo : public JsBase{
 public:
     JsonInfo(){}
     ~JsonInfo(){}
-    //JsonInfo(const JsonInfo &p) = delete;   //禁止拷贝构造
-    bool LoadConfig(std::string fileName, CfgType ctype = TCSTY);       //纯虚函数，读配置到容器
-    bool GetCfgValue(std::string key, std::string &value, CfgType ctype = TCSTY);           //纯虚函数，读容器中配置
-    //std::string GetCfgValue(std::string pkey, std::string tkey);    //纯虚函数，读容器中配置
-    void ShowCfgValue(CfgType ctype = TCSTY);         //显示某配置文件配置
+    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                   //纯虚函数，读配置到容器
+    bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY);   //纯虚函数，读容器中配置
+    void ShowCfgValue(CfgType ctype = TCSTY);                                       //显示某配置文件配置
 };
 
 //xml 配置文件解析
@@ -82,16 +80,18 @@ class DocInfo : public JsBase{
 public:
     DocInfo(){}
     ~DocInfo(){}
-    //DocInfo(const DocInfo &p) = delete;     //禁止拷贝构造
-    bool LoadConfig(std::string fileName, CfgType ctype = TCSTY);       //纯虚函数，读配置到容器
-    bool GetCfgValue(std::string key, std::string &value, CfgType ctype = TCSTY);           //纯虚函数，读容器中配置
-    //std::string GetCfgValue(std::string pkey, std::string tkey);    //纯虚函数，读容器中配置
-    void ShowCfgValue(CfgType ctype = OTHERS);         //显示某配置文件配置
+    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                   //纯虚函数，读配置到容器
+    bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY);   //纯虚函数，读容器中配置
+    void ShowCfgValue(CfgType ctype = OTHERS);                                      //显示某配置文件配置
 };
 
 //节点 配置文件解析
-class NodeInfo{
-
+class NodeInfo : public JsBase{
+    NodeInfo(){}
+    ~NodeInfo(){}
+    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                   //纯虚函数，读配置到容器
+    bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY);   //纯虚函数，读容器中配置
+    void ShowCfgValue(CfgType ctype = OTHERS);                                      //显示某配置文件配置
 };
 
 #endif
