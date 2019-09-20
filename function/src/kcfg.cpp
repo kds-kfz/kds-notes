@@ -116,7 +116,7 @@ void cJsonInfo::ShowCfgValue(CfgType ctype){
     }
 }
 
-static Json::Value gCfg;
+//static Json::Value gCfg;
 
 bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
     if(fileName.empty() || fileName == ""){
@@ -132,14 +132,14 @@ bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
     //读文件
     b->file.Open(fileName.c_str(), O_RDONLY);
     cout<<b->file.Data()<<endl;
-
+/*
     Json::Reader reader;
     if(!reader.parse(string(b->file.Data()), gCfg)){
         ERROR_TLOG("配置文件 %s, json 数据格式错误，请耐心检查!\n", fileName.c_str());
         delete b;
         return false;
     }
-
+*/
     delete b;
 }
 

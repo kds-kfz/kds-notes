@@ -4,7 +4,7 @@
 #include "kfile.hpp"
 #include<string>
 #include<map>
-#include "../common/cJSON.h"
+#include "cJSON.h"
 
 /******************************* 标 签 *******************************
  * 作者：kfz

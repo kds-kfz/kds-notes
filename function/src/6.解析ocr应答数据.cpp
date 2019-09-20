@@ -5,7 +5,7 @@
 #include <vector>
 #include <map>
 
-#include "../common/cJSON.h"
+#include "cJSON.h"
 
 using namespace std;
 
