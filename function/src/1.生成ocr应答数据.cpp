@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <iostream>
 
-#include "cJSON.h"
+#include "cjson/cJSON.h"
 
 using namespace std;
 

@@ -22,7 +22,7 @@ all : 1.a.out 2.a.out ser.out cli.out main.out 3.a.out
 2.a.out : 6.解析ocr应答数据.o $(SRCS)/cjson/cJSON.o
 	$(CXX) -o $@ $^ $(FLAG)
 3.a.out : testjson.o
-	$(CXX) -o $@ $^ $(LIBS)/libjsoncpp.a -I $(INCS)/json
+	$(CXX) -o $@ $^ $(LIBS)/libjsoncpp.a -I $(INCS)
 ser.out : serve.o klog.o kfile.o ksocket.o kipc.o ksignal.o
 	$(CXX) -o $@ $^
 cli.out : client.o klog.o kfile.o ksocket.o kipc.o
@@ -31,9 +31,9 @@ main.out : main.o kcfg.o kfile.o klog.o $(SRCS)/cjson/cJSON.o kipc.o ksignal.o
 	$(CXX) -o $@ $^
 
 %.o : %.c
-	$(CC) -o $@ -c $< -I $(INCS)/cjson
+	$(CC) -o $@ -c $< -I $(INCS)
 %.o : %.cpp
-	$(CXX) -o $@ -c $< -std=c++0x -g -I $(INCS)/cjson
+	$(CXX) -o $@ -c $< -std=c++11 -g -I $(INCS)
 
 clean:
 	rm $(OBJ) $(COMMONOBJS) $(OBJ) *.out ../log/*.log -f 

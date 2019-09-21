@@ -3,7 +3,7 @@
 #include <cstring>
 #include <stdlib.h>
 
-#include "../common/cJSON.h"
+#include "cjson/cJSON.h"
 
 using namespace std;
 

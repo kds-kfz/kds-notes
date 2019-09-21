@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <unistd.h>
 
 //这里使用宏定义, 预编译, FILE_MODE: 0: 采用系统函数 1: 采用库函数
 #define FILE_MODE  0
