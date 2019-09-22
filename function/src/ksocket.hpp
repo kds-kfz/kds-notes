@@ -158,6 +158,7 @@ public:
             errmsg = "SocketServeClose Error:[" + std::string(strerror(ret)) + "]!";
             return false;
         }
+        return true;
     }
     
     std::string SocketShowAccept(bool flag = true){
@@ -187,7 +188,8 @@ public:
             char *pbuf = buff;
             memset(pbuf, 0, sizeof(buff));
             char ResHead[11] = {0};
-            sprintf(ResHead, "%8d01#", strlen((char *)data));
+            //%lu : long unsigned int 
+            sprintf(ResHead, "%8lu01#", strlen((char *)data));
             memcpy(pbuf, ResHead, sizeof(ResHead));
             memcpy(pbuf + 11, (char *)data, strlen((char *)data));
             
@@ -282,6 +284,7 @@ public:
             errmsg = "SocketClientClose Error:[" + std::string(strerror(ret)) + "]!";
             return false;
         }
+        return true;
     }
 
     bool SocketClientInit(const char *addr = "127.0.0.1", const char *port = "8080"){
@@ -296,7 +299,7 @@ public:
             char *pbuf = buff;
             memset(pbuf, 0, sizeof(buff));
             char ResHead[11] = {0};
-            sprintf(ResHead, "%8d01#", strlen((char *)data));
+            sprintf(ResHead, "%8lu01#", strlen((char *)data));
             memcpy(pbuf, ResHead, sizeof(ResHead));
             memcpy(pbuf + 11, (char *)data, strlen((char *)data));
             

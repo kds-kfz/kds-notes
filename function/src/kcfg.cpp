@@ -1,5 +1,6 @@
 #include"kcfg.hpp"
 #include"klog.hpp"
+#include"json/json.h"
 //TODO 目前最多只支持三层key查找，多了就不行了，后续优化考虑采取不定参数作为形参，或是采用字段分隔
 bool cJsonInfo::InsertKeyValue(cJSON *item, Values &mapkv, string preName, string tailName, string Name, int flag){
     cJSON* obj = cJSON_GetObjectItem(item, preName.c_str());
@@ -43,7 +44,7 @@ bool cJsonInfo::LoadConfig(string fileName, CfgType ctype){
     cJSON* item = cJSON_Parse(b->file.Data());
     if(!item){
         ERROR_TLOG("配置文件 %s, json 数据格式错误，请耐心检查!\n", fileName.c_str());
-        delete b;
+        delete []b;
         return false;
     }
 
@@ -65,7 +66,7 @@ bool cJsonInfo::LoadConfig(string fileName, CfgType ctype){
     InsertKeyValue(item, readkv, "runningMod", "", "");
     g_cfg.insert(make_pair(ctype, readkv));
     
-    delete b;
+    delete []b;
     cJSON_Delete(item);
     return true;
 }
@@ -116,7 +117,7 @@ void cJsonInfo::ShowCfgValue(CfgType ctype){
     }
 }
 
-//static Json::Value gCfg;
+static Json::Value gCfg;
 
 bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
     if(fileName.empty() || fileName == ""){
@@ -132,19 +133,19 @@ bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
     //读文件
     b->file.Open(fileName.c_str(), O_RDONLY);
     cout<<b->file.Data()<<endl;
-/*
     Json::Reader reader;
     if(!reader.parse(string(b->file.Data()), gCfg)){
         ERROR_TLOG("配置文件 %s, json 数据格式错误，请耐心检查!\n", fileName.c_str());
-        delete b;
+        delete []b;
         return false;
     }
-*/
-    delete b;
+    delete []b;
+    return true;
 }
 
 bool JsonInfo::GetCfgValue(string key, string &value, CfgType ctype){
 
+    return true;
 }
 
 void JsonInfo::ShowCfgValue(CfgType ctype){

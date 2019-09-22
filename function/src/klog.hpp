@@ -46,8 +46,8 @@ private:
     string _logpatch;
     LOG_TYPE _logtype;
     LOG_SOURCE _logsource;
-    bool _slice;                            //切割标志
-    unsigned long _targetsize;              //文件大小
+    bool _slice;                           //切割标志
+    unsigned int _targetsize;              //文件大小
     //static LOG_TYPE _gLogLevel;             //类内静态成日志级别
 public:
     //无参构造
@@ -82,7 +82,7 @@ public:
         dirfile.readFileList(basepath.c_str(), ".log", files, headpath.c_str());
         if(!files.empty()){
             vector< map< string, map< long, long> > > dirpath;
-            for(int i = 0; i < files.size(); i++){
+            for(vector<string>::size_type i = 0; i < files.size(); i++){
                 //文件全路径 files[i]
                 //考虑到有可能文件很多且大，不宜使用文件操作中，文件大小的方式来判断
                 //目前判断日期和时间
@@ -101,7 +101,7 @@ public:
             validpath = outit->first;
             long nyr = insideit->first;
             long sfm = insideit->second;
-            for(int i = 1; i < dirpath.size(); i++){
+            for(vector< map< string, map< long, long> > >::size_type i = 1; i < dirpath.size(); i++){
                 outit = dirpath[i].begin();
                 insideit = outit->second.begin();
                 long tnyr = insideit->first;
@@ -154,7 +154,7 @@ public:
     bool IsAccord(){
         Files fd;
         fd.Open(this->_logpatch.c_str(), O_RDONLY);
-        return !(_slice > 0 && _targetsize > 0) ? false : fd.Size() >= _targetsize * 1024 * 1024? true : false;
+        return !(_slice > 0 && _targetsize > 0) ? false : fd.Size() >= _targetsize * 1024 * 1024 ? true : false;
     }
 
     //日志写入

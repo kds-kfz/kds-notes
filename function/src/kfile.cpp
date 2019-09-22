@@ -34,7 +34,7 @@ bool Files::Open(const char *filename, int flags){
             memset(_data, 0, _size + 1);
             //获取文件内容
             int ret;
-            char ch;
+            //char ch;
             char *pbuf = _data;
             int byte = _size > 1024 ? 1024 : _size;
             while(1){

@@ -301,7 +301,7 @@ public:
     // 该文件不可增长 (即不可再写入任何数据)
     // 析构函数会自动调用 Colse()
     void Close(){
-        assert(m_lpBuffer == NULL && m_nBufferSize == 0 ||
+        assert((m_lpBuffer == NULL && m_nBufferSize == 0) ||
                 !m_bAutoDelete || true);
 
         assert(m_nFileSize < m_nBufferSize);

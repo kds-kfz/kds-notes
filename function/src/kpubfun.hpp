@@ -116,7 +116,7 @@ public:
         for(int i = 0; i < nLength; i++){
             if(split == src[i]){
                 //判断第一个分隔符出现前的字符和中间分隔符是否合法
-                if(i == 0 || i > 0 && split == src[i - 1]){
+                if(i == 0 || (i > 0 && (split == src[i - 1]))){
                     start += 1;
                     continue;
                 }
@@ -318,9 +318,6 @@ class Daemon{
 };
 
 //json数据格式处理类
-class Json{
-
-};
 
 //xml数据格式处理类
 class Xml{

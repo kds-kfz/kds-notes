@@ -71,7 +71,7 @@ public:
         return _fd;
     }
     
-    long Size(){
+    off_t Size(){
         return _size;
     }
     

@@ -43,7 +43,7 @@ int Socket::SocketServeRead(){
     }
     memset(buff, 0, sizeof(buff));
     int nbyte = 3;
-    long tpkg_len = pkg_len;
+    unsigned int tpkg_len = pkg_len;
     
     #if 0
     //每次最大读取 1024 字节
@@ -157,8 +157,8 @@ int Socket::SocketClientRead(){
     memset(buff, 0, sizeof(buff));
     int nbyte = 3;
     //每次最大读取 1024 字节
-    char *pbuf = buff;
-    long tpkg_len = pkg_len;
+    //char *pbuf = buff;
+    unsigned int tpkg_len = pkg_len;
     TEST_TLOG("收到应答包体长度:[%d]\n", pkg_len);
     //本次优化；每次最大接收 1024 字节，然后拷贝到内存里，当接收消息完毕，就拷贝到 buff
     KMemFile reads;

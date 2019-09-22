@@ -164,10 +164,9 @@ void ParseOcr(const char *patch, map<int, string> &data){
 }
 #if 0
 {
-    "RstCode":  "0000",
-    "RstMesg":  "[{\n\t\"dataList\":\t[{\n\t\t\t\"all_ocr\":\t0,\n\t\t\t\"dataDataLen\":\t0,\n\t\t\t\"dataFormat\":\t0,\n\t\t\t\"pattern_sn\":\t0,\n\t\t\t\
-"processRst\":\t0,\n\t\t\t\"regionNum\":\t0,\n\t\t\t\"regions\":\tnull,\n\t\t\t\"dataNum\":\t1\n\t\t}]\n}]",
-    "IDFilewPath":  null,
+    "RstCode": "0000",
+    "RstMesg": "[{\"dataList\":[{\"all_ocr\":0,\"dataDataLen\":0,\"dataFormat\":0,\"pattern_sn\":0,\"processRst\":0,\"regionNum\":0,\"regions\":null,\"dataNum\":1}]}]",
+    "IDFilewPath": null,
     "HeadFilePath": null,
     "filename": null
 }
@@ -323,7 +322,7 @@ void MakeOcrRes(const char *destpatch, const char *srcpatch, map<int, string> &d
                                 //删除 regions 的值，并释放空间
                                 obj_1 = cJSON_GetObjectItem(arr, "regions");
                                 int size_1 = 0;
-                                while(size_1 = cJSON_GetArraySize(obj_1)){
+                                while((size_1 = cJSON_GetArraySize(obj_1))){
                                     if(obj_1){
                                         if(obj_1->type == cJSON_Array){
                                             for(int i = 0; i < size_1; i++){
