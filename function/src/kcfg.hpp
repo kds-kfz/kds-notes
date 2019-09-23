@@ -5,6 +5,7 @@
 #include<string>
 #include<map>
 #include "cjson/cJSON.h"
+#include"json/json.h"
 
 /******************************* 标 签 *******************************
  * 作者：kfz
@@ -26,11 +27,11 @@
 
 using namespace std;
 
-enum CfgType{ TCSTY = 1, KDSSTY, OTHERS, };              //配置类型
+enum CfgType{ TCSTY = 1, KDSSTY, OTHERS, }; //配置类型
 typedef map < string, string > Values;      //键值对
 typedef map < CfgType, Values > ValueDesc;  //描述 + 键值对
 
-static ValueDesc g_cfg;
+static ValueDesc g_cfg;                     //所有的配置信息键值对
 
 //设计出发点，考虑有可能有多中配置文件，故统一设计成字符型键值对
 
@@ -38,11 +39,13 @@ static ValueDesc g_cfg;
 class JsBase{
 private:
 protected:
-    ValueDesc CfgValue;     //所有的配置信息键值对
 public:
     Files file;             //文件读写类
     JsBase(){}
-    ~JsBase(){}
+    //基类里有虚函数, 定义了基类指针指向派生类, 就会需要定义基类虚析构
+    //基类指针析构的时候, 就会先析构派生类,再析构基类
+    //如果不定义虚析构, 就会基类指针直接析构基类, 这样派生类对象销毁不完整
+    virtual ~JsBase(){}
     JsBase &operator=(const JsBase &p) = delete;                            //禁止赋值拷贝
     virtual bool LoadConfig(string fileName, CfgType ctype = TCSTY)=0; //纯虚函数，读配置到容器
     virtual bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY)=0;      //纯虚函数，读容器中配置
@@ -59,7 +62,7 @@ public:
     cJsonInfo(){}
     ~cJsonInfo(){}
     bool LoadConfig(string fileName, CfgType ctype = TCSTY);                   //纯虚函数，读配置到容器
-    bool InsertKeyValue(cJSON* item, Values &mapkv, string preName, string tailName, string Name, int flag = 0);
+    bool InsertKeyValue(cJSON *item, Values &mapkv, string preName, string tailName, string Name, int flag = 0);
     bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY);   //纯虚函数，读容器中配置
     void ShowCfgValue(CfgType ctype = TCSTY);                                       //显示某配置文件配置
 };
@@ -72,6 +75,8 @@ public:
     bool LoadConfig(string fileName, CfgType ctype = TCSTY);                   //纯虚函数，读配置到容器
     bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY);   //纯虚函数，读容器中配置
     void ShowCfgValue(CfgType ctype = TCSTY);                                       //显示某配置文件配置
+    bool CheckDataForm(Json::Value &value);
+    bool InsertKeyValue(Json::Value &value, Values &mapkv, string key);
 };
 
 //xml 配置文件解析

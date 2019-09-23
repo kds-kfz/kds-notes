@@ -31,7 +31,7 @@ all : 1.a.out 2.a.out ser.out cli.out main.out 3.a.out
 	$(CXX) -o $@ $^
 2.a.out : 6.解析ocr应答数据.o $(SRCS)/cjson/cJSON.o
 	$(CXX) -o $@ $^
-3.a.out : testjson.o
+3.a.out : testjson.o kfile.o
 	$(CXX) -o $@ $^ $(LIBS)/libjsoncpp.a -I $(INCS)
 ser.out : serve.o klog.o kfile.o ksocket.o kipc.o ksignal.o
 	$(CXX) -o $@ $^

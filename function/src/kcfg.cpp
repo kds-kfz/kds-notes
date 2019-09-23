@@ -1,7 +1,7 @@
 #include"kcfg.hpp"
 #include"klog.hpp"
-#include"json/json.h"
-//TODO 目前最多只支持三层key查找，多了就不行了，后续优化考虑采取不定参数作为形参，或是采用字段分隔
+
+//TODO 目前最多只支持三层key查找，多了就不行了，后续优化考虑采用字段分隔
 bool cJsonInfo::InsertKeyValue(cJSON *item, Values &mapkv, string preName, string tailName, string Name, int flag){
     cJSON* obj = cJSON_GetObjectItem(item, preName.c_str());
     if(obj && obj->type == cJSON_String){
@@ -44,7 +44,7 @@ bool cJsonInfo::LoadConfig(string fileName, CfgType ctype){
     cJSON* item = cJSON_Parse(b->file.Data());
     if(!item){
         ERROR_TLOG("配置文件 %s, json 数据格式错误，请耐心检查!\n", fileName.c_str());
-        delete []b;
+        delete b;
         return false;
     }
 
@@ -66,7 +66,7 @@ bool cJsonInfo::LoadConfig(string fileName, CfgType ctype){
     InsertKeyValue(item, readkv, "runningMod", "", "");
     g_cfg.insert(make_pair(ctype, readkv));
     
-    delete []b;
+    delete b;
     cJSON_Delete(item);
     return true;
 }
@@ -117,7 +117,57 @@ void cJsonInfo::ShowCfgValue(CfgType ctype){
     }
 }
 
-static Json::Value gCfg;
+
+bool JsonInfo::CheckDataForm(Json::Value &value){
+    switch (value.type()){
+        case Json::nullValue:
+            value = "";
+            break;
+        case Json::intValue:
+            value = Json::valueToString(value.asInt());
+            break;
+        case Json::uintValue:
+            value = Json::valueToString(value.asUInt());
+            break;
+        case Json::realValue:
+            value = Json::valueToString(value.asDouble());
+        case Json::stringValue:
+            break;
+        case Json::booleanValue:
+            value = Json::valueToString(value.asBool());
+        case Json::arrayValue:
+            {
+                //是个数组，需要进入解析对象，依次获取json后面的值
+                Json::ArrayIndex size = value.size();
+                for(Json::ArrayIndex index = 0; index < size; ++index){
+                    //递归查找该对象的 json 后的值
+                    CheckDataForm(value[index]);
+                }
+            }
+            break;
+        case Json::objectValue:
+            {
+                //是个对象，需要进入解析对象，依次获取json后面的值
+                Json::Value::Members members(value.getMemberNames());
+                for(Json::Value::Members::iterator it = members.begin();
+                        it != members.end();++it){
+                    const std::string &name = *it;
+                    //递归查找该对象的 json 后的值
+                    CheckDataForm(value[name]);
+                }
+            }
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
+//TODO 考虑到有多种配置文件数据格式，故统一格式，每种格式都采用分隔符处理
+bool JsonInfo::InsertKeyValue(Json::Value &value, Values &mapkv, string key){
+
+    return true;
+}
 
 bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
     if(fileName.empty() || fileName == ""){
@@ -132,14 +182,27 @@ bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
     }
     //读文件
     b->file.Open(fileName.c_str(), O_RDONLY);
-    cout<<b->file.Data()<<endl;
+    string content = b->file.Data();
+    
+    Json::Value gCfg;
     Json::Reader reader;
-    if(!reader.parse(string(b->file.Data()), gCfg)){
+    if(!reader.parse(content, gCfg)){
         ERROR_TLOG("配置文件 %s, json 数据格式错误，请耐心检查!\n", fileName.c_str());
-        delete []b;
+        delete b;
         return false;
     }
-    delete []b;
+    
+    //校验 json 后面值的不同的类型处理，非 stirng 则需要转换成 string
+    if(!CheckDataForm(gCfg)){
+        ERROR_TLOG("配置文件 %s, json 数据类型错误，请耐心检查!\n", fileName.c_str());
+        delete b;
+        return false;
+        
+    }
+
+    //读取配置信息到容器
+    
+    delete b;
     return true;
 }
 

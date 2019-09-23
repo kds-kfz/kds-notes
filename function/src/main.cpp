@@ -61,7 +61,8 @@ int main(int argc, char *argv[]){
         WARN_TLOG("测试[%ld]\n", sec++);
     }
 #else
-    //测试配置文件函数
+    #if 0
+    //cjson 测试配置文件函数
     cJsonInfo k;
     k.LoadConfig("../etc/config.json");
     k.ShowCfgValue();
@@ -69,6 +70,11 @@ int main(int argc, char *argv[]){
     if(k.GetCfgValue("login_expire_time", sztmp)){
         INFO_TLOG("已读取到配置为:[%s]\n", sztmp.c_str());
     }
+    #else
+    //cjson 测试配置文件函数
+    JsonInfo k;
+    k.LoadConfig("../etc/config.json");
+    #endif
     
     INFO_TLOG("挂载系统正在退出，欢迎使用...\n");
     //删除信号量
