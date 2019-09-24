@@ -1,4 +1,5 @@
-#include"kfile.hpp"
+#include "kfile.hpp"
+#include "klog.hpp"
 
 using namespace std;
 
@@ -68,7 +69,6 @@ bool Files::Open(const char *filename, int flags){
 
 bool Files::Write(const char *basePath, const char *newfile, const char *content){
     //查找当前目录是否已经有该文件
-    //cout<<strlen(content)<<endl;
     DIR *dir;
     struct dirent *ptr;
     bool flag = false;
@@ -113,7 +113,7 @@ bool Files::Write(const char *basePath, const char *newfile, const char *content
     
     if(!flag){//文件还没有，就创建新文件
         if((fw = open(newdir ,O_CREAT|O_RDWR,0666)) == -1){
-            cout<<"open newdir fail"<<endl;
+            ERROR_TLOG("open newdir fail\n");
             return false;
         }else{
             //默认写入读打开的文件内容，否则写入其他内容

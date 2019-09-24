@@ -1,7 +1,9 @@
 #ifndef __KPUBFUN__H__
 #define __KPUBFUN__H__
 
+#include <dirent.h>
 #include <string>
+#include <vector>
 
 using namespace std;
 
@@ -18,9 +20,9 @@ public:
     //功能描述: 完全匹配字符串，此函数兼容 StringMateOne 函数，知道后并返回 mark 之前的字符
     static string StringMateMoreFront(const char *src, const char *mark, bool flag = true);
     //功能描述: 从字符串中截取字段到vector容器，分隔符是个字符，暂不支持字符字符有效校验
-    int StringSplit(char *src, const char split, vector<string> &files);
+    static int StringSplit(char *src, const char split, vector<string> &files);
     //功能描述: 从string中截取字段到vector容器
-    int stringSplit( const string str, const string sep, vector <string> &vec );
+    static int stringSplit(const string str, const string sep, vector<string> &vec);
     
     /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 其 他 处 理 函 数 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
     
@@ -31,11 +33,11 @@ public:
     
     class Date{
         private:
-            time_t tmt;
-            struct tm *pTime;
-            char timeBuf[128];
-            string stime;
-            struct timeval tv;
+            static time_t tmt;
+            static struct tm *pTime;
+            static char timeBuf[128];
+            static string stime;
+            static struct timeval tv;
             //struct timezone *ptz;
         public:
             Date();
@@ -51,9 +53,9 @@ public:
     
     class DirFile{
         private:
-            DIR *dir;               //目录描述符，类似文件描述符：FILE *
-            struct dirent *ptr;     //目录指针
-            char base[1024];        //基目录
+            static DIR *dir;               //目录描述符，类似文件描述符：FILE *
+            static struct dirent *ptr;     //目录指针
+            static char base[1024];        //基目录
         public:
             DirFile();
             ~DirFile();

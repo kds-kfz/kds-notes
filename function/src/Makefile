@@ -31,13 +31,13 @@ all : 1.a.out 2.a.out ser.out cli.out main.out 3.a.out
 	$(CXX) -o $@ $^
 2.a.out : 6.解析ocr应答数据.o $(SRCS)/cjson/cJSON.o
 	$(CXX) -o $@ $^
-3.a.out : testjson.o kfile.o
+3.a.out : testjson.o kfile.o klog.o kipc.o kpubfun.o
 	$(CXX) -o $@ $^ $(LIBS)/libjsoncpp.a -I $(INCS)
-ser.out : serve.o klog.o kfile.o ksocket.o kipc.o ksignal.o
+ser.out : serve.o klog.o kfile.o ksocket.o kipc.o ksignal.o kpubfun.o
 	$(CXX) -o $@ $^
-cli.out : client.o klog.o kfile.o ksocket.o kipc.o
+cli.out : client.o klog.o kfile.o ksocket.o kipc.o kpubfun.o
 	$(CXX) -o $@ $^
-main.out : main.o kcfg.o kfile.o klog.o $(SRCS)/cjson/cJSON.o kipc.o ksignal.o
+main.out : main.o kcfg.o kfile.o klog.o $(SRCS)/cjson/cJSON.o kipc.o ksignal.o kpubfun.o
 	$(CXX) -o $@ $^ $(LIBS)/libjsoncpp.a -I $(INCS)
 
 %.o : %.c

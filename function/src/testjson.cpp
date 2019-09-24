@@ -2,11 +2,17 @@
 #include <string>
 #include <iostream>
 #include <fstream>
-#include"kcfg.hpp"
+#include"kfile.hpp"
+#include"klog.hpp"
+#include"kipc.hpp"
+
 using namespace std;
 static Json::Value gCfg;
-int main()
-{
+LOG_TYPE _gLogLevel = TEST;
+Log *glog;
+
+int main(){
+    glog = new Log("../log/mount-service");
 #if 0
     string test ="{\"id\":1,\"name\":\"kurama\"}";
     Json::Reader reader;

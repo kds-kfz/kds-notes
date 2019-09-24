@@ -5,8 +5,10 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include "kfile.hpp"
-#include "kpubfun.hpp"
 #include <map>
+#include <string>
+
+using namespace std;
 
 # ifndef LOG_MODULE
 # define LOG_MODULE "LOG "
@@ -62,93 +64,7 @@ public:
     }
     */
     //有参构造
-    Log(string path, LOG_TYPE type = TEST, COMPANYS company = TC){
-        _plog = new Files();
-        if(path.empty()){
-            path = "../log/mount-service";
-        }
-        //初始化前先校验该目录是否已存在日志，匹配所有以 mount-service 开头的日志文件
-        //校验其大小
-        //将../log/ 目录下所有 mount-service 开头的日志文件放到容器中
-        //vector<string, map<int, int> > 
-        //<"mount-service-20190826-111352.log", <20190826, 111352>>
-        
-        string validpath = path;
-        size_t npos = path.find_last_of("/");
-        string basepath = path.substr(0, npos);
-        string headpath = path.substr(npos + 1);
-        DirFile dirfile;
-        vector<string> files; //符合条件的文件
-        dirfile.readFileList(basepath.c_str(), ".log", files, headpath.c_str());
-        if(!files.empty()){
-            vector< map< string, map< long, long> > > dirpath;
-            for(vector<string>::size_type i = 0; i < files.size(); i++){
-                //文件全路径 files[i]
-                //考虑到有可能文件很多且大，不宜使用文件操作中，文件大小的方式来判断
-                //目前判断日期和时间
-                String path;
-                vector <string> destpath;
-                path.stringSplit(files[i], "-", destpath);
-                map<long, long> inside;
-                map<string , map<long, long> > outside;
-                inside.insert(make_pair(atol(destpath[2].c_str()), atol(destpath[3].c_str())));
-                outside.insert(make_pair(files[i], inside));
-                dirpath.push_back(outside);
-            }
-            
-            map<string, map<long, long> >::iterator outit = dirpath[0].begin();
-            map<long, long>::iterator insideit = outit->second.begin();
-            validpath = outit->first;
-            long nyr = insideit->first;
-            long sfm = insideit->second;
-            for(vector< map< string, map< long, long> > >::size_type i = 1; i < dirpath.size(); i++){
-                outit = dirpath[i].begin();
-                insideit = outit->second.begin();
-                long tnyr = insideit->first;
-                long tsfm = insideit->second;
-                bool flag = false;
-                if(tnyr == nyr ){
-                    if(tsfm > sfm){
-                        flag = true;
-                    }
-                }else if(tnyr > nyr){
-                    flag = true;
-                }
-                if(flag){
-                    nyr = tnyr;
-                    sfm = tsfm;
-                    validpath = outit->first;
-                }
-            }
-
-            Files fd;
-            fd.Open(validpath.c_str(), O_RDONLY);
-            bool ok = fd.Size() >= 10 * 1024 * 1024 ? true : false;
-            if(ok){
-                Date date;
-                string nowtime = date.GetTime("-%Y%m%d-%H%M%S.log");
-                path.append(nowtime);
-                validpath = path;
-                this->_plog->Open(validpath.c_str(), O_RDWR); // 新建
-            }
-        }else{
-            Date date;
-            string nowtime = date.GetTime("-%Y%m%d-%H%M%S.log");
-            path.append(nowtime);
-            validpath = path;
-            this->_plog->Open(validpath.c_str(), O_APPEND);//追加
-        }
-        
-        this->_logpatch = validpath;
-        this->_logtype = type;
-        this->_slice = true;
-        this->_targetsize = 10;
-        
-        //获取当前用户
-        struct passwd *pwd = getpwuid(getuid());
-        _logsource._author = string(pwd->pw_name);
-        _logsource._company = company;
-    }
+    Log(string path, LOG_TYPE type = TEST, COMPANYS company = TC);
 
     //校验当前文件是否满足切割条件，真：条件满足，需要切割
     bool IsAccord(){

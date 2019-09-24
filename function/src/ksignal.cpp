@@ -89,7 +89,8 @@ string handler_SIGINT(){
 string handler_SIGFPE(){return "默认执行成功";}
 string handler_SIGSEGV(){return "默认执行成功";}
 string handler_SIGBUS(){return "默认执行成功";}
-string handler_SIGABRT(){return "默认执行成功";}
+//TODO 这里会断错误，待解决
+string handler_SIGABRT(){return "程序退出";}
 
 string SigToString(int signo){
     string result = "";

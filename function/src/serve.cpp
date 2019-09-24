@@ -8,6 +8,7 @@
 #include "klog.hpp"
 #include "kipc.hpp"
 #include "ksignal.hpp"
+#include "kpubfun.hpp"
 
 //服务器，才用预编译，选择不同的服务器
 # ifndef LOG_MODULE

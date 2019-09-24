@@ -1,13 +1,14 @@
 #include"kpubfun.hpp"
 
 #include <cstdio>
-#include <cstring>
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <vector>
 #include <sys/time.h>
+#include <cstring>
+#include <stdarg.h>
+
+#include "klog.hpp"
 
 /* 2019年09月24日，对该文件重新设计，由于这是个功能函数文件，会有各种辅助功能函数，为方便管理故采用类中类设计 */
 
@@ -56,7 +57,7 @@ string KPUBFUN::CopyStringWithoutEmppty(char *dst, char *src, const char *flag){
 }
 
 //demo: 
-string KPUBFUN::StringMateOne(char *src, const char *mark, bool flag = true){
+string KPUBFUN::StringMateOne(char *src, const char *mark, bool flag){
     if(!strlen(src) && !strlen(mark))
         return string("");
     string tmpstr(src);
@@ -67,7 +68,7 @@ string KPUBFUN::StringMateOne(char *src, const char *mark, bool flag = true){
 }
 
 //demo: 
-string KPUBFUN::StringMateMoreLast(char *src, const char *mark, bool flag = true){
+string KPUBFUN::StringMateMoreLast(char *src, const char *mark, bool flag){
     if(!strlen(src) && !strlen(mark))
         return string("");
     string tmpstr(src);
@@ -78,7 +79,7 @@ string KPUBFUN::StringMateMoreLast(char *src, const char *mark, bool flag = true
 }
 
 //demo: 
-string KPUBFUN::StringMateMoreFront(const char *src, const char *mark, bool flag = true){
+string KPUBFUN::StringMateMoreFront(const char *src, const char *mark, bool flag){
     if(!strlen(src) && !strlen(mark))
         return string("");
     string tmpstr(src);
@@ -128,8 +129,7 @@ int KPUBFUN::StringSplit(char *src, const char split, vector<string> &files){
 }
 
 //demo：
-int KPUBFUN::stringSplit( const string str, const string sep, vector <string> &vec )
-{
+int KPUBFUN::stringSplit(const string str, const string sep, vector<string> &vec){
     string::size_type begin, end;
 
     if ( str.length() == 0 ){
@@ -198,15 +198,15 @@ string KPUBFUN::Date::GetTime(){
 
 //demo：debugout("当前日期：%s", GetTime("%Y%m%d").c_str());
 void KPUBFUN::debugout(const char *fmt, ...){
-    char buf[512];
+    char buf[512] = {0};
     try{
         va_list ap;
         va_start(ap, fmt);
         vsnprintf(buf, sizeof(buf) - 1, fmt, ap);
         va_end(ap);
-        cout<<buf<<endl;
+        TEST_TLOG("%s\n", buf);
     }catch(...){
-        cout<<"exception in construct debug message"<<endl;
+        ERROR_TLOG("exception in construct debug message\n");
     }
 }
 
@@ -224,7 +224,7 @@ KPUBFUN::DirFile::~DirFile(){
 }
 
 //demo：readFileList(".", ".md", files);
-int KPUBFUN::DirFile::readFileList(const char *basePath, const char *mark, vector<string> &files, const char *head = NULL){
+int KPUBFUN::DirFile::readFileList(const char *basePath, const char *mark, vector<string> &files, const char *head){
     if((dir = opendir(basePath)) == NULL){
         perror("Open dir error ...");
         exit(1);
@@ -249,7 +249,7 @@ int KPUBFUN::DirFile::readFileList(const char *basePath, const char *mark, vecto
                 files.push_back(base);
             }
         }else if(ptr->d_type == 10){//link file
-            cout<<"link file==>d_name:"<<basePath<<ptr->d_name<<endl;
+            TEST_TLOG("link file==>d_name:[%s] [%s]\n", basePath, ptr->d_name);
         }
         else if(ptr->d_type == 4){//dir 是目录则递归调用
             memset(base, '\0', sizeof(base));
