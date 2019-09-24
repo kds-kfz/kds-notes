@@ -1,13 +1,13 @@
 {
     "log_path":"../log/trade-service.log",
     "log_level":"test",
-    "gearman":[{
+    "gearman":{
         "server_info":{
             "server_1":"192.168.230.226:4730"
         },
-        "client_timeout":20000,
+        "client_timeout":"20000",
         "connectMode":"normal"
-    }],
+    },
     "enable_redis":"true",
     "redis":{
         "ip":"127.0.0.1",

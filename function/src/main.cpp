@@ -74,6 +74,7 @@ int main(int argc, char *argv[]){
     //cjson 测试配置文件函数
     JsonInfo k;
     k.LoadConfig("../etc/config.json");
+    k.ShowCfgValue();
     #endif
     
     INFO_TLOG("挂载系统正在退出，欢迎使用...\n");
