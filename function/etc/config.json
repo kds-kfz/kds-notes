@@ -5,17 +5,17 @@
         "server_info":{
             "server_1":"192.168.230.226:4730"
         },
-        "client_timeout":"20000",
+        "client_timeout":20000,
         "connectMode":"normal"
     },
-    "enable_redis":"true",
+    "enable_redis":true,
     "redis":{
         "ip":"127.0.0.1",
         "port":"6379",
         "expire_time":"1800",
         "zqxx_expire_time":"86400",
-        "login_expire_time":"1800.0",
-        "enable_hq_redis":"false",
+        "login_expire_time":1800.0,
+        "enable_hq_redis":false,
         "hq_redis_cfg_path":"/c++/redis-pool/etc/config.redis"
     },
     "runningMod":"normal"

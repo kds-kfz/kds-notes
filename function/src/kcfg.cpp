@@ -32,6 +32,86 @@ bool cJsonInfo::InsertKeyValue(cJSON *item, Values &mapkv, string preName, strin
 }
 #endif
 
+bool cJsonInfo::CheckDataForm(cJSON *item){
+    switch(item->type){
+        case cJSON_NULL:
+            {
+                item->type = cJSON_String;
+                char value[5] = {0};
+                sprintf(value, "%s", "NULL");
+                //item->valuestring 初始化时为 0
+                item->valuestring = new char[5]{0};
+                memcpy(item->valuestring, value, strlen(value));
+                //TEST_TLOG("cJSON_NULL after type = [%d], valuestring = [%s]\n", item->type, item->valuestring);
+            }
+            break;
+        case cJSON_Number:
+            {
+                //item->valueint=(int)item->valuedouble
+                item->type = cJSON_String;
+                char value[33] = {0};
+                sprintf(value, "%lf", item->valuedouble);
+                //item->valuestring 初始化时为 0
+                item->valuestring = new char[33]{0};
+                memcpy(item->valuestring, value, strlen(value));
+                //TEST_TLOG("cJSON_Number after type = [%d], valuestring = [%s]\n", item->type, item->valuestring);
+            }
+            break;
+        case cJSON_String:
+            break;
+        case cJSON_False:
+            {
+                item->type = cJSON_String;
+                char value[6] = {0};
+                sprintf(value, "%s", "false");
+                //item->valuestring 初始化时为 0
+                item->valuestring = new char[6]{0};
+                memcpy(item->valuestring, value, strlen(value));
+                //TEST_TLOG("cJSON_False after type = [%d], valuestring = [%s]\n", item->type, item->valuestring);
+            }
+            break;
+        case cJSON_True:
+            {
+                item->type = cJSON_String;
+                char value[5] = {0};
+                sprintf(value, "%s", "true");
+                //item->valuestring 初始化时为 0
+                item->valuestring = new char[5]{0};
+                memcpy(item->valuestring, value, strlen(value));
+                //TEST_TLOG("cJSON_True after type = [%d], valuestring = [%s]\n", item->type, item->valuestring);
+            }
+            break;
+        case cJSON_Array:
+            {
+                int size = cJSON_GetArraySize(item);
+                //TEST_TLOG("数组长度 = [%d]\n", size);
+                for(int i = 0; i < size; i++){
+                    cJSON *obj = cJSON_GetArrayItem(item, i);
+                    if(obj){
+                        CheckDataForm(obj);
+                    }
+                }
+            }
+            break;
+        case cJSON_Object:
+            {
+                int size = cJSON_GetArraySize(item);
+                //TEST_TLOG("对象长度 = [%d]\n", size);
+                for(int i = 0; i < size; i++){
+                    cJSON *obj = cJSON_GetArrayItem(item, i);
+                    if(obj){
+                        //TEST_TLOG("before type = [%d]\n", item->type);
+                        CheckDataForm(obj);
+                    }
+                }
+            }
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
 bool cJsonInfo::InsertKeyValue(cJSON *item, Values &mapkv, string key){
     vector<string> keyname;
     int size = KPUBFUN::stringSplit(key, ":", keyname);
@@ -41,11 +121,11 @@ bool cJsonInfo::InsertKeyValue(cJSON *item, Values &mapkv, string key){
             if(obj->type == cJSON_String){
                 mapkv.insert(make_pair(keyname[0], obj->valuestring));
             }else{
-                ERROR_TLOG("配置项 [%s] 格式错误", keyname[0].c_str());
+                ERROR_TLOG("配置项 [%s] 格式错误!\n", keyname[0].c_str());
                 return false;
             }
         }else{
-            ERROR_TLOG("该配置项 [%s] 不存在", keyname[0].c_str());
+            ERROR_TLOG("该配置项 [%s] 不存在!\n", keyname[0].c_str());
             return false;
         }
     }else if(size == 2){
@@ -58,21 +138,21 @@ bool cJsonInfo::InsertKeyValue(cJSON *item, Values &mapkv, string key){
                         string newKey = keyname[0] + "/" + keyname[1];
                         mapkv.insert(make_pair(newKey, objc->valuestring));
                     }else{
-                        ERROR_TLOG("配置项 [%s] 中 [%s] 格式错误",
+                        ERROR_TLOG("配置项 [%s] 中 [%s] 格式错误!\n",
                             keyname[0].c_str(), keyname[1].c_str());
                         return false;
                     }
                 }else{
-                    ERROR_TLOG("配置项 [%s] 中该配置项 [%s] 不存在",
+                    ERROR_TLOG("配置项 [%s] 中该配置项 [%s] 不存在!\n",
                         keyname[0].c_str(), keyname[1].c_str());
                     return false;
                 }
             }else{
-                ERROR_TLOG("配置项 [%s] 格式错误", keyname[0].c_str());
+                ERROR_TLOG("配置项 [%s] 格式错误!\n", keyname[0].c_str());
                 return false;
             }
         }else{
-            ERROR_TLOG("该配置项 [%s] 不存在", keyname[0].c_str());
+            ERROR_TLOG("该配置项 [%s] 不存在!\n", keyname[0].c_str());
             return false;
         }
     }else if(size == 3){
@@ -88,31 +168,31 @@ bool cJsonInfo::InsertKeyValue(cJSON *item, Values &mapkv, string key){
                                 string newKey = keyname[0] + "/" + keyname[1] + "/" + keyname[2];
                                 mapkv.insert(make_pair(newKey, objc->valuestring));
                             }else{
-                                ERROR_TLOG("配置项 [%s] [%s] 中 [%s] 格式错误",
+                                ERROR_TLOG("配置项 [%s] [%s] 中 [%s] 格式错误!\n",
                                     keyname[0].c_str(), keyname[1].c_str(), keyname[2].c_str());
                                 return false;
                             }
                         }else{
-                            ERROR_TLOG("配置项 [%s] [%s] 中该配置项 [%s] 不存在",
+                            ERROR_TLOG("配置项 [%s] [%s] 中该配置项 [%s] 不存在!\n",
                                 keyname[0].c_str(), keyname[1].c_str(), keyname[2].c_str());
                             return false;
                         }
                     }else{
-                        ERROR_TLOG("配置项 [%s] 中 [%s] 格式错误",
+                        ERROR_TLOG("配置项 [%s] 中 [%s] 格式错误!\n",
                             keyname[0].c_str(), keyname[1].c_str());
                         return false;
                     }
                 }else{
-                    ERROR_TLOG("配置项 [%s] 中 [%s] 不存在",
+                    ERROR_TLOG("配置项 [%s] 中 [%s] 不存在!\n",
                         keyname[0].c_str(), keyname[1].c_str());
                     return false;
                 }
             }else{
-                ERROR_TLOG("配置项 [%s] 格式错误", keyname[0].c_str());
+                ERROR_TLOG("配置项 [%s] 格式错误!\n", keyname[0].c_str());
                 return false;
             }
         }else{
-            ERROR_TLOG("该配置项 [%s] 不存在", keyname[0].c_str());
+            ERROR_TLOG("该配置项 [%s] 不存在!\n", keyname[0].c_str());
             return false;
         }
     }
@@ -135,6 +215,13 @@ bool cJsonInfo::LoadConfig(string fileName, CfgType ctype){
     cJSON* item = cJSON_Parse(b->file.Data());
     if(!item){
         ERROR_TLOG("配置文件 %s, json 数据格式错误，请耐心检查!\n", fileName.c_str());
+        delete b;
+        return false;
+    }
+    
+    //校验 json 后面值的不同的类型处理，非 stirng 则需要转换成 string
+    if(!CheckDataForm(item)){
+        ERROR_TLOG("配置文件 %s, json 数据类型错误，请耐心检查!\n", fileName.c_str());
         delete b;
         return false;
     }
@@ -212,8 +299,10 @@ void cJsonInfo::ShowCfgValue(CfgType ctype){
 }
 */
 
+
+//
 bool JsonInfo::CheckDataForm(Json::Value &value){
-    switch (value.type()){
+    switch(value.type()){
         case Json::nullValue:
             value = "";
             break;
@@ -342,7 +431,6 @@ bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
         ERROR_TLOG("配置文件 %s, json 数据类型错误，请耐心检查!\n", fileName.c_str());
         delete b;
         return false;
-        
     }
 
     //读取配置信息到容器

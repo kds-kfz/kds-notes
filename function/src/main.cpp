@@ -61,7 +61,7 @@ int main(int argc, char *argv[]){
         WARN_TLOG("测试[%ld]\n", sec++);
     }
 #else
-    #if 0
+    #if 1
     //cjson 测试配置文件函数
     cJsonInfo k;
     k.LoadConfig("../etc/config.json");
