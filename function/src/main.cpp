@@ -7,6 +7,9 @@
 # define LOG_MODULE "MAIN "
 # endif
 
+#define TEST_MODULE -1
+#define TEST_PARSE_MODULE 0
+
 //开发测试阶段
 LOG_TYPE _gLogLevel = TEST;
 Log *glog;
@@ -27,20 +30,18 @@ int main(int argc, char *argv[]){
     if(!initSigProc()){
         exit(1);
     }
-#if 0
+#if TEST_MODULE == 0
     //文件测试
     Files fd;
     fd.Open("3.txt", O_RDONLY);
     cout<<"size:"<<fd.Size()<<endl;
-    cout<<"date:"<<fd.Date();
+    cout<<"date:"<<fd.Data();
     fd.Write("./","4.txt");
     
     fd.Open("5.txt", O_APPEND);
     fd.Write("world!");
 
-
-#endif
-#if 0
+#elif TEST_MODULE == 1
     //字符串测试
     String str;
     char str_1[128] = {0};
@@ -60,26 +61,30 @@ int main(int argc, char *argv[]){
         INFO_TLOG("测试[%ld]\n", sec++);
         WARN_TLOG("测试[%ld]\n", sec++);
     }
-#else
-    #if 1
+#endif
+    
+#if TEST_PARSE_MODULE == 0
     //cjson 测试配置文件函数
     cJsonInfo k;
     k.LoadConfig("../etc/config.json");
-    k.ShowCfgValue();
-    string sztmp = "";
-    if(k.GetCfgValue("login_expire_time", sztmp)){
-        INFO_TLOG("已读取到配置为:[%s]\n", sztmp.c_str());
-    }
-    #else
+
+#elif TEST_PARSE_MODULE == 1
     //cjson 测试配置文件函数
     JsonInfo k;
     k.LoadConfig("../etc/config.json");
+    
+#endif
     k.ShowCfgValue();
-    #endif
+    string sztmp = "";
+    sztmp = k.GetCfgValue("log_path");
+    INFO_TLOG("已读取到配置为:[%s]\n", sztmp.c_str());
+    sztmp = k.GetCfgValue("gearman", "server_info", "server_1");
+    INFO_TLOG("已读取到配置为:[%s]\n", sztmp.c_str());
+    sztmp = k.GetCfgValue("redis", "login_expire_time");
+    INFO_TLOG("已读取到配置为:[%s]\n", sztmp.c_str());
     
     INFO_TLOG("挂载系统正在退出，欢迎使用...\n");
     //删除信号量
     KIPC::delsem();
     return 0;
-#endif
 }

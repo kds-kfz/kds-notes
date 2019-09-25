@@ -33,9 +33,11 @@ typedef map < CfgType, Values > ValueDesc;      //描述 + 键值对
 
 static ValueDesc g_cfg;                         //所有的配置信息键值对
 
-//设计出发点，考虑有可能有多中配置文件，故统一设计成字符型键值对
+// 设计出发点，考虑有可能有多中配置文件，故统一设计成字符型键值对
+// json 配置文件解析，由于有两种方式解析，考虑使用继承
+// cjson 派生类，配置文件中不能含有注释
 
-//json 配置文件基类
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ json 配 置 文 件 基 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 class JsBase{
 private:
 protected:
@@ -49,25 +51,22 @@ public:
     JsBase &operator=(const JsBase &p) = delete;                                    //禁止赋值拷贝
     void ShowCfgValue(CfgType ctype = TCSTY);                                       //显示某配置文件配置
     virtual bool LoadConfig(string fileName, CfgType ctype = TCSTY)=0;              //纯虚函数，读配置到容器
-    virtual bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY)=0;   //纯虚函数，读容器中配置
+    const string GetCfgValue(const string key, CfgType ctype = TCSTY);                                                  //读容器中配置
+    const string GetCfgValue(const string objName, const string key, CfgType ctype = TCSTY);                            //读容器中配置
+    const string GetCfgValue(const string objFather, const string objChild, const string key, CfgType ctype = TCSTY);   //读容器中配置
 };
 
-//初始化申请空间
-//JsBase *JsBase::instance=NULL;
-
-//json 配置文件解析，由于有两种方式解析，考虑使用继承
-//cjson 派生类，配置文件中不能含有注释
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ cjson 配 置 文 件派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 class cJsonInfo : public JsBase{
 public:
     cJsonInfo(){}
     ~cJsonInfo(){}
     bool LoadConfig(string fileName, CfgType ctype = TCSTY);                    //纯虚函数，读配置到容器
-    bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY);         //纯虚函数，读容器中配置
-    bool InsertKeyValue(cJSON *item, Values &mapkv, string key);                //读取配置信息到容器
     bool CheckDataForm(cJSON *item);                                            //转换 json 数据格式
+    bool InsertKeyValue(cJSON *item, Values &mapkv, string key);                //读取配置信息到容器
 };
 
-//jsoncpp 派生类
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ jsoncpp 配 置 文 件派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 class JsonInfo : public JsBase{
 protected:
     Json::Value gCfg;
@@ -75,27 +74,23 @@ public:
     JsonInfo(){}
     ~JsonInfo(){}
     bool LoadConfig(string fileName, CfgType ctype = TCSTY);                    //纯虚函数，读配置到容器
-    bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY);         //纯虚函数，读容器中配置
-    bool InsertKeyValue(Json::Value &value, Values &mapkv, string key);         //读取配置信息到容器
     bool CheckDataForm(Json::Value &value);                                     //转换 json 数据格式
+    bool InsertKeyValue(Json::Value &value, Values &mapkv, string key);         //读取配置信息到容器
 };
 
-//xml 配置文件解析
-//派生类
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ xml 配 置 文 件 派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 class DocInfo : public JsBase{
 public:
     DocInfo(){}
     ~DocInfo(){}
-    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                    //纯虚函数，读配置到容器
-    bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY);         //纯虚函数，读容器中配置
+    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                    //读取配置信息到容器
 };
 
-//节点 配置文件解析
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 节 点 配 置 文 件 派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 class NodeInfo : public JsBase{
     NodeInfo(){}
     ~NodeInfo(){}
-    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                    //纯虚函数，读配置到容器
-    bool GetCfgValue(string key, string &value, CfgType ctype = TCSTY);         //纯虚函数，读容器中配置
+    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                    //读取配置信息到容器
 };
 
 #endif

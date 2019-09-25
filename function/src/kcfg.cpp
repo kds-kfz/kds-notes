@@ -2,6 +2,99 @@
 #include "klog.hpp"
 #include "kpubfun.hpp"
 
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ json 配 置 文 件 基 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+const string JsBase::GetCfgValue(const string key, CfgType ctype){
+    if (g_cfg.empty()){
+        ERROR_TLOG("为读取到有效的配置文件, 请耐心检查!\n");
+        return "";
+    }
+    ValueDesc::iterator it = g_cfg.find(ctype);
+    if(it == g_cfg.end()){
+        ERROR_TLOG("尚未读取 [%d] 配置文件配置!\n", ctype);
+        return "";
+    }
+#if 1
+    //完全匹配
+    Values::iterator its = it->second.find(key);
+    if(its == it->second.end()){
+        ERROR_TLOG("配置文件 [%d] 未曾配置 [%s] 该属性, 请耐心检查!\n", ctype, key.c_str());
+        return "";
+    }
+    return its->second;
+#else
+    //模糊匹配
+    Values::iterator its = it->second.begin();
+    for(; its != it->second.end(); its++){
+        //获取分隔符下最后一个字符串
+        string::size_type pos = its->first.rfind("/");
+        string tmp = its->first.substr(pos+1);
+        //TODO 如果是多层对象下配置属性相同，则不兼容，此时需使用完全匹配
+        if(tmp == key){
+            return its->second;
+        }else{
+            continue;
+        }
+    }
+    return "";
+#endif
+}
+    
+const string JsBase::GetCfgValue(const string objName, const string key, CfgType ctype){
+    if (g_cfg.empty()){
+        ERROR_TLOG("为读取到有效的配置文件, 请耐心检查!\n");
+        return "";
+    }
+    ValueDesc::iterator it = g_cfg.find(ctype);
+    if(it == g_cfg.end()){
+        ERROR_TLOG("尚未读取 [%d] 配置文件配置!\n", ctype);
+        return "";
+    }
+    //完全匹配
+    string newKey = objName + "/" + key;
+    Values::iterator its = it->second.find(newKey);
+    if(its == it->second.end()){
+        ERROR_TLOG("配置文件 [%d] 未曾配置 [%s] [%s]该属性, 请耐心检查!\n",
+                ctype, objName.c_str(), key.c_str());
+        return "";
+    }
+    return its->second;
+}
+
+const string JsBase::GetCfgValue(const string objFather, const string objChild, const string key, CfgType ctype){
+    if (g_cfg.empty()){
+        ERROR_TLOG("为读取到有效的配置文件, 请耐心检查!\n");
+        return "";
+    }
+    ValueDesc::iterator it = g_cfg.find(ctype);
+    if(it == g_cfg.end()){
+        ERROR_TLOG("尚未读取 [%d] 配置文件配置!\n", ctype);
+        return "";
+    }
+    //完全匹配
+    string newKey = objFather + "/" + objChild + "/" + key;
+    Values::iterator its = it->second.find(newKey);
+    if(its == it->second.end()){
+        ERROR_TLOG("配置文件 [%d] 未曾配置 [%s] [%s] [%s] 该属性, 请耐心检查!\n",
+                ctype, objFather.c_str(), objChild.c_str(), key.c_str());
+        return "";
+    }
+    return its->second;
+}
+
+void JsBase::ShowCfgValue(CfgType ctype){
+    ValueDesc::iterator it = g_cfg.begin();
+    for(; it != g_cfg.end(); it++){
+        INFO_TLOG("输出配置文件[%d]的配置信息:\n", it->first);
+        Values::iterator its = it->second.begin();
+        for(; its != it->second.end(); its++){
+            INFO_TLOG("[%s] => [%s]\n", its->first.c_str(), its->second.c_str());
+        }
+    }
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ cjson 配 置 文 件派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 #if 0
 //TODO 目前最多只支持三层key查找，多了就不行了，后续优化考虑采用字段分隔
 //demo: InsertKeyValue(item, readkv, "log_path", "", "");
@@ -250,57 +343,8 @@ bool cJsonInfo::LoadConfig(string fileName, CfgType ctype){
     return true;
 }
 
-//TODO 这里后续优化考虑使用分割函数获取配置文件 key，且这属于基类方法
-bool cJsonInfo::GetCfgValue(string key, string &value, CfgType ctype){
-    if (g_cfg.empty()){
-        ERROR_TLOG("为读取到有效的配置文件, 请耐心检查!\n");
-        return false;
-    }
-    ValueDesc::iterator it = g_cfg.find(ctype);
-    if(it == g_cfg.end()){
-        ERROR_TLOG("尚未读取 [%d] 配置文件配置!\n", ctype);
-        return false;
-    }
-#if 0
-    //完全匹配
-    Values::iterator its = it->second.find(key);
-    if(its == it->second.end()){
-        ERROR_TLOG("配置文件[%d]未曾配置[%s]该属性, 请耐心检查!\n", ctype, key.c_str());
-        return false;
-    }
-#else
-    //模糊匹配
-    Values::iterator its = it->second.begin();
-    for(; its != it->second.end(); its++){
-        //获取分隔符下最后一个字符串
-        string::size_type pos = its->first.rfind("/");
-        string tmp = its->first.substr(pos+1);
-        //TODO 如果是多层对象下配置属性相同，则不兼容，此时需使用完全匹配
-        if(tmp == key){
-            value = its->second;
-            return true;
-        }else{
-            continue;
-        }
-    }
-#endif
-    return false;
-}
-/*
-void cJsonInfo::ShowCfgValue(CfgType ctype){
-    ValueDesc::iterator it = g_cfg.begin();
-    for(; it != g_cfg.end(); it++){
-        INFO_TLOG("输出配置文件[%d]的配置信息:\n", it->first);
-        Values::iterator its = it->second.begin();
-        for(; its != it->second.end(); its++){
-            INFO_TLOG("[%s] => [%s]\n", its->first.c_str(), its->second.c_str());
-        }
-    }
-}
-*/
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ jsoncpp 配 置 文 件派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-
-//
 bool JsonInfo::CheckDataForm(Json::Value &value){
     switch(value.type()){
         case Json::nullValue:
@@ -456,21 +500,7 @@ bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
     return true;
 }
 
-bool JsonInfo::GetCfgValue(string key, string &value, CfgType ctype){
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ xml 配 置 文 件 派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-    return true;
-}
-
-//基类 显示某配置文件配置
-void JsBase::ShowCfgValue(CfgType ctype){
-    ValueDesc::iterator it = g_cfg.begin();
-    for(; it != g_cfg.end(); it++){
-        INFO_TLOG("输出配置文件[%d]的配置信息:\n", it->first);
-        Values::iterator its = it->second.begin();
-        for(; its != it->second.end(); its++){
-            INFO_TLOG("[%s] => [%s]\n", its->first.c_str(), its->second.c_str());
-        }
-    }
-}
-
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 节 点 配 置 文 件 派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
