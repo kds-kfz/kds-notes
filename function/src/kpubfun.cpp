@@ -154,8 +154,8 @@ int KPUBFUN::stringSplit(const string str, const string sep, vector<string> &vec
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 日 期 处 理 函 数 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 KPUBFUN::Date::Date(){
-    this->tmt = time(NULL);
-    this->pTime = NULL;
+    tmt = time(NULL);
+    pTime = NULL;
     memset(timeBuf, 0, sizeof(timeBuf));
     stime = "";
     //this->ptv = NULL;
@@ -168,6 +168,11 @@ KPUBFUN::Date::~Date(){
     
 //demo：%Y->年，%m->月，%d->日，%H->时，%M->分，%S->秒
 string KPUBFUN::Date::GetTime(const string& fmt){
+    tmt = time(NULL);
+    pTime = NULL;
+    memset(timeBuf, 0, sizeof(timeBuf));
+    stime = "";
+    
     pTime = localtime(&tmt);
     strftime(timeBuf, sizeof(timeBuf), fmt.c_str(), pTime);
     stime = timeBuf;
@@ -176,6 +181,11 @@ string KPUBFUN::Date::GetTime(const string& fmt){
     
 //demo：
 string KPUBFUN::Date::GetTime(){
+    tmt = time(NULL);
+    pTime = NULL;
+    memset(timeBuf, 0, sizeof(timeBuf));
+    stime = "";
+    
     pTime = localtime(&tmt);
 
     gettimeofday(&tv, NULL);

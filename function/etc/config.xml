@@ -1,0 +1,22 @@
+<params>
+    <log_path>../log/trade-service.log</log_path>                                   <!-- 日志目录 -->
+    <log_level>test</log_level>                                                     <!-- 日志级别 -->
+    <gearman>
+        <server_info>
+            <server_1>192.168.230.226:4730</server_1>                               <!-- 后端 gearman 地址:端口 -->
+        </server_info>
+        <client_timeout>20000</client_timeout>                                      <!-- gearman client 超时时间 -->
+        <connectMode>normal</connectMode>                                           <!-- gearman client 链接模式 -->
+    </gearman>
+    <enable_redis>true</enable_redis>                                               <!-- redis 总开关 -->
+    <redis>
+        <ip>127.0.0.1</ip>                                                          <!-- redis 本地服务地址 -->
+        <port>6379</port>                                                           <!-- redis 本地服务端口 -->
+        <expire_time>1800</expire_time>                                             <!-- redis 默认时长 -->
+        <zqxx_expire_time>86400</zqxx_expire_time>                                  <!-- redis 证券信息缓存时长 -->
+        <login_expire_time>1800.0</login_expire_time>                               <!-- redis 用户信息缓存时长 -->
+        <enable_hq_redis>false</enable_hq_redis>                                    <!-- redis 行情使能开关 -->
+        <hq_redis_cfg_path>/c++/redis-pool/etc/config.redis</hq_redis_cfg_path>     <!-- redis 行情服务配置路径 -->
+    </redis>
+    <runningMod>normal</runningMod>
+</params>

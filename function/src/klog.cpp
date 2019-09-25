@@ -35,7 +35,6 @@ void Log::Log_Msg(COMPANYS company, LOG_TYPE type, const char *fmt, ... ){
     }
     char buf[2048] = {0};
     char *pbuf = buf;
-    //Date date;
     #if 0
     sprintf(pbuf, "%s %s %s %s",
         ( company == KDS ? "KDS" : company == TC ? "TC" : "OTHER" ),
@@ -131,14 +130,12 @@ Log::Log(string path, LOG_TYPE type, COMPANYS company){
         fd.Open(validpath.c_str(), O_RDONLY);
         bool ok = fd.Size() >= 10 * 1024 * 1024 ? true : false;
         if(ok){
-            //Date date;
             string nowtime = KPUBFUN::Date::GetTime("-%Y%m%d-%H%M%S.log");
             path.append(nowtime);
             validpath = path;
             this->_plog->Open(validpath.c_str(), O_RDWR); // 新建
         }
     }else{
-        //Date date;
         string nowtime = KPUBFUN::Date::GetTime("-%Y%m%d-%H%M%S.log");
         path.append(nowtime);
         validpath = path;
