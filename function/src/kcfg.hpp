@@ -5,7 +5,8 @@
 #include<string>
 #include<map>
 #include "cjson/cJSON.h"
-#include"json/json.h"
+#include "json/json.h"
+#include "tinyxml/tinyxml.h"
 
 /******************************* 标 签 *******************************
  * 作者：kfz
@@ -83,7 +84,8 @@ class DocInfo : public JsBase{
 public:
     DocInfo(){}
     ~DocInfo(){}
-    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                    //读取配置信息到容器
+    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                    //纯虚函数，读配置到容器
+    bool InsertKeyValue(TiXmlElement *root, Values &mapkv);                     //读取配置信息到容器
 };
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 节 点 配 置 文 件 派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

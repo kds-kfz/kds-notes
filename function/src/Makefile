@@ -22,7 +22,8 @@ SHIELD = unknown-pragmas #屏蔽指定警告
 COMMONSRCS=$(wildcard ../common/src/cjson/*.c)
 COMMONOBJS=$(patsubst %.c,%.o,$(COMMONSRCS))
 
-SRC=$(wildcard ./*.cpp)
+SRC=$(wildcard ./*.cpp) \
+	$(wildcard $(SRCS)/tinyxml/*.cpp)
 OBJ=$(patsubst %.cpp,%.o,$(SRC))
 
 
@@ -37,8 +38,9 @@ ser.out : serve.o klog.o kfile.o ksocket.o kipc.o ksignal.o kpubfun.o
 	$(CXX) -o $@ $^
 cli.out : client.o klog.o kfile.o ksocket.o kipc.o kpubfun.o
 	$(CXX) -o $@ $^
-main.out : main.o kcfg.o kfile.o klog.o $(SRCS)/cjson/cJSON.o kipc.o ksignal.o kpubfun.o
-	$(CXX) -o $@ $^ $(LIBS)/libjsoncpp.a -I $(INCS)
+main.out : main.o kcfg.o kfile.o klog.o $(SRCS)/cjson/cJSON.o kipc.o ksignal.o kpubfun.o \
+$(SRCS)/tinyxml/tinystr.o $(SRCS)/tinyxml/tinyxml.o $(SRCS)/tinyxml/tinyxmlerror.o $(SRCS)/tinyxml/tinyxmlparser.o
+	$(CXX) -o $@ $^ $(LIBS)/libjsoncpp.a $(addprefix -I, $(INC))
 
 %.o : %.c
 	$(CC) -o $@ -c $< -I $(INCS)

@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <params>
     <log_path>../log/trade-service.log</log_path>                                   <!-- 日志目录 -->
     <log_level>test</log_level>                                                     <!-- 日志级别 -->

@@ -502,5 +502,83 @@ bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ xml 配 置 文 件 派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+// 递归查找子元素节点信息, 读取配置文件，以形参形式插入键值对
+// 由于处理较为特别，很难兼容前两种容器形式( key 值舍去拼接 )
+// TODO 待后续优化统一
+bool DocInfo::InsertKeyValue(TiXmlElement *root, Values &mapkv){
+    TiXmlElement *ele_results = root->FirstChildElement();
+    TiXmlNode *pNode = root->FirstChildElement();
+    TiXmlText *pText = NULL;
+    while(ele_results){
+        int t = pNode->Type();
+        switch(t){
+            case TiXmlText::TINYXML_DOCUMENT:
+                break;
+            //节点类型是Element
+            case TiXmlText::TINYXML_ELEMENT:
+                {
+                    if(ele_results->GetText()){
+                        mapkv.insert(make_pair(ele_results->Value(), ele_results->GetText()));
+                    }else{
+                        InsertKeyValue(ele_results, mapkv);
+                    }
+                }
+                break;
+            case TiXmlText::TINYXML_COMMENT:
+                break;
+            case TiXmlText::TINYXML_UNKNOWN:
+                break;
+            // 节点类型是 text 节点
+            case TiXmlText::TINYXML_TEXT:
+                {
+                    pText = pNode->ToText();
+                    string text = pText->Value();
+                    cout<<"text = "<<text<<endl;
+                }
+                break;
+            case TiXmlText::TINYXML_DECLARATION:
+                break;
+            case TiXmlText::TINYXML_TYPECOUNT:
+                break;
+            default:
+                break;
+        }
+        pNode = pNode->NextSiblingElement();
+        ele_results = ele_results->NextSiblingElement();
+    }
+    return true;
+}
+
+bool DocInfo::LoadConfig(string fileName, CfgType ctype){
+    if(fileName.empty() || fileName == ""){
+        ERROR_TLOG("配置文件路径不存在!\n");
+        return false;
+    }
+
+    TiXmlDocument docXml;
+    
+    // 读文件
+    if(!docXml.LoadFile(fileName.c_str())){
+        const char *errorStr = docXml.ErrorDesc();
+        ERROR_TLOG("加载 [%s] 文件失败, errmsg [%s]\n", fileName.c_str(), errorStr);
+        return false;
+    }
+    //docXml.Print();
+
+    // 获取 xml 的根节点
+    TiXmlElement *root = docXml.RootElement();
+    // Value() 是个 const char *, 根节点名称 params
+    string ElementName = root->Value();
+    cout<<"root = "<<ElementName<<endl;
+    
+    //读取配置信息到容器
+    Values readkv;
+    InsertKeyValue(root, readkv);
+    
+    g_cfg.insert(make_pair(ctype, readkv));
+
+    return true;
+}
+
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 节 点 配 置 文 件 派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 

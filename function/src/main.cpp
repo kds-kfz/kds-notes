@@ -8,7 +8,7 @@
 # endif
 
 #define TEST_MODULE -1
-#define TEST_PARSE_MODULE 0
+#define TEST_PARSE_MODULE 2
 
 //开发测试阶段
 LOG_TYPE _gLogLevel = TEST;
@@ -72,6 +72,11 @@ int main(int argc, char *argv[]){
     //cjson 测试配置文件函数
     JsonInfo k;
     k.LoadConfig("../etc/config.json");
+
+#elif TEST_PARSE_MODULE == 2
+    //xml 测试配置文件
+    DocInfo k;
+    k.LoadConfig("../etc/config.xml");
     
 #endif
     k.ShowCfgValue();
@@ -82,7 +87,6 @@ int main(int argc, char *argv[]){
     INFO_TLOG("已读取到配置为:[%s]\n", sztmp.c_str());
     sztmp = k.GetCfgValue("redis", "login_expire_time");
     INFO_TLOG("已读取到配置为:[%s]\n", sztmp.c_str());
-    
     INFO_TLOG("挂载系统正在退出，欢迎使用...\n");
     //删除信号量
     KIPC::delsem();
