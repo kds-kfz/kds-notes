@@ -85,7 +85,7 @@ const string JsBase::GetCfgValue(const string objFather, const string objChild, 
 void JsBase::ShowCfgValue(CfgType ctype){
     ValueDesc::iterator it = g_cfg.begin();
     for(; it != g_cfg.end(); it++){
-        INFO_TLOG("输出配置文件[%d]的配置信息:\n", it->first);
+        INFO_TLOG("输出配置文件 [%d] 的配置信息:\n", it->first);
         Values::iterator its = it->second.begin();
         for(; its != it->second.end(); its++){
             INFO_TLOG("[%s] => [%s]\n", its->first.c_str(), its->second.c_str());
@@ -322,6 +322,7 @@ bool cJsonInfo::LoadConfig(string fileName, CfgType ctype){
     //读取配置信息到容器
     Values readkv;
     readkv.clear();
+    
     InsertKeyValue(item, readkv, "log_path");
     InsertKeyValue(item, readkv, "log_level");
     InsertKeyValue(item, readkv, "gearman:server_info:server_1");
@@ -336,6 +337,7 @@ bool cJsonInfo::LoadConfig(string fileName, CfgType ctype){
     InsertKeyValue(item, readkv, "redis:enable_hq_redis");
     InsertKeyValue(item, readkv, "redis:hq_redis_cfg_path");
     InsertKeyValue(item, readkv, "runningMod");
+    
     g_cfg.insert(make_pair(ctype, readkv));
     
     delete b;
@@ -480,6 +482,7 @@ bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
     //读取配置信息到容器
     Values readkv;
     readkv.clear();
+    
     InsertKeyValue(gCfg, readkv, "log_path");
     InsertKeyValue(gCfg, readkv, "log_level");
     InsertKeyValue(gCfg, readkv, "gearman:server_info:server_1");
@@ -494,6 +497,7 @@ bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
     InsertKeyValue(gCfg, readkv, "redis:enable_hq_redis");
     InsertKeyValue(gCfg, readkv, "redis:hq_redis_cfg_path");
     InsertKeyValue(gCfg, readkv, "runningMod");
+    
     g_cfg.insert(make_pair(ctype, readkv));
     
     delete b;
@@ -504,7 +508,6 @@ bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
 
 // 递归查找子元素节点信息, 读取配置文件，以形参形式插入键值对
 // 由于处理较为特别，很难兼容前两种容器形式( key 值舍去拼接 )
-// TODO 待后续优化统一
 bool DocInfo::InsertKeyValue(TiXmlElement *root, Values &mapkv){
     TiXmlElement *ele_results = root->FirstChildElement();
     TiXmlNode *pNode = root->FirstChildElement();
@@ -549,6 +552,61 @@ bool DocInfo::InsertKeyValue(TiXmlElement *root, Values &mapkv){
     return true;
 }
 
+bool DocInfo::InsertKeyValue(TiXmlElement *root, Values &mapkv, string key){
+    vector<string> keyname;
+    int size = KPUBFUN::stringSplit(key, ":", keyname);
+    if(size == 1){
+        TiXmlElement *head = root->FirstChildElement(keyname[0].c_str());
+        if(head){
+            mapkv.insert(make_pair(keyname[0].c_str(), head->GetText()));
+        }else{
+            ERROR_TLOG("该配置项 [%s] 不存在!\n", keyname[0].c_str());
+            return false;
+        }
+    }else if(size == 2){
+        TiXmlElement *head = root->FirstChildElement(keyname[0].c_str());
+        if(head){
+            TiXmlElement *body = head->FirstChildElement(keyname[1].c_str());
+            if(body){
+                string newKey = keyname[0] + "/" + keyname[1];
+                mapkv.insert(make_pair(newKey, body->GetText()));
+            }else{
+                ERROR_TLOG("配置项 [%s] 中 [%s] 该配置项不存在!\n",
+                    keyname[0].c_str(), keyname[1].c_str());
+                return false;
+            }
+        }else{
+            ERROR_TLOG("该配置项 [%s] 不存在!\n", keyname[0].c_str());
+            return false;
+        }
+    }else if(size == 3){
+        TiXmlElement *head = root->FirstChildElement(keyname[0].c_str());
+        if(head){
+            TiXmlElement *body = head->FirstChildElement(keyname[1].c_str());
+            if(body){
+                TiXmlElement *child = body->FirstChildElement(keyname[2].c_str());
+                if(child){
+                    string newKey = keyname[0] + "/" + keyname[1] + "/" + keyname[2];
+                    mapkv.insert(make_pair(newKey, child->GetText()));
+                }else{
+                    ERROR_TLOG("配置项 [%s] [%s] 中 [%s] 该配置项不存在!\n",
+                        keyname[0].c_str(), keyname[1].c_str(), keyname[2].c_str());
+                    return false;
+                }
+            }else{
+                ERROR_TLOG("配置项 [%s] 中 [%s] 该配置项不存在!\n",
+                    keyname[0].c_str(), keyname[1].c_str());
+                return false;
+            }
+        }else{
+            ERROR_TLOG("该配置项 [%s] 不存在!\n", keyname[0].c_str());
+            return false;
+        }
+    
+    }
+    return true;
+}
+
 bool DocInfo::LoadConfig(string fileName, CfgType ctype){
     if(fileName.empty() || fileName == ""){
         ERROR_TLOG("配置文件路径不存在!\n");
@@ -569,11 +627,28 @@ bool DocInfo::LoadConfig(string fileName, CfgType ctype){
     TiXmlElement *root = docXml.RootElement();
     // Value() 是个 const char *, 根节点名称 params
     string ElementName = root->Value();
-    cout<<"root = "<<ElementName<<endl;
     
     //读取配置信息到容器
     Values readkv;
-    InsertKeyValue(root, readkv);
+    readkv.clear();
+    
+    //读取全部配置信息到容器
+    //InsertKeyValue(root, readkv);
+    
+    InsertKeyValue(root, readkv, "log_path");
+    InsertKeyValue(root, readkv, "log_level");
+    InsertKeyValue(root, readkv, "gearman:server_info:server_1");
+    InsertKeyValue(root, readkv, "gearman:client_timeout");
+    InsertKeyValue(root, readkv, "gearman:connectMode");
+    InsertKeyValue(root, readkv, "enable_redis");
+    InsertKeyValue(root, readkv, "redis:ip");
+    InsertKeyValue(root, readkv, "redis:port");
+    InsertKeyValue(root, readkv, "redis:expire_time");
+    InsertKeyValue(root, readkv, "redis:zqxx_expire_time");
+    InsertKeyValue(root, readkv, "redis:login_expire_time");
+    InsertKeyValue(root, readkv, "redis:enable_hq_redis");
+    InsertKeyValue(root, readkv, "redis:hq_redis_cfg_path");
+    InsertKeyValue(root, readkv, "runningMod");
     
     g_cfg.insert(make_pair(ctype, readkv));
 

@@ -85,7 +85,8 @@ public:
     DocInfo(){}
     ~DocInfo(){}
     bool LoadConfig(string fileName, CfgType ctype = TCSTY);                    //纯虚函数，读配置到容器
-    bool InsertKeyValue(TiXmlElement *root, Values &mapkv);                     //读取配置信息到容器
+    bool InsertKeyValue(TiXmlElement *root, Values &mapkv);                     //默认读取全部配置信息到容器
+    bool InsertKeyValue(TiXmlElement *root, Values &mapkv, string key);         //读取配置信息到容器
 };
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 节 点 配 置 文 件 派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
