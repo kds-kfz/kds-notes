@@ -745,51 +745,84 @@ bool NodeInfo::InsertKeyValue(vector<string> content, Values &mapkv, string key)
     vector<string>::iterator it, pre, end;
     unsigned int k = 0, h = 0;
     int size = KPUBFUN::stringSplit(key, ":", keyname);
+    string section = "";
+    string keyName = "";
     if(size == 1){
-        for(it = content.begin(); it != content.end(); it++, k++){
-            string temp = Trim(*it);
-            if(temp == "[COMMON]"){
-                pre = it;
-                pre++;
-                h = k + 1;
-                continue;
-            }
-            if(temp[0] == '[' && KPUBFUN::CheckLineStr(temp, "[", 1)){
+        section = "[COMMON]";
+        keyName = keyname[0];
+    }else if(size == 2){
+        section = "[" + keyname[0] + "]";
+        keyName = keyname[1];
+    }else if(size == 3){
+        section = "[" + keyname[0] + "/" + keyname[1] + "]";
+        keyName = keyname[2];
+    }
+    bool flag = false;
+    for(it = content.begin(); it != content.end(); it++, k++){
+        string temp = Trim(*it);
+        if(temp == section){
+            pre = it;
+            h = k + 1;
+            pre = it;
+            pre++;
+            flag = true;
+            continue;
+        }
+        // 找到下一配置项属性以便确定标签值范围, 找不到则默认是到最后一行
+        if(flag){
+            if(temp[0] == '[' && temp[temp.length() - 1] == ']'){
                 end = it;
                 break;
             }
-        }
-        //获取配置文件配置
-        for(; pre < end; pre++, h++){
-            string obj = *pre;
-            if(!strncmp(obj.c_str(), keyname[0].c_str(), keyname[0].length())){
-                size_t delimPos;
-                delimPos = obj.find("=");
-                if(delimPos == string::npos){
-                    ERROR_TLOG("配置文件第 [%d] 该行配置项 \"=\" 右边无值 ，请耐心检查!\n", h);
-                    return false;
-                }
-                
-                string opt = obj.substr(0, delimPos);
-                string val = obj.substr(delimPos + 1);
-                opt = Trim(opt);
-                val = Trim(val);
-                
-                if(opt.empty() || val.empty()){
-                    ERROR_TLOG("配置文件第 [%d] 该行配置项 \"=\" 左或右边无值 ，请耐心检查!\n", h);
-                    return false;
-                }
-                // 插入键值
-                mapkv.insert(make_pair(opt, val));
+            if(it == content.end() - 1){
+                end = content.end();
+                break;
             }
         }
-    }else if(size == 2){
-    
     }
+    if(!flag && pre == end - 1){
+        ERROR_TLOG("配置文件中尚未找到 [%s] 配置项，请耐心检查!\n", keyName.c_str());
+        return false;
+    }
+    //获取配置文件配置
+    for(; pre < end; pre++, h++){
+        string obj = *pre;
+        if(!strncmp(obj.c_str(), keyName.c_str(), keyName.length())){
+            size_t delimPos;
+            delimPos = obj.find("=");
+            if(delimPos == string::npos){
+                ERROR_TLOG("配置文件第 [%d] 该行配置项 \"=\" 右边无值, 请耐心检查!\n", h);
+                return false;
+            }
+            
+            string opt = obj.substr(0, delimPos);
+            string val = obj.substr(delimPos + 1);
+            
+            opt = Trim(opt);
+            val = Trim(val);
+
+            string newKey = "";
+            
+            if(size == 1){
+                newKey = keyName;
+            }else{
+                newKey = section.substr(1, section.length() - 2) + "/" + keyName;
+            }
+            
+            if(val.empty()){
+                ERROR_TLOG("配置文件第 [%d] 该行配置项 \"=\" 右边为空值, 请耐心检查!\n", h);
+                return false;
+            }
+            // 插入键值
+            mapkv.insert(make_pair(newKey, val));
+        }else{
+            //配置文件第 [%d] 该行配置项 \"=\" 右边为空值 或是尚未找配置, 请耐心检查!
+        }
+    }
+
     return true;
 }
 
-//内联函数 
 bool NodeInfo::LoadConfig(string fileName, CfgType ctype){
     if(fileName.empty() || fileName == ""){
         ERROR_TLOG("配置文件路径不存在!\n");
@@ -818,6 +851,7 @@ bool NodeInfo::LoadConfig(string fileName, CfgType ctype){
     }
     
     //凡是一个 key 值的都归为 COMMON 节点下
+
     InsertKeyValue(content, readkv, "log_path");
     InsertKeyValue(content, readkv, "log_level");
     InsertKeyValue(content, readkv, "gearman:server_info:server_1");
