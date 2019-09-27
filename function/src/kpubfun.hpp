@@ -23,6 +23,8 @@ public:
     static int StringSplit(char *src, const char split, vector<string> &files);
     //功能描述: 从string中截取字段到vector容器
     static int stringSplit(const string str, const string sep, vector<string> &vec);
+    //查找 src 字符中出现 obj 字符的次数
+    static bool CheckLineStr(string src, const char *obj, unsigned int objn);
     
     /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 其 他 处 理 函 数 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
     

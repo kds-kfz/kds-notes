@@ -91,9 +91,15 @@ public:
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 节 点 配 置 文 件 派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 class NodeInfo : public JsBase{
+private:
+public:
     NodeInfo(){}
     ~NodeInfo(){}
-    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                    //读取配置信息到容器
+    string &Trim(string &str, const string &trimStr = " \r\n\t");               //去除字符收尾指定字符
+    void GetLineMsg(const char *pcontent, vector<string> &content);             //获取配置文件文件内容暂存容器中
+    bool CheckDataForm(vector<string> &content);                                //校验容器中有效配置
+    bool LoadConfig(string fileName, CfgType ctype = TCSTY);                    //纯虚函数，读配置到容器
+    bool InsertKeyValue(vector<string> content, Values &mapkv, string key);     //读取配置信息到容器
 };
 
 #endif

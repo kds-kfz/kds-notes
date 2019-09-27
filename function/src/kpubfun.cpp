@@ -151,6 +151,28 @@ int KPUBFUN::stringSplit(const string str, const string sep, vector<string> &vec
     return vec.size();
 }
 
+//查找 src 字符中出现 obj 字符的次数
+bool KPUBFUN::CheckLineStr(string src, const char *obj, unsigned int objn){
+    if(src.empty()){
+        return false;
+    }
+    int srclen = src.length();
+    int objlen = strlen(obj);
+    unsigned int count = 0;
+    size_t pre = 0;
+    
+    while(srclen > objlen - 1){
+        string temp = src.substr(pre, objlen);
+
+        if(!strncmp(temp.c_str(), obj, objlen)){
+            count += 1;
+        }
+        pre += objlen;
+        srclen -= objlen;
+    }
+    return objn == count ? true : false;
+}
+
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 日 期 处 理 函 数 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 KPUBFUN::Date::Date(){

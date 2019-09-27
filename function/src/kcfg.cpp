@@ -602,7 +602,6 @@ bool DocInfo::InsertKeyValue(TiXmlElement *root, Values &mapkv, string key){
             ERROR_TLOG("该配置项 [%s] 不存在!\n", keyname[0].c_str());
             return false;
         }
-    
     }
     return true;
 }
@@ -656,4 +655,187 @@ bool DocInfo::LoadConfig(string fileName, CfgType ctype){
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 节 点 配 置 文 件 派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+string &NodeInfo::Trim(string& str, const string& trimStr)
+{
+    size_t len = str.length();
+    size_t begin = 0,end = len;
+    //统计字符开头满足指定字符个数
+    while(begin < len){
+        if (trimStr.find(str[begin]) == string::npos){
+            break;
+        }
+        ++begin;
+    }
+    while(end - 1 > 0 && end - 1 > begin){
+        if (trimStr.find(str[end - 1]) == string::npos){
+            break;
+        }
+        --end;
+    }
+    
+    str = str.substr(begin,end - begin);
+    return str;
+}
+
+//以换行或者回车作为判断依据，即为一行, 初步获取文本行内容,后续再过滤注释, 然后删除字符前后空格，在插入容器
+void NodeInfo::GetLineMsg(const char *pcontent, vector<string> &content){
+    content.clear();
+    const char *p = pcontent;
+    string str = "";
+    while(*p){
+        str += *p;
+        //忽略空行，不是空行的将该行开头是制表符或是空格开头的放置顶格
+        if(str[0] == '\n' || str[0] == '\t' ||  str[0] == ' '){
+            str.clear();
+            p++;
+            continue;
+        }
+        //有效配置文本行
+        if(*p == '\n' || *p == '\r'){
+            str = str.substr(0, str.length() - 1);
+            content.push_back(str);
+            str.clear();
+        }
+        p++;
+    }
+}
+    
+bool NodeInfo::CheckDataForm(vector<string> &content){
+    if(content.size() < 1){
+        ERROR_TLOG("尚无有效配置，请耐心检查!\n");
+        return false;
+    }
+    int size = content.size();
+    for(int i = 0; i < size; i++){
+        string str = content[i];
+        // 删除注释行
+        if(!strncmp(str.c_str(), "#", 1) ||
+            !strncmp(str.c_str(), ";", 1) ||
+                !strncmp(str.c_str(), "//", 2)){
+            content.erase(content.begin() + i);
+            size -= 1;
+            i = 0;
+        }
+        // 去掉 ; 结尾符
+        if(str[str.size() - 1] == ';'){
+            str.resize(str.size() - 1);
+            //删除原有的以 ; 结尾的字符串，重新插入新字符串
+            content.erase(content.begin() + i);
+            content.push_back(str);
+        }
+    }
+    
+    // 校验标签格式
+    for(unsigned int i = 0; i < content.size(); i++){
+        if(content[i][0] == '[' && 
+            (!KPUBFUN::CheckLineStr(content[i], "[", 1) || 
+             !KPUBFUN::CheckLineStr(content[i], "]", 1))){
+                ERROR_TLOG("配置文件第 [%d] 行标签配置格式错误 ，请耐心检查!\n", i);
+                return false;
+        }
+    }
+    
+    return content.size() > 0 ? true : false;
+}
+
+
+bool NodeInfo::InsertKeyValue(vector<string> content, Values &mapkv, string key){
+    vector<string> keyname;
+    vector<string>::iterator it, pre, end;
+    unsigned int k = 0, h = 0;
+    int size = KPUBFUN::stringSplit(key, ":", keyname);
+    if(size == 1){
+        for(it = content.begin(); it != content.end(); it++, k++){
+            string temp = Trim(*it);
+            if(temp == "[COMMON]"){
+                pre = it;
+                pre++;
+                h = k + 1;
+                continue;
+            }
+            if(temp[0] == '[' && KPUBFUN::CheckLineStr(temp, "[", 1)){
+                end = it;
+                break;
+            }
+        }
+        //获取配置文件配置
+        for(; pre < end; pre++, h++){
+            string obj = *pre;
+            if(!strncmp(obj.c_str(), keyname[0].c_str(), keyname[0].length())){
+                size_t delimPos;
+                delimPos = obj.find("=");
+                if(delimPos == string::npos){
+                    ERROR_TLOG("配置文件第 [%d] 该行配置项 \"=\" 右边无值 ，请耐心检查!\n", h);
+                    return false;
+                }
+                
+                string opt = obj.substr(0, delimPos);
+                string val = obj.substr(delimPos + 1);
+                opt = Trim(opt);
+                val = Trim(val);
+                
+                if(opt.empty() || val.empty()){
+                    ERROR_TLOG("配置文件第 [%d] 该行配置项 \"=\" 左或右边无值 ，请耐心检查!\n", h);
+                    return false;
+                }
+                // 插入键值
+                mapkv.insert(make_pair(opt, val));
+            }
+        }
+    }else if(size == 2){
+    
+    }
+    return true;
+}
+
+//内联函数 
+bool NodeInfo::LoadConfig(string fileName, CfgType ctype){
+    if(fileName.empty() || fileName == ""){
+        ERROR_TLOG("配置文件路径不存在!\n");
+        return false;
+    }
+    JsBase *b = NULL;
+    b = new NodeInfo();
+    if(!b){
+        ERROR_TLOG("配置文件基类空间申请失败，请稍后尝试!\n");
+        return false;
+    }
+    // 读文件
+    b->file.Open(fileName.c_str(), O_RDONLY);
+
+    // 从整个配置文件内容中获取每一行的内容，处理判断每一行的配置，获取指定的配置添加到容器中
+    Values readkv;
+    readkv.clear();
+    vector<string> content;
+
+    GetLineMsg(b->file.Data(), content);
+    
+    // 规范配置文件格式
+    if(!CheckDataForm(content)){
+        ERROR_TLOG("尚无有效配置，请耐心检查!\n");
+        return false;
+    }
+    
+    //凡是一个 key 值的都归为 COMMON 节点下
+    InsertKeyValue(content, readkv, "log_path");
+    InsertKeyValue(content, readkv, "log_level");
+    InsertKeyValue(content, readkv, "gearman:server_info:server_1");
+    InsertKeyValue(content, readkv, "gearman:client_timeout");
+    InsertKeyValue(content, readkv, "gearman:connectMode");
+    InsertKeyValue(content, readkv, "enable_redis");
+    InsertKeyValue(content, readkv, "redis:ip");
+    InsertKeyValue(content, readkv, "redis:port");
+    InsertKeyValue(content, readkv, "redis:expire_time");
+    InsertKeyValue(content, readkv, "redis:zqxx_expire_time");
+    InsertKeyValue(content, readkv, "redis:login_expire_time");
+    InsertKeyValue(content, readkv, "redis:enable_hq_redis");
+    InsertKeyValue(content, readkv, "redis:hq_redis_cfg_path");
+    InsertKeyValue(content, readkv, "runningMod");
+
+    g_cfg.insert(make_pair(ctype, readkv));
+
+    delete b;
+    return true;
+}
 
