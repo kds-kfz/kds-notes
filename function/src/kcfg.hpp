@@ -2,8 +2,9 @@
 #define __KCFG_H__
 
 #include "kfile.hpp"
-#include<string>
-#include<map>
+#include <string>
+#include <map>
+#include <vector>
 #include "cjson/cJSON.h"
 #include "json/json.h"
 #include "tinyxml/tinyxml.h"
@@ -31,6 +32,8 @@ using namespace std;
 enum CfgType{ TCSTY = 1, KDSSTY, OTHERS, };     //配置类型
 typedef map < string, string > Values;          //键值对
 typedef map < CfgType, Values > ValueDesc;      //描述 + 键值对
+
+typedef vector< string > Vector;                //容器
 
 static ValueDesc g_cfg;                         //所有的配置信息键值对
 

@@ -8,7 +8,7 @@
 # endif
 
 #define TEST_MODULE -1
-#define TEST_PARSE_MODULE 3
+#define TEST_PARSE_MODULE 2
 
 //开发测试阶段
 LOG_TYPE _gLogLevel = TEST;

@@ -206,7 +206,7 @@ bool cJsonInfo::CheckDataForm(cJSON *item){
 }
 
 bool cJsonInfo::InsertKeyValue(cJSON *item, Values &mapkv, string key){
-    vector<string> keyname;
+    Vector keyname;
     int size = KPUBFUN::stringSplit(key, ":", keyname);
     if(size == 1){
         cJSON *obj = cJSON_GetObjectItem(item, keyname[0].c_str());
@@ -394,7 +394,7 @@ bool JsonInfo::CheckDataForm(Json::Value &value){
 
 //TODO 考虑到有多种配置文件数据格式，故统一格式，每种格式都采用分隔符处理
 bool JsonInfo::InsertKeyValue(Json::Value &value, Values &mapkv, string key){
-    vector<string> keyname;
+    Vector keyname;
     string Value = "";
     int size = KPUBFUN::stringSplit(key, ":", keyname);
     if(size == 1){
@@ -506,9 +506,27 @@ bool JsonInfo::LoadConfig(string fileName, CfgType ctype){
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ xml 配 置 文 件 派 生 类 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
+// FirstChildElement 获取下一个元素
+// NextSiblingElement 获取兄弟元素
+// Value() 获取元素键 GetText()获取元素值
+
+// FirstAttribute 获取元素属性
+// Next() 获取元素属性的下一个属性
+// Name() 属性键 Value() 属性值
+
 // 递归查找子元素节点信息, 读取配置文件，以形参形式插入键值对
 // 由于处理较为特别，很难兼容前两种容器形式( key 值舍去拼接 )
 bool DocInfo::InsertKeyValue(TiXmlElement *root, Values &mapkv){
+    if(!root){
+        ERROR_TLOG("该配置文件根元素不存在, 请耐心检查!\n");
+        return false;
+    }
+    //输出元素属性
+    TiXmlAttribute *attributer = root->FirstAttribute();
+    for (; attributer != NULL; attributer = attributer->Next()){
+        INFO_TLOG("根元素节点属性 [%s] = [%s]\n", attributer->Name(), attributer->Value());
+    }
+
     TiXmlElement *ele_results = root->FirstChildElement();
     TiXmlNode *pNode = root->FirstChildElement();
     TiXmlText *pText = NULL;
@@ -520,6 +538,12 @@ bool DocInfo::InsertKeyValue(TiXmlElement *root, Values &mapkv){
             //节点类型是Element
             case TiXmlText::TINYXML_ELEMENT:
                 {
+                    //输出元素属性
+                    TiXmlAttribute *attribute = ele_results->FirstAttribute();
+                    for (; attribute != NULL; attribute = attribute->Next()){
+                        INFO_TLOG("元素节点属性 [%s] = [%s]\n", attribute->Name(), attribute->Value());
+                    }
+                    
                     if(ele_results->GetText()){
                         mapkv.insert(make_pair(ele_results->Value(), ele_results->GetText()));
                     }else{
@@ -553,7 +577,7 @@ bool DocInfo::InsertKeyValue(TiXmlElement *root, Values &mapkv){
 }
 
 bool DocInfo::InsertKeyValue(TiXmlElement *root, Values &mapkv, string key){
-    vector<string> keyname;
+    Vector keyname;
     int size = KPUBFUN::stringSplit(key, ":", keyname);
     if(size == 1){
         TiXmlElement *head = root->FirstChildElement(keyname[0].c_str());
@@ -623,17 +647,19 @@ bool DocInfo::LoadConfig(string fileName, CfgType ctype){
     //docXml.Print();
 
     // 获取 xml 的根节点
-    TiXmlElement *root = docXml.RootElement();
+    TiXmlElement *head = docXml.RootElement();
     // Value() 是个 const char *, 根节点名称 params
-    string ElementName = root->Value();
+    //string ElementName = head->Value();
+    TiXmlElement *root = head->FirstChildElement();
     
     //读取配置信息到容器
     Values readkv;
     readkv.clear();
     
     //读取全部配置信息到容器
-    //InsertKeyValue(root, readkv);
-    
+    #if 0
+    InsertKeyValue(root, readkv);
+    #else
     InsertKeyValue(root, readkv, "log_path");
     InsertKeyValue(root, readkv, "log_level");
     InsertKeyValue(root, readkv, "gearman:server_info:server_1");
@@ -648,7 +674,7 @@ bool DocInfo::LoadConfig(string fileName, CfgType ctype){
     InsertKeyValue(root, readkv, "redis:enable_hq_redis");
     InsertKeyValue(root, readkv, "redis:hq_redis_cfg_path");
     InsertKeyValue(root, readkv, "runningMod");
-    
+    #endif
     g_cfg.insert(make_pair(ctype, readkv));
 
     return true;
@@ -679,7 +705,7 @@ string &NodeInfo::Trim(string& str, const string& trimStr)
 }
 
 //以换行或者回车作为判断依据，即为一行, 初步获取文本行内容,后续再过滤注释, 然后删除字符前后空格，在插入容器
-void NodeInfo::GetLineMsg(const char *pcontent, vector<string> &content){
+void NodeInfo::GetLineMsg(const char *pcontent, Vector &content){
     content.clear();
     const char *p = pcontent;
     string str = "";
@@ -701,7 +727,7 @@ void NodeInfo::GetLineMsg(const char *pcontent, vector<string> &content){
     }
 }
     
-bool NodeInfo::CheckDataForm(vector<string> &content){
+bool NodeInfo::CheckDataForm(Vector &content){
     if(content.size() < 1){
         ERROR_TLOG("尚无有效配置，请耐心检查!\n");
         return false;
@@ -740,9 +766,9 @@ bool NodeInfo::CheckDataForm(vector<string> &content){
 }
 
 
-bool NodeInfo::InsertKeyValue(vector<string> content, Values &mapkv, string key){
-    vector<string> keyname;
-    vector<string>::iterator it, pre, end;
+bool NodeInfo::InsertKeyValue(Vector content, Values &mapkv, string key){
+    Vector keyname;
+    Vector::iterator it, pre, end;
     unsigned int k = 0, h = 0;
     int size = KPUBFUN::stringSplit(key, ":", keyname);
     string section = "";
@@ -840,7 +866,7 @@ bool NodeInfo::LoadConfig(string fileName, CfgType ctype){
     // 从整个配置文件内容中获取每一行的内容，处理判断每一行的配置，获取指定的配置添加到容器中
     Values readkv;
     readkv.clear();
-    vector<string> content;
+    Vector content;
 
     GetLineMsg(b->file.Data(), content);
     
