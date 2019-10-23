@@ -8,7 +8,6 @@ void Log::Log_Msg(COMPANYS company, LOG_TYPE type, const char *fmt, ... ){
     if(type > _gLogLevel){
         return;   
     }
-
     if(IsAccord()){
         //先保存旧的目录
         string validpath = this->_logpatch;

@@ -8,7 +8,7 @@
 # endif
 
 #define TEST_MODULE -1
-#define TEST_PARSE_MODULE 2
+#define TEST_PARSE_MODULE 1
 
 //开发测试阶段
 LOG_TYPE _gLogLevel = TEST;
@@ -17,7 +17,6 @@ Log *glog;
 int main(int argc, char *argv[]){
     //读配置文件测试
     glog = new Log("../log/mount-service");
-    INFO_TLOG("挂载系统初始化成功...\n");
     //创建信号量集
     if(!KIPC::creatSem(IPC_MODE)){
         exit(1);
@@ -30,6 +29,7 @@ int main(int argc, char *argv[]){
     if(!initSigProc()){
         exit(1);
     }
+    INFO_TLOG("挂载系统初始化成功...\n");
 #if TEST_MODULE == 0
     //文件测试
     Files fd;
@@ -81,7 +81,6 @@ int main(int argc, char *argv[]){
     //xml 测试配置文件
     NodeInfo k;
     k.LoadConfig("../etc/config.ini");
-    
 #endif
     k.ShowCfgValue();
     /*
