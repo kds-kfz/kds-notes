@@ -2,7 +2,7 @@
 #include<functional>//c++关于函数的头文件
 //7.bind参数绑定.cpp
 using namespace std;
-using namespace std::placeholders;//这个命名空间下定义类站位符
+using namespace std::placeholders;//这个命名空间下定义类占位符
 
 int sum(int a,int b,int c){
     cout<<"a = "<<a<<endl;
