@@ -7,10 +7,50 @@
 #include <sys/sem.h>
 #include <string.h>
 #include <sys/shm.h>
-#include <string.h>
+#include <cstring>
+#include <errno.h>
+#include"thread_pool.hpp"
+#include<vector>
 
 #define IPC_MODE (IPC_CREAT | SHM_R | SHM_W)
 using namespace std;
+
+typedef struct T{
+    string name;
+    string sex;
+    string job;
+    string age;
+}TI;
+
+typedef struct U{
+    string node;
+}NI;
+
+typedef struct J{
+    TI data;
+    NI info;
+}TASK;
+
+int task_n = 0;
+
+void *client_task(void *arg){
+    TASK *p = (TASK *)arg;
+    TI ti = p->data;
+    NI ni = p->info;
+    
+
+    usleep(500);
+    printf("正在处理任务: %s, %s, %s, %s, %s\n",
+            ni.node.c_str(),
+            ti.name.c_str(),
+            ti.sex.c_str(),
+            ti.job.c_str(),
+            ti.age.c_str()
+            );
+    task_n-=1;
+    printf("剩余数: %d\n", task_n);
+}
+
     static int g_semid;                     //信号量的键值
     static key_t g_key;                     //IPC通讯 (消息队列、信号量和共享内存)
 
@@ -80,34 +120,128 @@ bool sem_p(){
     return true;
 }
 int main(){
-static int num =10;
+    static int num =10;
     bool ok = creatSem(IPC_MODE) ? initSem(1) : false;
     printf("初始化信号量: %d\n", ok);
     
+    /*
     pid_t pid;
     for(int i = 0; i<10; i++){
         usleep(1);
         if((pid = fork()) == 0)
             break;
     }
+    */
+    while(1){
+    string name;
+    string sex;
+    string job;
+    string age;
+    vector<TI> Info;
+    TI ti[5] = {
+        {"张三", "男", "护士", "25"},
+        {"李四", "女", "学生", "26"},
+        {"王五", "男", "教师", "27"},
+        {"麻六", "女", "职员", "28"},
+        {"小七", "男", "教授", "29"}
+    };
+
+    for(int i = 0; i < 5; i++){
+        Info.push_back(ti[i]);
+    }
+    /*
+    printf("模拟，已收到任务...\n");
+    for(int i = 0; i < 5; i++){
+        printf("任务[%d]: %s, %s, %s, %s\n",
+                i,
+                Info.at(i).name.c_str(),
+                Info.at(i).sex.c_str(),
+                Info.at(i).job.c_str(),
+                Info.at(i).age.c_str()
+                );
+    }
+    */
+    pid_t pid;
+    pid = fork();
     if(pid < 0){
         cout<<"分裂失败! "<<endl;
         exit(-1);
     
     }else if(pid == 0){//子进程
-        printf("child pid1=%d,ppid=%d, num = %d \n",getpid(),getppid(), num);
-        do{
-            sem_p();
-            num--;
-            sem_v();
-        }while(false);
-        printf("pid_t: %d, 正在退出...\n", getpid());
-        exit(-1);
+        printf("child pid1 = %d, ppid = %d\n",getpid(),getppid());
+        int task_num = Info.size();
+        printf("已收到[%d]个任务\n", task_num);
+        
+        TASK *pi = new TASK[task_num];
+        //memset(pi, 0, sizeof(TASK) * task_num);
+
+        for(int i = 0; i < task_num; i++){
+            /*
+            memcpy((void*)pi[i].info.node.c_str(), "1001", 4);
+            memcpy((void*)pi[i].data.name.c_str(), Info.at(i).name.c_str(), Info.at(i).name.length());
+            memcpy((void*)pi[i].data.sex.c_str(), Info.at(i).name.c_str(), Info.at(i).sex.length());
+            memcpy((void*)pi[i].data.job.c_str(), Info.at(i).name.c_str(), Info.at(i).job.length());
+            memcpy((void*)pi[i].data.age.c_str(), Info.at(i).name.c_str(), Info.at(i).age.length());
+            */
+            pi[i].info.node = "1001";
+            pi[i].data.name =  Info.at(i).name;
+            pi[i].data.sex  = Info.at(i).sex;
+            pi[i].data.job = Info.at(i).job;
+            pi[i].data.age = Info.at(i).age;
+
+        }
+
+        printf("已准备好以下任务...\n");
+        /*
+        for(int i = 0; i < task_num; i++){
+            printf("%s, %s, %s, %s, %s\n",
+                    pi[i].info.node.c_str(),
+                    pi[i].data.name.c_str(),
+                    pi[i].data.sex.c_str(),
+                    pi[i].data.job.c_str(),
+                    pi[i].data.age.c_str()
+                    );
+        }
+        */
+        int ret;
+        printf("正在创建线程池...\n");
+        if((ret=pool_init(5,10))!=0){
+            perror("pool init fail\n");
+            exit(-1);
+        }
+        task_n = task_num;
+        //功能已完成，优化：动态创建线程
+        for(int i = 0; i < task_num; i++){
+            printf("正在创建任务[%d]\n", i);
+            ret=pool_add_task(client_task, &pi[i]);
+            if(ret!=0){
+                printf("add task[%d] fail\n",i);
+                exit(-1);
+            }
+        }
+        sleep(1);
+        if(task_n == 0){
+            delete []pi;
+            printf("~~~任务已完成...\n");
+        printf("销毁线程池.......\n");
+        ret = pool_destroy(pool);
+        printf("ret = %d\n", ret);
+        }
     }else{
-        usleep(2);
-        printf("parent pid=%d\n",getpid());
+        //sleep(1);
     }
-    
+    sleep(6);
+    }   
+    /*
+        if(task_n == 0){
+        delete []pi;
+        ret = pool_destroy(pool);
+        printf("销毁线程池.......\n");
+        printf("ret = %d\n", ret);
+        printf("child pid=%d, 正在退出\n",getpid());
+        exit(-1);
+        }
+        */
     return 0;
 }
 
