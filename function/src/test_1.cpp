@@ -14,7 +14,6 @@
 
 #define IPC_MODE (IPC_CREAT | SHM_R | SHM_W)
 using namespace std;
-
 typedef struct T{
     string name;
     string sex;
@@ -38,8 +37,6 @@ void *client_task(void *arg){
     TI ti = p->data;
     NI ni = p->info;
     
-
-    usleep(500);
     printf("正在处理任务: %s, %s, %s, %s, %s\n",
             ni.node.c_str(),
             ti.name.c_str(),
@@ -209,9 +206,15 @@ int main(){
             perror("pool init fail\n");
             exit(-1);
         }
+        if(pool)
+            cout<<"线程中剩余的任务队列: "<<pool->queue_num<<endl;
+        else{
+            cout<<"1111111111111111111111\n";
+        }
         task_n = task_num;
         //功能已完成，优化：动态创建线程
         for(int i = 0; i < task_num; i++){
+            //这里每添加一个任务，线程抢占式获取
             printf("正在创建任务[%d]\n", i);
             ret=pool_add_task(client_task, &pi[i]);
             if(ret!=0){
@@ -219,13 +222,15 @@ int main(){
                 exit(-1);
             }
         }
-        sleep(1);
-        if(task_n == 0){
-            delete []pi;
-            printf("~~~任务已完成...\n");
-        printf("销毁线程池.......\n");
-        ret = pool_destroy(pool);
-        printf("ret = %d\n", ret);
+        //等待任务处理完成
+        while(task_n);
+
+        delete []pi;
+        printf("~~~任务已完成...\n");
+        if((ret = pool_destroy()) == 0){
+            cout<<"释放成功\n";
+        }else{
+            cout<<"释放失败\n";
         }
     }else{
         //sleep(1);

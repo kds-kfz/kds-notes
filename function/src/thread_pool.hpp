@@ -28,7 +28,7 @@ static pool_t *pool;//初始化任务头节点
 extern int pool_add_task(void *(*pfunc)(void *arg),void *arg);//线程池添加任务
 extern void *thread_handle(void *);//线程回调
 extern int pool_init(int thread_numnt,int queue_max_num);//线程池初始化
-extern int pool_destroy(pool_t *pool);//释放线程池
+extern int pool_destroy();//释放线程池
 extern void *task(void *arg);//任务回调
 
 

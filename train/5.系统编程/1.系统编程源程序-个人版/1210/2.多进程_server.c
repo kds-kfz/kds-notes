@@ -31,8 +31,8 @@ int main(){
 
     sfd=socket(AF_INET,SOCK_STREAM,0);
     if(sfd==-1){
-	perror("socket error\n");
-	exit(-1);
+        perror("socket error\n");
+        exit(-1);
     }
     saddr.sin_family=AF_INET;
     saddr.sin_port=htons(SERVER_PORT);
@@ -41,57 +41,57 @@ int main(){
 
     ret=bind(sfd,(struct sockaddr *)&saddr,sizeof(saddr));
     if(ret==-1){
-	perror("bind fail\n");
-	exit(-1);
+        perror("bind fail\n");
+        exit(-1);
     }
     ret=listen(sfd,128);
     if(ret==-1){
-	perror("listen fail\n");
-	exit(-1);
+        perror("listen fail\n");
+        exit(-1);
     }
     while(1){
-	c_len=sizeof(caddr);
-	cfd=accept(sfd,(struct sockaddr *)&caddr,&c_len);
-	if(cfd==-1){
-	    perror("accept error\n");
-	    exit(-1);
-	}
-	printf("client ip[%s],port[%d]\n",
-		inet_ntop(AF_INET,&caddr.sin_addr.s_addr,ip_buf,INET_ADDRSTRLEN),
-		caddr.sin_port);	
-	pid=fork();
-	if(pid==-1){
-	    perror("fork error\n");
-	    exit(-1);
-	}
-	else if(pid==0){
-	    close(sfd);
-	    break;
-	}
-	else{
-	    close(cfd);
-	    signal(SIGCHLD,fun);//等待进程结束
-	    }
-	}
-	if(pid==0){
-	    while(1){
-	    ret=read(cfd,buf,sizeof(buf));
-	    if(ret==0){
-		perror("客户端断开\n");
-		exit(-1);
-	    }
-	    else if(ret<0){
-		if(errno==EINTR)
-		    continue;
-		else{
-		    perror("read error\n");
-		    exit(-1);
-		}
-	    }
-	    write(STDOUT_FILENO,buf,ret);
-	    write(cfd,"server recieve data ok\n",
-		sizeof("server recieve data ok\n"));
-	}
+        c_len=sizeof(caddr);
+        cfd=accept(sfd,(struct sockaddr *)&caddr,&c_len);
+        if(cfd==-1){
+            perror("accept error\n");
+            exit(-1);
+        }
+        printf("client ip[%s],port[%d]\n",
+                inet_ntop(AF_INET,&caddr.sin_addr.s_addr,ip_buf,INET_ADDRSTRLEN),
+                caddr.sin_port);	
+        pid=fork();
+        if(pid==-1){
+            perror("fork error\n");
+            exit(-1);
+        }
+        else if(pid==0){
+            close(sfd);
+            break;
+        }
+        else{
+            close(cfd);
+            signal(SIGCHLD,fun);//等待进程结束
+        }
+    }
+    if(pid==0){
+        while(1){
+            ret=read(cfd,buf,sizeof(buf));
+            if(ret==0){
+                perror("客户端断开\n");
+                exit(-1);
+            }
+            else if(ret<0){
+                if(errno==EINTR)
+                    continue;
+                else{
+                    perror("read error\n");
+                    exit(-1);
+                }
+            }
+            write(STDOUT_FILENO,buf,ret);
+            write(cfd,"server recieve data ok\n",
+                    sizeof("server recieve data ok\n"));
+        }
     }
     return 0;
 }

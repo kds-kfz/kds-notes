@@ -17,6 +17,11 @@ int pool_init(int thread_num,int queue_max_num){//线程池初始化
         perror("pool malloc error\n");
         exit(-1);
     }
+    if(pool){
+        cout<<"~~~~~~~~~pool ok"<<endl;
+    }else{
+        cout<<"pool is empty init\n";
+    }
 
     if(pthread_mutex_init(&(pool->mutex),NULL)){
         perror("mutex init error\n");
@@ -87,12 +92,18 @@ int pool_add_task(void *(*pfunc)(void *arg),void *arg){
     return 0;
 }
 
-int pool_destroy(pool_t *pool){
+int pool_destroy(){
+    if(pool){
+        cout<<"正在释放~~~~~~~~~pool ok"<<endl;
+    }else{
+        perror("pool is empty 00000000000000000\n");
+        return -1;
+    }
 
     pthread_mutex_lock(&(pool->mutex));
     while(pool->queue_num!=0)
         pthread_cond_wait(&(pool->queue_empty),&(pool->mutex));
-    printf("aaaaaaaaaaaaaaaaaaa   %d\n", pool->queue_num);
+    
     if(pool->pool_close){
         pthread_mutex_unlock(&(pool->mutex));
         return -1;
@@ -147,8 +158,10 @@ void *thread_handle(void *arg){
         if(pool->queue_num==pool->queue_max_num-1)
             pthread_cond_signal(&(pool->queue_not_full));
 
-        if(pool->queue_num==0)
+        if(pool->queue_num==0){
             pthread_cond_signal(&(pool->queue_empty));
+            pthread_mutex_unlock(&(pool->mutex));
+        }
 
 
         pthread_mutex_unlock(&(pool->mutex));
