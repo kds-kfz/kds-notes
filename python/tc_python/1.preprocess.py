@@ -160,4 +160,195 @@ def mergeImageAndSave(inDir, fileNameList, sn, outDir):
 
     return True
 
+def readXmlAndAppend(xmlF, shapelist):
+    if os.path.exists(xmlF):
+        upReader = PascalVocReader(xmllF)
+        if len(upReader.shapes) > 0:
+            for shape in upReader.shapes:
+                shapelist.append(shape)
+            return True
+
+    return False
+
+def convertPointsBndBox(points):
+    xmin = float('inf')
+    ymin = float('inf')
+    xmax = float('-inf')
+    ymax = float('-inf')
+    for p in points:
+        x = p[0]
+        y = p[1]
+        xmin = min(x, xmin)
+        ymin = min(y, ymin)
+        xmax = max(x, xmax)
+        ymax = max(y, ymax)
+
+    if xmin < 1:
+        xmin = 1
+
+    if ymin < 1:
+        ymin = 1
+
+    return (int(xmin), int(ymin), int(xmax), int(ymax))
+
+def savePascalVocFormat1(imgFolderName, filename, shapes):
+    imageShape = [512, 512, 3]
+    writer = PascalVocWriter(imgFolderName, filename, imgeShape, localImgPath = imgFolderName)
+    writer.verified = False
+
+    for shape in shapes:
+        label = shape[0]
+        difficult = 0
+        bndbox = convertPoints2BndBox(shape[1])
+        write.addBndBox(bndbox[0], bndbox[1], bndbox[3], label, difficult)
+
+    targetFile = imgFolderName + '/' + filename + '.tcm'
+    print 'save', targetFile
+    writer.save(targetFile)
+    return
+
+def savePascallVocFormat3(imgFolderName, filename, imageShape, shapes):
+    writer = PascalVocWriter(imgFolderName, filename, imgeShape, localImgPath = imgFolderNmae)
+    writer.verified = False
+
+    for shape in shapes:
+        print 'shape', shape
+        label = shape[4]
+        difficult = 0
+        bndbox = convertPoints2BndBox(shape[1])
+        writer.addBndBox(bndbox[0], bndbox[1], bndbox[2], bndbox[3], label, difficult)
+
+    filenameList = filename.split('.')
+    if len(filenameList) > 0:
+        targetFile = imgFolderName + '/.rectBoxes' + filenameList[0].upper() + '.jpg.tcm'
+        print 'save: ', targetFile
+        writer.save(targetFile)
+    else:
+        targetFile = imgFolderName + '/.rectBoxes' + filename
+    
+    return
+
+def checkOneCoupleF(imgFolderName, filename, imageShape, shapes, labelList):
+    rlt = 0
+
+    checkImgSize = False
+
+    imgfile = os.path.join(imgFolderName, filename)
+    img = Image.open(imgfile)
+    (w, h) = img.size
+    if w <= 0 or h <= 0:
+        print 'image reading error!'
+        rlt = 1
+    else:
+        #检查保温图像尺寸是否ok
+        if (imageShape[0] != h or imageShape[1] != w) and checkImgSize:
+            print 'error: imageShape', imageShape, ' is not equal w: ', w, 'h: ', h
+            rlt = 2
+        else:
+            if len(shapes) > 0:     #检查保温是否有 box 数据
+                # 检查报文中的 box 数据是否正常
+                for shape in shapes:
+                    label = shape[0]
+                    # 检查 label (name) 是否在 list 中
+                    if len(labelList) == 0 or (len(labelList) > 0 and label in labelList):
+                        points = shape[1]
+                        (xmin, ymin) = points[0]
+                        (xmax, ymax) = points[2]
+                        if xmax <= xmin or ymax <= ymin or xmin < 0 or ymin < 0 or xmax >= w or ymax >= h:
+                            print 'shape: ', shape
+                            print 'error: xmin %d xmax %d ymin %d ymax %d w %d h %d' % (xmin, xmax, ymin, ymax, w, h)
+                            rlt = 4
+            else:
+                print 'no boxes'
+                rlt = 3
+
+    return rlt
+
+
+def genBoxImageAndSave(imgFolderName, filename, imageShape, shapes, outDir0):
+    #读入图像
+    imgfile = os.path.join(imgFolderName, filename)
+    img = Image.open(imgfile)
+    (w, h) = img.size
+    if w <= 0 or h <= 0:
+        print 'imageF[', imgfile, '] reading error!'
+        return 1
+
+    #依次切子图
+    sn = 0
+    for shape in shapes:
+        label = shape[0]
+        outDir = outDir0 + '/' + label
+        if output_dir_mkdir(outDir) is False:
+            print 'Create [', outDir, '] error!'
+            return 2
+
+        points = shape[1]
+        (xmin, ymin) = points[0]
+        (xmax, ymax) = points[2]
+        if xmax <= xmin or ymax <= ymin or xmin < 0 or ymin < 0 or xmax >= w or ymax >= h:
+            print 'shape: ', shape
+            print 'error: xmin %d xmax %d ymin %d ymax &d w %d h %d' % (xmin, xmax, ymin, ymax, w, h)
+            return 3
+
+        box = (xmin, ymin, xmax, ymax)      #四周各扩展1个像素
+        subImg = img.crop(box)
+        
+        outImgName = outDir + '/' + filename.split('.')[0] + '-%03d' %sn + '.jpg'
+        subImg.save(outImgName, "JPEG")
+
+        sn = sn + 1
+
+    return 0
+
+def genSubImageAndSave(imgFolderName, filename, shape, outDir):
+    #读入图像
+    imgfile = os.path.join(imgFolderName, filename)
+    img = Image.open(imgfile)
+    (w, h) = img.size
+    if w <= 0 or h <= 0:
+        print 'imageF[', imgfile, '] reading error!'
+        return 1
+
+    (xmin, ymin, xmax0, ymax0) = shape
+
+    xmax = xmax0
+    if xmax0 < 0:
+        xmax = w + xmax0
+    ymax = ymax0
+    if ymax0 < 0:
+        ymax = h + ymax0
+
+    if xmax <= xmin or ymax <= ymin or xmin < 0 or ymin < 0 or xmax >= w or ymax >= h:
+        print 'shape: ', shape
+        print 'error: xmin %d xmax %d ymin %d ymax &d w %d h %d' % (xmin, xmax, ymin, ymax, w, h)
+        return 2
+    else:
+        box = (xmin, ymin, xmax, ymax)      #四周各扩展1个像素
+        subImg = img.crop(box)
+
+        outImgName = outDir + '/' + filename
+        subImg.save(outImgName, "JPEG")
+
+    return 0
+
+def savePascalVocFormat2(imgFolderName, filename, imageShape, shapes):
+    writer = PascalVocWriter(imgFolderName, filename, imagesShape, localImgPath=imgFolderName)
+    writer.verified = False
+
+    for shape in shapes:
+        label = shape[0]
+        difficullt = 0
+        bndbox = convertPointsBndBox(shape[1])
+        writer.addBndBox(bndbox[0], bndbox[1], bndbox[2], bndbox[3], label, difficult)
+
+    filenameList = filename.split('.')
+    if len(filenameList) > 0:
+        targetFile = imgFolderName + '/.rectBoxes/' + filename[0].upper() + '.jpg.tcm'
+        print 'save ', targetFile
+        writer.save(targetFile)
+    else:
+        targetFile = imgFolderName + '/.rectBoxes/' + filename
+
+    return
 
