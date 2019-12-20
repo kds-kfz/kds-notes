@@ -10,7 +10,7 @@ import os
 #~ import cv2
 #~ import dicom
 #~ from loadDicomGdcm import get_pixels_one_dcm
-#import scipy.ndimage
+import scipy.ndimage
 
 def scanAllFiles(folderPath, type):
     names = []
@@ -352,3 +352,243 @@ def savePascalVocFormat2(imgFolderName, filename, imageShape, shapes):
 
     return
 
+def til_getboxlist(box, boxlist):
+    boxlist.append(box[0][0])
+    boxlist.append(box[1][0])
+    boxlist.append(box[0][1])
+    boxlist.append(box[2][1])
+
+    return 0
+
+def til_getlocationvalueintersect(box1list, box2list):
+    xleft = xright = yup = ydown = 0
+    xleft = max(box1list[0], box2list[0])
+    xright = min(box1list[1], box2list[1])
+    yup = max(box1list[2], box2list[2])
+    ydown = min(box1list[3], box2list[3])
+
+    return [xleft, xright, yup, ydown]
+
+def til_getlocationvaluemax(box1list, box2list):
+    xleft = xright = yup = ydown = 0
+    xleft = min(box1list[0], box2list[0])
+    xright = max(box1list[1], box2list[1])
+    yup = min(box1list[2], box2list[2])
+    ydown = max(box1list[3], box2list[3])
+
+    return [xleft, xright, yup, ydown]
+
+#计算两个矩形的合并面积
+def til_calintersectArea(box1, box2):
+    box1list = []
+    box2list = []
+    til_getboxlist(box1, box1list)
+    til_getboxlist(box2, box2list)
+    xleft = xright = yup = ydown = 0
+    [xleft, xright, up, yup, ydown] = til_getlocationvalueintersect(box1list, box2list)
+    #print "[xleft, xright, yup, ydown] ", xleft, xright, yup, ydown
+    isintersect = 0
+    if(xleft <= xright) and (yup <= ydown):
+        isintersect = 1
+
+    return isintersect
+
+#判断是否符合合并条件
+def til_judgeisMerge(initialbox, curbox):
+    label1 = initialbox[0]
+    label2 = curbox[0]
+    box1 = initialbox[1]
+    box2 = curbox[0]
+    isintersect = 0
+    isintersect = til_calintersectArea(box1, box2)
+    if (isintersect == 1) and (label1 == label2):
+        ismerged = 1
+    else:
+        ismerged = 0
+
+    return ismerged
+
+def til_mergeBox(initiabox, curbox):
+    box1 = initiabox[1]
+    box2 = curbox[1]
+    box1list = []
+    box2list = []
+    til_getboxlist(box1, box1list)
+    til_getboxlist(box2, box2list)
+    [xleft, xright, yup, ydown] = til_getlocationvaluemax(box1list, box2list)
+    mergebox = []
+    mergebox.append((initialbox[0], [(xleft, yup), (xright, yup), (xright, ydown), (xleft, ydown)], initialbox[2], initialbox[3], initialbox[4]))
+
+    return mergebox
+
+def til_mergeList(lists):
+    mergeLists = []
+    basiclists = []
+    if len(lists) == 1:
+        basiclists.append(lists[0])
+        return [basiclists, len(basiclists)]
+
+    if len(lists) > 1:
+        basiclists.append(lists[0])
+        for i in range(1, len(lists)):
+            basiclists_len = len(basiclists)
+            merge = 0       #标记已被合并过
+            for j in range(0, basiclists_len):
+                if j >= basiclists_len:
+                    break
+                ismerged = 0
+                ismerged = til_judgeisMerge(basiclists[j], lists[i])
+                if ismerged == 1:
+                    mergeboxlist = til_mergeBox(lists[i], basiclists[j])
+                    del basiclists[j]
+                    basiclists.insert(j, mergeboxlist[0])
+                    [basiclists, basiclists_len_temp] = til_mergeList(basiclists)
+                    if basiclists_len_temp != basiclits_len:
+                        basiclists_len = basiclists_len_temp
+
+                    merge = 1
+                if (ismerged == 0) and (j == basiclists_len - 1) and (merge == 0):
+                    basiclists.append(lists[i])
+
+        return [basiclists, len(basiclists)]
+
+#合并label文件
+def mergeLabelFAndSave(inDir0, fileNmaeList, sn, outDir0):
+    inDir = inDir0 + '/.rectboxes'
+    outDir = outDir0 + '/.rectboxes'
+    if output_dir_mkdir(outDir) is False:
+        return False
+
+    #加载 label 文件
+    shapelist = []
+    #print "sn = ", sn
+    #print "fileNameList[sn] = ", fileName[sn]
+
+    upF = os.path.join(inDir, (os.path.spliyrxt(fileNameList[sn - 1])[0] + '.tcm'))
+    readXmlAndAppend(upF, shapelist)
+    curF = os.path.join(inDir, (os.path.splitext(fileNameList[sn])[0] + '.tcm'))
+    readXmlAndAppend(curF, shaplist)
+    downF = os.path.join(inDir, (os.path.splitext(fileNameList[sn + 1])[0] + '.tcm'))
+    readXmlAndAppend(downF, shapelist)
+
+    mergeboxlist = []
+    initialList = []
+    #shapelist: 所有的boxlist
+    if len(shapelist) > 0:
+        print '[curF]', curF
+        print 'shapelist = ', shapelist
+        [mergeboxlist, LL] = til_mergeList(shapelist)
+
+        #for merge in mergeboxlist:
+        #   print "merge = ", merge
+
+        #保存 xml
+        countStr = '%03d' % sn
+        savePascalVocFormay1(outDir, countStr, mergeboxlist)
+
+    return True
+
+#按照编号合并图层为彩色3通道图像，把标签扩大成3个图层的最大区域
+def genColorCTImgAndLabelFile():
+    outRootDir = '../samples'
+    rootDor = ''
+    #读取第一层路径(遍历标记人员文件夹 (01,02,...010) 这一层)
+    firstDir = scanAllDir(rootDir)
+    for oneRemarkPerson in firstDir:
+        curPath = os.path.normcase(os.path.join(rootDir, oneRemarPerson))
+        cutCurPath = os.path.normcase(os.path.join(outRootDir, oneRemarkPerson))
+
+        #读取第二层目录(遍历让人文件夹 (001,002,...100,101) 这一层)
+        names = scanAllDir(curPath)
+        for oneName in names:
+            curName = os.path.normcase(os.path.join(curPath, oneName))
+            curOutName = os.path.normcase(os.path.join(outCurPath, oneName))
+            #遍历 jpg 文件
+            jpgFiles = scanAllFiles(curName, 1)
+            #将 jpg 文件名排序
+            jpgFiles.sort()
+            #从第1层遍历到n-2层 (假设一共有 n 层, 编号从 0 开始), 取其上下各一层进行合成
+            #1.将图像变为3层图像分别对应RBG 3个通道的合成彩色图像
+            #2.取label 文件合并label区域
+            jpgFNo = len(jpgFiles)
+            print "jpgFNo = ", jpgFNo
+            for n in range(1, jpgFNo - 2):
+                #print n, jpgFiles[n - 1], ' + ', jpgFiles[n], ' + ',jpgFiles[n + 1]
+                #合成图像
+                mergeImgAndSave(curName, jpgFiles, n, curOutName)
+                #合成label文件
+                mergeLabelFAndSave(curName, jpgFiles, n, curOutName)
+
+    return 0
+
+def til_showImg(curName, xmlFiles):
+    #curName:图像所在的目录
+    xmlDirs = os.path.join(curName, ".rectboxes/")
+    font_size = 20
+    font = ImageFont.truetype("./simsun.ttc", font_size)
+    for xmlfile in xmlFiles:
+        xmlDir = os.path.join(xmlDirs, smlFile)
+        print "xmlDir = ", xmlDir
+        #解析 xml 报文
+        boxlists = []
+        readxmlAndAppend(xmlDir, boxlists)
+        imgName = xmlfile.split(".")[0] + '.jpg'
+        imgfile = os.path.join(curName, imgName)
+        img = Image.open(imgfile)
+        for box in boxlists:
+            #print "box = ", box
+            #绘制位置矩形
+            lineColor = (255, 0, 0)
+            draw = ImageDraw(img, "RGB")
+
+            for sn in range(0, 4):
+                sn1 = (sn + 1) % 4
+                draw.line([box[1][sn], bos[1][sn1]], lineColor)
+                #打印字符串
+            draw.text((box[1][0]), unicode(box[0], 'utf8'), font=font, fill = '#ff0000')
+        print "imgfile = ", imgfile
+        img.save(imgfile)
+        #raw_input()
+    return 0
+
+def til_showing1(boxlists, sn, outDir):
+    print "[sn]", sn
+    imgDir = outDir + '/' + sn '.jpg'
+
+    font_size = 15
+    font = ImageFont.truetype("./simsun.ttc", font_size)
+    img = Image.open(imgDir)
+    for box in boxlists:
+        #绘制位置矩形
+        circleColor = [0, 255, 0]
+        draw = ImageDraw.Draw(img, "RGB")
+        x0 = box[1][0][0]
+        y0 = box[1][0][1]
+        x1 = box[1][2][0]
+        y1 = box[1][2][1]
+
+        draw.ellipse((x0, y0, x1, y1), outline = 'green')
+        #打印字符串
+        draw.text((box[1][0]), unicode(box[0], 'uft8'), font=font, fill = '#fff000')
+
+    img.save(imgDir)
+
+def til_showXmlOnImg(inDir0, fileNameList, sn, outDir0):
+    inDir = inDir + '/.rectboxes'
+    outDir = outDir0
+    if output_dir_mkdir(outDir) is False:
+        return False
+
+    #加载label文件
+    shapelist = []
+    upF = os.path.join(inDir, (os.path.splitext(fileNameList[sn - 1])[0] + '.tcm'))
+    readXmlAndAppend(upF, shapelist)
+    curF = os.path.join(inDir, (os.path.splitext(fileNameList[sn])[0] + '.tcm'))
+    readXmlAndAppend(curF, shapelist)
+    downF = os.path.join(inDir, (os.path.splitext(fileNameList[sn + 1])[0] + '.tcm'))
+    readXmlAndAppend(downF, shapelist)
+
+    if len(shapelist) > 0:
+        #print "shapelist = ", shapelist
+        #print "jpgFiles", fileNameList[sn]
+    strlen = len(fileName)
