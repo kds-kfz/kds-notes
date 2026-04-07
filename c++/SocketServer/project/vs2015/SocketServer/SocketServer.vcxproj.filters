@@ -1,0 +1,161 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="include">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="public">
+      <UniqueIdentifier>{ee0e960c-7d13-4001-8f84-391e6e97f976}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="hpsocket">
+      <UniqueIdentifier>{2fc991b3-1174-4433-8a3c-9779b8824c44}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="thread">
+      <UniqueIdentifier>{a301edbf-3f56-42b2-af90-dbac15543083}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="CHttpAsynReqObj.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="SocketServer.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="Log.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="nsdk_define.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="publicfunc.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="publicGlobalvar.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="Thread.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="Struct.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="TcpServerListerNet.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="TcpSockServerObj.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="TcpPackServerObj.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="vender\hpsocket\include\HPSocket.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="vender\hpsocket\include\HPSocket4C.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="vender\hpsocket\include\HPSocket4C-SSL.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="vender\hpsocket\include\HPSocket-SSL.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="vender\hpsocket\include\HPTypeDef.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="vender\hpsocket\include\SocketInterface.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="vender\thread\include\pthread.h">
+      <Filter>thread</Filter>
+    </ClInclude>
+    <ClInclude Include="vender\thread\include\sched.h">
+      <Filter>thread</Filter>
+    </ClInclude>
+    <ClInclude Include="vender\thread\include\semaphore.h">
+      <Filter>thread</Filter>
+    </ClInclude>
+    <ClInclude Include="vender\nsdk\include\nsdk.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="WebServerListerNet.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="WebSockServerObj.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="USER_SHA1.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="Base64.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="HttpServerListerNet.h">
+      <Filter>include</Filter>
+    </ClInclude>
+    <ClInclude Include="HttpSockServerObj.h">
+      <Filter>include</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="CHttpAsynReqObj.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SocketServer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Log.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="publicGlobalvar.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="Thread.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="TcpSockServerObj.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TcpServerListerNet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WebServerListerNet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WebSockServerObj.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="USER_SHA1.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="Base64.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="HttpServerListerNet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="HttpSockServerObj.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="SocketServer.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>
