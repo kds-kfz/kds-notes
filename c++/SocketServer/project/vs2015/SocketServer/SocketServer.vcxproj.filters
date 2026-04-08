@@ -122,6 +122,9 @@
     <ClCompile Include="Log.cpp">
       <Filter>public</Filter>
     </ClCompile>
+    <ClCompile Include="publicfunc.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
     <ClCompile Include="publicGlobalvar.cpp">
       <Filter>public</Filter>
     </ClCompile>

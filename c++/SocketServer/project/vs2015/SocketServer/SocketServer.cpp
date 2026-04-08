@@ -1,6 +1,6 @@
-#include "publicGlobalvar.h"
+ï»¿#include "publicGlobalvar.h"
 
-/********** TCP·şÎñÄ£¿é **********/
+/********** TCPæœåŠ¡æ¨¡å— **********/
 CSocketServer* CreateTcpSockInstance()
 {
 	if (nullptr == g_CTcpSockServerObj)
@@ -21,7 +21,7 @@ void DelTcpSockInstance(CSocketServer *&pIns)
 	}
 }
 
-/********** HTTP·şÎñÄ£¿é **********/
+/********** HTTPæœåŠ¡æ¨¡å— **********/
 CSocketServer* CreateHttpSockInstance()
 {
 	if (nullptr == g_CHttpSockServerObj)
@@ -42,7 +42,7 @@ void DelHttpSockInstance(CSocketServer *&pIns)
 	}
 }
 
-/********** WEBSOCKET·şÎñÄ£¿é **********/
+/********** WEBSOCKETæœåŠ¡æ¨¡å— **********/
 CSocketServer* CreateWebSockInstance()
 {
 	if (nullptr == g_CWebSockServerObj)
@@ -63,59 +63,4 @@ void DelWebSockInstance(CSocketServer *&pIns)
 	}
 }
 
-
-#include "publicGlobalvar.h"
-
-/********** TCP·şÎñÄ£¿é **********/
-CSocketServer* CreateTcpSockInstance()
-{
-	if (nullptr == g_CTcpSockServerObj)
-	{
-		g_CTcpSockServerObj = new CTcpSockServerObj();
-	}
-
-	return g_CTcpSockServerObj;
-}
-
-void DelTcpSockInstance(CSocketServer *&pIns)
-{
-	if (g_CTcpSockServerObj == pIns)
-	{
-		delete g_CTcpSockServerObj;
-		g_CTcpSockServerObj = nullptr;
-		pIns = nullptr;
-	}
-}
-
-/********** HTTP·şÎñÄ£¿é **********/
-CSocketServer* CreateHttpSockInstance()
-{
-	return nullptr;
-}
-
-void DelHttpSockInstance(CSocketServer *&pIns)
-{
-
-}
-
-/********** WEBSOCKET·şÎñÄ£¿é **********/
-CSocketServer* CreateWebSockInstance()
-{
-	if (nullptr == g_CWebSockServerObj)
-	{
-		g_CWebSockServerObj = new CWebSockServerObj();
-	}
-
-	return g_CWebSockServerObj;
-}
-
-void DelWebSockInstance(CSocketServer *&pIns)
-{
-	if (g_CWebSockServerObj == pIns)
-	{
-		delete g_CWebSockServerObj;
-		g_CWebSockServerObj = nullptr;
-		pIns = nullptr;
-	}
-}
 

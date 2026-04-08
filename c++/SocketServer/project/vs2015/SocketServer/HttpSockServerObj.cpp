@@ -196,10 +196,13 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 	g_bHttpServerStatus = true;
 
 	//9.启动服务
-	if (!g_CHttpPackServer->Start(p_szIp, p_unPort))
+	const std::basic_string<TCHAR> strBindAddress = MakeBindAddress(p_szIp);
+	if (!g_CHttpPackServer->Start(strBindAddress.c_str(), p_unPort))
 	{
+		char szErrDesc[256] = { 0 };
+		CopyTextToAnsi(szErrDesc, sizeof(szErrDesc), g_CHttpPackServer->GetLastErrorDesc());
 		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
-			g_CHttpPackServer->GetLastError(), g_CHttpPackServer->GetLastErrorDesc());
+			g_CHttpPackServer->GetLastError(), szErrDesc);
 		DeleteHttpObj();
 		return false;
 	}
