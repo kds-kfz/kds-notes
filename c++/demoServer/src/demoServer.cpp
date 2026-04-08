@@ -1,7 +1,6 @@
 // demoServer.cpp : 定义控制台应用程序的入口点。
 //
 
-#include "stdafx.h"
 #include <string>
 
 #include <windows.h>
@@ -15,8 +14,8 @@ using namespace std;
 CSocketServer *g_pWebServerHandle = NULL;
 
 //web日志
-string g_strWebLogPath = "F:\\开发资料\\库平台库编译\\demoServer\\x64\\Release";
-string g_strTcpLogPath = "F:\\开发资料\\库平台库编译\\demoServer\\x64\\Release";
+string g_strWebLogPath = "F:\\开发资料\\MyCode\\kds-notes\\c++\\demoServer\\bin\\x64vc14";
+string g_strTcpLogPath = "F:\\开发资料\\MyCode\\kds-notes\\c++\\demoServer\\bin\\x64vc14";
 
 //启动
 typedef CSocketServer *(*pfnCreateWebSockInstance)();

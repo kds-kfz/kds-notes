@@ -27,22 +27,24 @@
 /********** HTTP 状态类型 **********/
 enum HttpStatusType
 {
-	OK = 200,
-	Created = 201,
-	Accepted = 202,
-	NoContent = 204,
-	MultipleChoices = 300,
-	MovedPermanently = 301,
-	MovedTemporarily = 302,
-	NotModified = 304,
-	BadRequest = 400,
-	Unauthorized = 401,
-	Forbidden = 403,
-	NotFound = 404,
-	InternalServerError = 500,
-	NotImplemented = 501,
-	BadGateway = 502,
-	ServiceUnavailable = 503
+	OK = 200,							// 请求成功。
+	Created = 201,						// 已创建新资源。
+	Accepted = 202,						// 请求已接收，等待异步处理完成。
+	NoContent = 204,					// 请求成功，但响应体为空。
+	MultipleChoices = 300,				// 请求资源存在多个可选表示。
+	MovedPermanently = 301,				// 资源已永久迁移到新地址。
+	MovedTemporarily = 302,				// 资源临时跳转到其他地址。
+	NotModified = 304,					// 资源未修改，可继续使用缓存。
+	BadRequest = 400,					// 请求格式非法或参数错误。
+	Unauthorized = 401,					// 请求未通过身份认证。
+	Forbidden = 403,					// 服务端拒绝处理当前请求。
+	NotFound = 404,						// 请求资源不存在。
+	PayloadTooLarge = 413,				// 请求包体超过服务允许的大小限制。
+	RequestHeaderFieldsTooLarge = 431,	// 请求头字段数量或总大小超过限制。
+	InternalServerError = 500,			// 服务端内部处理异常。
+	NotImplemented = 501,				// 服务端暂未实现该能力。
+	BadGateway = 502,					// 上游网关或代理返回异常。
+	ServiceUnavailable = 503			// 服务暂不可用，通常用于停机或过载。
 };
 
 /********** WEBSOCKET 消息类型 **********/
@@ -74,6 +76,8 @@ enum TcpSockNotifyType
 class CHttpAsynReq
 {
 public:
+	virtual ~CHttpAsynReq() {}
+
 	// 请求;
 	virtual const char* GetUrl() = 0;
 	virtual const char* GetMethodType() = 0;
@@ -89,7 +93,7 @@ public:
 	// 添加head;
 	virtual void AddResponseHead(const char* p_szName, const char* p_szValue) = 0;
 	// 发送;
-	virtual void SendResponse(const void* p_szData, int p_iLen) = 0;
+	virtual bool SendResponse(const void* p_szData, int p_iLen) = 0;
 };
 
 /**********
