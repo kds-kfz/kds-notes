@@ -68,7 +68,7 @@ void DeleteObj(void)
 	{
 		g_CTcpPackServer->Stop();
 		HP_Destroy_TcpServer(g_CTcpPackServer);
-		g_CTcpPackServer = NULL;
+		g_CTcpPackServer = nullptr;
 	}
 
 	// wyl 2026-03-30：线程池关闭改为等待已提交任务自然退出，避免强制停池后马上清理任务对象导致悬空指针。
@@ -206,11 +206,10 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 	g_bServerStatus = true;
 
 	//9.启动服务
-	const std::basic_string<TCHAR> strBindAddress = MakeBindAddress(p_szIp);
-	if (!g_CTcpPackServer->Start(strBindAddress.c_str(), p_unPort))
+	if (!g_CTcpPackServer->Start(p_szIp, p_unPort))
 	{
 		char szErrDesc[256] = { 0 };
-		CopyTextToAnsi(szErrDesc, sizeof(szErrDesc), g_CTcpPackServer->GetLastErrorDesc());
+		SafeCopyCString(szErrDesc, sizeof(szErrDesc), g_CTcpPackServer->GetLastErrorDesc());
 		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			g_CTcpPackServer->GetLastError(), szErrDesc);
 		DeleteObj();
@@ -286,3 +285,4 @@ void CTcpSockServerObj::TcpSockClose(void *p_refServer, void *p_refClient, const
 		pthread_mutex_unlock(&g_mutexReq);
 	}
 }
+

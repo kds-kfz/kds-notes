@@ -10,19 +10,19 @@
 
 //启动
 typedef CSocketServer *(*pfnCreateHttpSockInstance)();
-pfnCreateHttpSockInstance fnCreateHttpSockInstance = NULL;
+pfnCreateHttpSockInstance fnCreateHttpSockInstance = nullptr;
 
 //释放
 typedef void(*pfnDelHttpSockInstance)(CSocketServer *&);
-pfnDelHttpSockInstance fnDelHttpSockInstance = NULL;
+pfnDelHttpSockInstance fnDelHttpSockInstance = nullptr;
 
-pfnDelHttpSockInstance g_fnDelHttpSockInstance = NULL;
+pfnDelHttpSockInstance g_fnDelHttpSockInstance = nullptr;
 
-CHttpSockMng* CHttpSockMng::m_pThis = NULL;
+CHttpSockMng* CHttpSockMng::m_pThis = nullptr;
 
 void HttpNotifyHandle(CHttpAsynReq *p_refReq)
 {
-	if (NULL == p_refReq)
+	if (nullptr == p_refReq)
 		return;
 
 	const char * szUrl = p_refReq->GetUrl();
@@ -45,8 +45,8 @@ void HttpNotifyHandle(CHttpAsynReq *p_refReq)
 CHttpSockMng::CHttpSockMng() 
 {
 	m_bStatus = false;
-	m_pHttpServerHandle = NULL;
-	m_pclLibraryOp = NULL;
+	m_pHttpServerHandle = nullptr;
+	m_pclLibraryOp = nullptr;
 }
 
 CHttpSockMng::~CHttpSockMng()
@@ -67,7 +67,7 @@ void CHttpSockMng::Release()
 	if (m_pThis)
 	{
 		delete m_pThis;
-		m_pThis = NULL;
+		m_pThis = nullptr;
 	}
 }
 
@@ -75,7 +75,7 @@ int CHttpSockMng::SendResponse(CHttpAsynReq *p_refReq, const char* p_szData, int
 {
 	if (!m_pThis || !p_refReq)
 	{
-		WARN("[HTTP服务] 实例=%d,请求包是否有效=%d", m_pThis == NULL, p_refReq == NULL);
+		WARN("[HTTP服务] 实例=%d,请求包是否有效=%d", m_pThis == nullptr, p_refReq == nullptr);
 		return -1;
 	}
 
@@ -118,7 +118,7 @@ void CHttpSockMng::RegisterUrl()
 
 bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 {
-	if (NULL == p_sHomePath || strlen(p_sHomePath) == 0)
+	if (nullptr == p_sHomePath || strlen(p_sHomePath) == 0)
 	{
 		WARN("[HTTP服务] 路径是空");
 		return false;
@@ -135,17 +135,17 @@ bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 	if (!m_pclLibraryOp)
 	{
 		WARN("[HTTP服务] 装载三方库类失败...");
-		return FALSE;
+		return false;
 	}
 
 	//加载监控动态库
-	DWORD attr = ::GetFileAttributes(strDllPath.c_str());
-	if (INVALID_FILE_ATTRIBUTES == attr || 0 != (attr & FILE_ATTRIBUTE_DIRECTORY))
+	const auto fileAttributes = ::GetFileAttributes(strDllPath.c_str());
+	if (INVALID_FILE_ATTRIBUTES == fileAttributes || 0 != (fileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 	{
 		WARN("[HTTP服务] 动态库文件不存在[%s]...", strDllPath.c_str());
 		delete m_pclLibraryOp;
-		m_pclLibraryOp = NULL;
-		return FALSE;
+		m_pclLibraryOp = nullptr;
+		return false;
 	}
 
 	//加载动态库
@@ -153,39 +153,39 @@ bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 	{
 		WARN("[HTTP服务] 动态库加载失败[%s]...", strDllPath.c_str());
 		delete m_pclLibraryOp;
-		m_pclLibraryOp = NULL;
-		return FALSE;
+		m_pclLibraryOp = nullptr;
+		return false;
 	}
 
 	// 创建函数
-	pfnCreateHttpSockInstance fnCreateHttpSockInstance = NULL;
+	pfnCreateHttpSockInstance fnCreateHttpSockInstance = nullptr;
 
-	if (!m_pclLibraryOp->GetFuncAddress((void**)&fnCreateHttpSockInstance, "CreateHttpSockInstance") || NULL == fnCreateHttpSockInstance)
+	if (!m_pclLibraryOp->GetFuncAddress((void**)&fnCreateHttpSockInstance, "CreateHttpSockInstance") || nullptr == fnCreateHttpSockInstance)
 	{
 		WARN("[HTTP服务] 获取方法[HttpSockIns]失败...");
 		delete m_pclLibraryOp;
-		m_pclLibraryOp = NULL;
-		return FALSE;
+		m_pclLibraryOp = nullptr;
+		return false;
 	}
 
-	if (NULL == m_pHttpServerHandle)
+	if (nullptr == m_pHttpServerHandle)
 	{
 		m_pHttpServerHandle = fnCreateHttpSockInstance();
-		if (NULL == m_pHttpServerHandle)
+		if (nullptr == m_pHttpServerHandle)
 		{
 			WARN("[HTTP服务] 获取监控方法失败");
 			delete m_pclLibraryOp;
-			m_pclLibraryOp = NULL;
-			return FALSE;
+			m_pclLibraryOp = nullptr;
+			return false;
 		}
 	}
 
-	if (!m_pclLibraryOp->GetFuncAddress((void**)&g_fnDelHttpSockInstance, "DelHttpSockInstance") || NULL == g_fnDelHttpSockInstance)
+	if (!m_pclLibraryOp->GetFuncAddress((void**)&g_fnDelHttpSockInstance, "DelHttpSockInstance") || nullptr == g_fnDelHttpSockInstance)
 	{
 		WARN("[HTTP服务] 获取方法[DelHttpSockIns]失败...");
 		delete m_pclLibraryOp;
-		m_pclLibraryOp = NULL;
-		return FALSE;
+		m_pclLibraryOp = nullptr;
+		return false;
 	}
 
 	//TODO 初始化日志
@@ -203,7 +203,7 @@ bool CHttpSockMng::Start(const char *p_szIp, unsigned short p_nPort, int p_iThre
 	bool p_bSSL, const char *p_szPemCertFile, const char *p_szPemKeyFile,
 	const char *p_szKeyPassword, const char *p_szCAPemCertFileOrPath, char *p_szLogFold)
 {
-	if (NULL == m_pHttpServerHandle)
+	if (nullptr == m_pHttpServerHandle)
 	{
 		WARN("[HTTP服务] 创建http服务失败: 服务句柄是空");
 		return false;
@@ -216,12 +216,12 @@ bool CHttpSockMng::Start(const char *p_szIp, unsigned short p_nPort, int p_iThre
 	p_iMaxAcceptNum = p_iMaxAcceptNum <= 0 ? HTTP_ACCEPT_NUM : p_iMaxAcceptNum;
 
 	char szBuf[1024] = { 0 };
-	char *pLogFold = (NULL == p_szLogFold || '\0' == *p_szLogFold) ? nullptr : p_szLogFold;
-	const char* pSafeLogFold = (NULL == pLogFold) ? "" : pLogFold;
-	const char* pSafePemCertFile = (NULL == p_szPemCertFile) ? "" : p_szPemCertFile;
-	const char* pSafePemKeyFile = (NULL == p_szPemKeyFile) ? "" : p_szPemKeyFile;
-	const char* pSafeKeyPassword = (NULL == p_szKeyPassword) ? "" : p_szKeyPassword;
-	const char* pSafeCAPemCertFileOrPath = (NULL == p_szCAPemCertFileOrPath) ? "" : p_szCAPemCertFileOrPath;
+	char *pLogFold = (nullptr == p_szLogFold || '\0' == *p_szLogFold) ? nullptr : p_szLogFold;
+	const char* pSafeLogFold = (nullptr == pLogFold) ? "" : pLogFold;
+	const char* pSafePemCertFile = (nullptr == p_szPemCertFile) ? "" : p_szPemCertFile;
+	const char* pSafePemKeyFile = (nullptr == p_szPemKeyFile) ? "" : p_szPemKeyFile;
+	const char* pSafeKeyPassword = (nullptr == p_szKeyPassword) ? "" : p_szKeyPassword;
+	const char* pSafeCAPemCertFileOrPath = (nullptr == p_szCAPemCertFileOrPath) ? "" : p_szCAPemCertFileOrPath;
 
 	INFO("[HTTP服务] 服务IP: %s", p_szIp);
 	INFO("[HTTP服务] 服务端口: %d", p_nPort);
@@ -262,30 +262,30 @@ bool CHttpSockMng::Start(const char *p_szIp, unsigned short p_nPort, int p_iThre
 
 void CHttpSockMng::Stop()
 {
-	m_bStatus = FALSE;
+	m_bStatus = false;
 
-	if (NULL == m_pHttpServerHandle)
+	if (nullptr == m_pHttpServerHandle)
 		return;
 
 	m_pHttpServerHandle->StopHttpSock();
 
-	if (NULL == g_fnDelHttpSockInstance)
+	if (nullptr == g_fnDelHttpSockInstance)
 		return;
 
 	g_fnDelHttpSockInstance(m_pHttpServerHandle);
 
-	if (NULL == m_pclLibraryOp)
+	if (nullptr == m_pclLibraryOp)
 		return;
 
 	delete m_pclLibraryOp;
-	m_pclLibraryOp = NULL;
+	m_pclLibraryOp = nullptr;
 }
 
 bool CHttpSockMng::HttpProcess(CHttpAsynReq *p_refReq)
 {
 	if (!m_bStatus || !p_refReq)
 	{
-		WARN("[HTTP服务] 状态=%d,请求包是否有效=%d", m_bStatus, p_refReq == NULL);
+		WARN("[HTTP服务] 状态=%d,请求包是否有效=%d", m_bStatus, p_refReq == nullptr);
 		return false;
 	}
 
@@ -442,4 +442,5 @@ Jzt::SetCodeType CHttpSockMng::SetCodeTypeConvert(short p_nSetcodeType)
 		return Jzt::SZ;
 	}
 }
+
 

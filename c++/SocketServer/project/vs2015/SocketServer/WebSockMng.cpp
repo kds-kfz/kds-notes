@@ -1,14 +1,14 @@
-#include "StdAfx.h"
+ï»¿#include "StdAfx.h"
 #include "WebSockProtobufMng.h"
 #include "NetQueueMng.h"
 #include "protobuf/ProtoPackHandle.h"
 
-CWebSockProtobufMng* CWebSockProtobufMng::m_pThis = NULL;
-CSocketServer *CWebSockProtobufMng::m_pWebServerHandle = NULL;
+CWebSockProtobufMng* CWebSockProtobufMng::m_pThis = nullptr;
+CSocketServer *CWebSockProtobufMng::m_pWebServerHandle = nullptr;
 
 void CWebSockProtobufMng::WebSockSend(void* p_refServerHandle, void *p_refClinetHandle, const char* p_szData, int p_iDataLen)
 {
-	if (NULL == m_pWebServerHandle)
+	if (nullptr == m_pWebServerHandle)
 		return;
 
 	m_pWebServerHandle->WebSockSend(p_refServerHandle, p_refClinetHandle, p_szData, p_iDataLen);
@@ -16,7 +16,7 @@ void CWebSockProtobufMng::WebSockSend(void* p_refServerHandle, void *p_refClinet
 
 void CWebSockProtobufMng::WebSockClose(void* p_refServerHandle, void *p_refClinetHandle, const char* p_szData, int p_iDataLen)
 {
-	if (NULL == m_pWebServerHandle)
+	if (nullptr == m_pWebServerHandle)
 		return;
 
 	m_pWebServerHandle->WebSockClose(p_refServerHandle, p_refClinetHandle, p_szData, p_iDataLen);
@@ -24,18 +24,18 @@ void CWebSockProtobufMng::WebSockClose(void* p_refServerHandle, void *p_refCline
 
 bool CWebSockProtobufMng::InitWebServerInfo(const char* p_sHomePath)
 {
-	if (NULL == p_sHomePath || strlen(p_sHomePath) == 0)
+	if (nullptr == p_sHomePath || strlen(p_sHomePath) == 0)
 	{
-		WARN("[WEB·şÎñ] Â·¾¶ÊÇ¿Õ");
+		WARN("[WEBæœåŠ¡] è·¯å¾„æ˜¯ç©º");
 		return false;
 	}
 	string strDllPath = p_sHomePath;
 	strDllPath.append("\\");
 	strDllPath.append(HTTP_DLL_NAME);
 
-	//TODO ¶ÁÈ¡websocket·şÎñ¿ª¹Ø
+	//TODO è¯»å–websocketæœåŠ¡å¼€å…³
 
-	//TODO ¶ÁÈ¡websocket·şÎñÈÕÖ¾Â·¾¶
+	//TODO è¯»å–websocketæœåŠ¡æ—¥å¿—è·¯å¾„
 
 	//if (!m_isMonitor)
 	//	return false;
@@ -43,59 +43,59 @@ bool CWebSockProtobufMng::InitWebServerInfo(const char* p_sHomePath)
 	m_pclLibraryOp = new CLibraryOp;
 	if (!m_pclLibraryOp)
 	{
-		WARN("[WEB·şÎñ] ×°ÔØÈı·½¿âÀàÊ§°Ü...");
-		return FALSE;
+		WARN("[WEBæœåŠ¡] è£…è½½ä¸‰æ–¹åº“ç±»å¤±è´¥...");
+		return false;
 	}
 
-	//¼ÓÔØ¼à¿Ø¶¯Ì¬¿â
-	DWORD attr = ::GetFileAttributes(strDllPath.c_str());
-	if (INVALID_FILE_ATTRIBUTES == attr || 0 != (attr & FILE_ATTRIBUTE_DIRECTORY))
+	//åŠ è½½ç›‘æ§åŠ¨æ€åº“
+	const auto fileAttributes = ::GetFileAttributes(strDllPath.c_str());
+	if (INVALID_FILE_ATTRIBUTES == fileAttributes || 0 != (fileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 	{
 		delete m_pclLibraryOp;
-		WARN("[WEB·şÎñ] ¶¯Ì¬¿âÎÄ¼ş²»´æÔÚ[%s]...", strDllPath.c_str());
-		return FALSE;
+		WARN("[WEBæœåŠ¡] åŠ¨æ€åº“æ–‡ä»¶ä¸å­˜åœ¨[%s]...", strDllPath.c_str());
+		return false;
 	}
 
-	//¼ÓÔØ¶¯Ì¬¿â
+	//åŠ è½½åŠ¨æ€åº“
 	if (!m_pclLibraryOp->Load(strDllPath.c_str()))
 	{
 		delete m_pclLibraryOp;
-		WARN("[WEB·şÎñ] ¶¯Ì¬¿â¼ÓÔØÊ§°Ü[%s]...", strDllPath.c_str());
-		return FALSE;
+		WARN("[WEBæœåŠ¡] åŠ¨æ€åº“åŠ è½½å¤±è´¥[%s]...", strDllPath.c_str());
+		return false;
 	}
 
-	// ´´½¨º¯Êı
-	pfnCreateWebSockInstance fnCreateWebSockInstance = NULL;
+	// åˆ›å»ºå‡½æ•°
+	pfnCreateWebSockInstance fnCreateWebSockInstance = nullptr;
 
-	if (!m_pclLibraryOp->GetFuncAddress((void**)&fnCreateWebSockInstance, "CreateWebSockInstance") || NULL == fnCreateWebSockInstance)
+	if (!m_pclLibraryOp->GetFuncAddress((void**)&fnCreateWebSockInstance, "CreateWebSockInstance") || nullptr == fnCreateWebSockInstance)
 	{
 		delete m_pclLibraryOp;
-		WARN("[WEB·şÎñ] »ñÈ¡·½·¨[WebSockIns]Ê§°Ü...");
-		return FALSE;
+		WARN("[WEBæœåŠ¡] è·å–æ–¹æ³•[WebSockIns]å¤±è´¥...");
+		return false;
 	}
 
-	if (NULL == m_pWebServerHandle)
+	if (nullptr == m_pWebServerHandle)
 	{
 		m_pWebServerHandle = fnCreateWebSockInstance();
-		if (NULL == m_pWebServerHandle)
+		if (nullptr == m_pWebServerHandle)
 		{
 			delete m_pclLibraryOp;
-			WARN("[WEB·şÎñ] »ñÈ¡¼à¿Ø·½·¨Ê§°Ü");
-			return FALSE;
+			WARN("[WEBæœåŠ¡] è·å–ç›‘æ§æ–¹æ³•å¤±è´¥");
+			return false;
 		}
 	}
 
-	if (!m_pclLibraryOp->GetFuncAddress((void**)&m_fnDelWebSockInstance, "DelWebSockInstance") || NULL == m_fnDelWebSockInstance)
+	if (!m_pclLibraryOp->GetFuncAddress((void**)&m_fnDelWebSockInstance, "DelWebSockInstance") || nullptr == m_fnDelWebSockInstance)
 	{
 		delete m_pclLibraryOp;
-		WARN("[WEB·şÎñ] »ñÈ¡·½·¨[DelWebSockIns]Ê§°Ü...");
-		return FALSE;
+		WARN("[WEBæœåŠ¡] è·å–æ–¹æ³•[DelWebSockIns]å¤±è´¥...");
+		return false;
 	}
 
-	//TODO ³õÊ¼»¯ÈÕÖ¾
+	//TODO åˆå§‹åŒ–æ—¥å¿—
 	m_bStatus = true;
 
-	INFO("[WEB·şÎñ] ³õÊ¼»¯×´Ì¬: %d", m_bStatus);
+	INFO("[WEBæœåŠ¡] åˆå§‹åŒ–çŠ¶æ€: %d", m_bStatus);
 
 	return m_bStatus;
 }
@@ -103,23 +103,23 @@ bool CWebSockProtobufMng::InitWebServerInfo(const char* p_sHomePath)
 CWebSockProtobufMng::CWebSockProtobufMng()
 {
 	m_bStatus = false;
-	m_fnDelWebSockInstance = NULL;
-	m_pclLibraryOp = NULL;
+	m_fnDelWebSockInstance = nullptr;
+	m_pclLibraryOp = nullptr;
 }
 
 
 CWebSockProtobufMng::~CWebSockProtobufMng()
 {
-	if (NULL != m_fnDelWebSockInstance && NULL != m_pWebServerHandle)
+	if (nullptr != m_fnDelWebSockInstance && nullptr != m_pWebServerHandle)
 	{
 		m_fnDelWebSockInstance(m_pWebServerHandle);
-		m_fnDelWebSockInstance = NULL;
-		m_pWebServerHandle = NULL;
+		m_fnDelWebSockInstance = nullptr;
+		m_pWebServerHandle = nullptr;
 	}
-	if (NULL != m_pclLibraryOp)
+	if (nullptr != m_pclLibraryOp)
 	{
 		delete m_pclLibraryOp;
-		m_pclLibraryOp = NULL;
+		m_pclLibraryOp = nullptr;
 	}
 }
 
@@ -137,7 +137,7 @@ void CWebSockProtobufMng::Release()
 	if (m_pThis)
 	{
 		delete m_pThis;
-		m_pThis = NULL;
+		m_pThis = nullptr;
 	}
 }
 
@@ -145,9 +145,9 @@ bool CWebSockProtobufMng::Start(const char *p_szIp, unsigned short p_nPort, int 
 	bool p_bSSL, const char *p_szPemCertFile, const char *p_szPemKeyFile,
 	const char *p_szKeyPassword, const char *p_szCAPemCertFileOrPath,char *p_szLogFold)
 {
-	if (NULL == m_pWebServerHandle)
+	if (nullptr == m_pWebServerHandle)
 	{
-		WARN("[WEB·şÎñ] ´´½¨web·şÎñÊ§°Ü: ·şÎñ¾ä±úÊÇ¿Õ");
+		WARN("[WEBæœåŠ¡] åˆ›å»ºwebæœåŠ¡å¤±è´¥: æœåŠ¡å¥æŸ„æ˜¯ç©º");
 		return false;
 	}
 
@@ -158,39 +158,40 @@ bool CWebSockProtobufMng::Start(const char *p_szIp, unsigned short p_nPort, int 
 	p_iMaxAcceptNum = p_iMaxAcceptNum <= 0 ? WEB_ACCEPT_NUM : p_iMaxAcceptNum;
 
 	char szBuf[1024] = { 0 };
-	char *pLogFold = strlen(p_szLogFold) == 0 ? nullptr : p_szLogFold;
+	char *pLogFold = (nullptr == p_szLogFold || '\0' == *p_szLogFold) ? nullptr : p_szLogFold;
+	const char* pSafeLogFold = (nullptr == pLogFold) ? "" : pLogFold;
 
-	INFO("[WEB·şÎñ] ·şÎñIP: %s", p_szIp);
-	INFO("[WEB·şÎñ] ·şÎñ¶Ë¿Ú: %d", p_nPort);
-	INFO("[WEB·şÎñ] Ïß³ÌÊı: %d", p_iThreadNum);
-	INFO("[WEB·şÎñ] ¶ÓÁĞÊı: %d", p_iQueueNum);
-	INFO("[WEB·şÎñ] »º´æ´óĞ¡: %d", p_iRBufLen);
-	INFO("[WEB·şÎñ] ×î´óAccept: %d", p_iMaxConnectNum);
-	INFO("[WEB·şÎñ] ×î´óConnect: %d", p_iMaxAcceptNum);
-	INFO("[WEB·şÎñ] µ×²ãÈÕÖ¾Â·¾¶:%s", pLogFold);
-	INFO("[WEB·şÎñ] ÊÇ·ñ¿ªÆôwss:%d", p_bSSL);
+	INFO("[WEBæœåŠ¡] æœåŠ¡IP: %s", p_szIp);
+	INFO("[WEBæœåŠ¡] æœåŠ¡ç«¯å£: %d", p_nPort);
+	INFO("[WEBæœåŠ¡] çº¿ç¨‹æ•°: %d", p_iThreadNum);
+	INFO("[WEBæœåŠ¡] é˜Ÿåˆ—æ•°: %d", p_iQueueNum);
+	INFO("[WEBæœåŠ¡] ç¼“å­˜å¤§å°: %d", p_iRBufLen);
+	INFO("[WEBæœåŠ¡] æœ€å¤§Accept: %d", p_iMaxConnectNum);
+	INFO("[WEBæœåŠ¡] æœ€å¤§Connect: %d", p_iMaxAcceptNum);
+	INFO("[WEBæœåŠ¡] åº•å±‚æ—¥å¿—è·¯å¾„:%s", pSafeLogFold);
+	INFO("[WEBæœåŠ¡] æ˜¯å¦å¼€å¯wss:%d", p_bSSL);
 	if (p_bSSL)
 	{
-		INFO("[WEB·şÎñ] Ö¤ÊéÎÄ¼şÂ·¾¶:%s", p_szPemCertFile);
-		INFO("[WEB·şÎñ] Ë½Ô¿ÎÄ¼şÂ·¾¶:%s", p_szPemKeyFile);
-		INFO("[WEB·şÎñ] Ë½Ô¿ÃÜÂë:%s", p_szKeyPassword);
-		INFO("[WEB·şÎñ] CAÖ¤ÊéÎÄ¼şÂ·¾¶:%s", p_szCAPemCertFileOrPath);
+		INFO("[WEBæœåŠ¡] è¯ä¹¦æ–‡ä»¶è·¯å¾„:%s", p_szPemCertFile);
+		INFO("[WEBæœåŠ¡] ç§é’¥æ–‡ä»¶è·¯å¾„:%s", p_szPemKeyFile);
+		INFO("[WEBæœåŠ¡] ç§é’¥å¯†ç :%s", p_szKeyPassword);
+		INFO("[WEBæœåŠ¡] CAè¯ä¹¦æ–‡ä»¶è·¯å¾„:%s", p_szCAPemCertFileOrPath);
 
-		//Æô¶¯·şÎñ
+		//å¯åŠ¨æœåŠ¡
 		if (!m_pWebServerHandle->CreateWssSock(p_szIp, p_nPort, p_iRBufLen, p_iMaxConnectNum, p_iMaxAcceptNum, WebNotifyHandle, p_iThreadNum, p_iQueueNum, szBuf, 
 			p_szPemCertFile, p_szPemKeyFile, p_szKeyPassword, p_szCAPemCertFileOrPath, pLogFold))
 		{
 			m_bStatus = false;
-			WARN("[WEB·şÎñ] ´´½¨wss·şÎñÊ§°Ü: %s", szBuf);
+			WARN("[WEBæœåŠ¡] åˆ›å»ºwssæœåŠ¡å¤±è´¥: %s", szBuf);
 		}
 	}
 	else
 	{
-		//Æô¶¯·şÎñ
+		//å¯åŠ¨æœåŠ¡
 		if (!m_pWebServerHandle->CreateWebSock(p_szIp, p_nPort, p_iRBufLen, p_iMaxConnectNum, p_iMaxAcceptNum, WebNotifyHandle, p_iThreadNum, p_iQueueNum, szBuf, pLogFold))
 		{
 			m_bStatus = false;
-			WARN("[WEB·şÎñ] ´´½¨web·şÎñÊ§°Ü: %s", szBuf);
+			WARN("[WEBæœåŠ¡] åˆ›å»ºwebæœåŠ¡å¤±è´¥: %s", szBuf);
 		}
 	}
 	return m_bStatus;
@@ -198,28 +199,29 @@ bool CWebSockProtobufMng::Start(const char *p_szIp, unsigned short p_nPort, int 
 
 void CWebSockProtobufMng::Stop()
 {
-	if (NULL == m_pWebServerHandle)
+	if (nullptr == m_pWebServerHandle)
 		return;
 
 	m_pWebServerHandle->StopWebSock();
 }
 
-DWORD CWebSockProtobufMng::ProcessAsynAns(NetRequsetDat * pNode, const char * pTransfer)
+std::uint32_t CWebSockProtobufMng::ProcessAsynAns(NetRequsetDat * pNode, const char * pTransfer)
 {
-	if (NULL == pNode->h || NULL == pNode->user)
+	if (nullptr == pNode->h || nullptr == pNode->user)
 	{
-		WARN("[WEB·şÎñ] ·¢ËÍÓ¦´ğ, ÓÃ»§ÒÑ²»´æÔÚ,¹¦ÄÜºÅ=%d,ip=%s,port=%d", pNode->nGNID, pNode->ip, pNode->port);
+		WARN("[WEBæœåŠ¡] å‘é€åº”ç­”, ç”¨æˆ·å·²ä¸å­˜åœ¨,åŠŸèƒ½å·=%d,ip=%s,port=%d", pNode->nGNID, pNode->ip, pNode->port);
 		return 0;
 	}
 
 	const char * packdata = pTransfer + sizeof(ANSHEADER);
 
-	INFO("[WEB·şÎñ] Ó¦´ğ cookie=%lu,mainid=%ld,[%p,%llu],reqid=%d,lsize=%d,len=%d",
+	INFO("[WEBæœåŠ¡] åº”ç­” cookie=%lu,mainid=%ld,[%p,%llu],reqid=%d,lsize=%d,len=%d",
 		pNode->cookie, pNode->MainID, pNode->h, *(unsigned __int64 *)pNode->user, pNode->nGNID, pNode->lSize, pNode->len);
 
 	CWebSockProtobufMng::GetInstance()->WebSockSend(pNode->h, pNode->user, packdata, pNode->len);
 
 	return 0;
 }
+
 
 

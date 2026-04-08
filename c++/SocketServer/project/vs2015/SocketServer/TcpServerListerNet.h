@@ -1,4 +1,4 @@
-#ifndef _TCP_SERVER_LISTERNET_H_
+ï»¿#ifndef _TCP_SERVER_LISTERNET_H_
 #define _TCP_SERVER_LISTERNET_H_
 
 #include <stdio.h>
@@ -12,32 +12,32 @@
 using namespace std;
 
 /************************************************************************
-Ãû³Æ£ºIComplexHttp ×é¼ş¼àÌıÆ÷»ù½Ó¿Ú
-ÃèÊö£º¶¨Òå IComplexHttp ×é¼ş¼àÌıÆ÷µÄËùÓĞÊÂ¼ş
+åç§°ï¼šIComplexHttp ç»„ä»¶ç›‘å¬å™¨åŸºæ¥å£
+æè¿°ï¼šå®šä¹‰ IComplexHttp ç»„ä»¶ç›‘å¬å™¨çš„æ‰€æœ‰äº‹ä»¶
 ************************************************************************/
 class  CTcpServerListerNet : public ITcpServerListener
 {
-	// ¿Í»§¶ËÁ¬½ÓÊÂ¼ş ¼àÌı³É¹¦Ê±´¥·¢
+	// å®¢æˆ·ç«¯è¿æ¥äº‹ä»¶ ç›‘å¬æˆåŠŸæ—¶è§¦å‘
 	EnHandleResult OnPrepareListen(ITcpServer* pSender, SOCKET soListen) override;
 
-	// ¿Í»§¶ËÁ¬½ÓÊÂ¼ş ½ÓÊÕµ½Á¬½ÓÊ±´¥·¢
+	// å®¢æˆ·ç«¯è¿æ¥äº‹ä»¶ æ¥æ”¶åˆ°è¿æ¥æ—¶è§¦å‘
 	EnHandleResult OnAccept(ITcpServer* pSender, CONNID dwConnID, UINT_PTR soClient) override;
 
-	// ¿Í»§¶Ë¹Ø±ÕÊÂ¼ş ¹Ø±ÕÄ³¸öÁ¬½ÓÊ±´¥·¢
+	// å®¢æˆ·ç«¯å…³é—­äº‹ä»¶ å…³é—­æŸä¸ªè¿æ¥æ—¶è§¦å‘
 	EnHandleResult OnClose(ITcpServer* pSender, CONNID dwConnID, EnSocketOperation enOperation, int iErrorCode) override;
 
-	// ·¢ËÍÊı¾İÍê³ÉÊÂ¼ş ·¢ËÍÊı¾İ³É¹¦Ê±´¥·¢
+	// å‘é€æ•°æ®å®Œæˆäº‹ä»¶ å‘é€æ•°æ®æˆåŠŸæ—¶è§¦å‘
 	EnHandleResult OnSend(ITcpServer* pSender, CONNID dwConnID, const BYTE* pData, int iLength) override;
 
-	// ½ÓÊÕµ½Êı¾İÊÂ¼ş ÊÕµ½Êı¾İÊ±´¥·¢
+	// æ¥æ”¶åˆ°æ•°æ®äº‹ä»¶ æ”¶åˆ°æ•°æ®æ—¶è§¦å‘
 	EnHandleResult OnReceive(ITcpServer* pSender, CONNID dwConnID, const BYTE* pData, int iLength) override;
 
 	EnHandleResult OnReceive(ITcpServer* pSender, CONNID dwConnID, int iLength) override;
 
-	// ·şÎñÆ÷Õ¼ÓÃ¶Ë¿ÚÊÂ¼ş ÎÕÊÖ³É¹¦Ê±´¥·¢
+	// æœåŠ¡å™¨å ç”¨ç«¯å£äº‹ä»¶ æ¡æ‰‹æˆåŠŸæ—¶è§¦å‘
 	EnHandleResult OnHandShake(ITcpServer* pSender, CONNID dwConnID) override;
 
-	//·şÎñÆ÷¹Ø±ÕÊ±´¥·¢
+	//æœåŠ¡å™¨å…³é—­æ—¶è§¦å‘
 	EnHandleResult OnShutdown(ITcpServer* pSender) override;
 
 public:
@@ -45,53 +45,4 @@ public:
 	~CTcpServerListerNet() {}
 };
 
-#endif
-#ifndef _TCP_SERVER_LISTERNET_H_
-#define _TCP_SERVER_LISTERNET_H_
-
-#include <stdio.h>
-#include <sys/stat.h>  
-#include <iostream>
-#include <algorithm>
-
-#include "SocketInterface.h"
-#include "HPSocket.h"
-
-using namespace std;
-
-/************************************************************************
-Ãû³Æ£ºIComplexHttp ×é¼ş¼àÌıÆ÷»ù½Ó¿Ú
-ÃèÊö£º¶¨Òå IComplexHttp ×é¼ş¼àÌıÆ÷µÄËùÓĞÊÂ¼ş
-************************************************************************/
-class  CTcpServerListerNet : public ITcpServerListener
-{
-	// ¿Í»§¶ËÁ¬½ÓÊÂ¼ş ¼àÌı³É¹¦Ê±´¥·¢
-	EnHandleResult OnPrepareListen(ITcpServer* pSender, SOCKET soListen) override;
-
-	// ¿Í»§¶ËÁ¬½ÓÊÂ¼ş ½ÓÊÕµ½Á¬½ÓÊ±´¥·¢
-	EnHandleResult OnAccept(ITcpServer* pSender, CONNID dwConnID, UINT_PTR soClient) override;
-
-	// ¿Í»§¶Ë¹Ø±ÕÊÂ¼ş ¹Ø±ÕÄ³¸öÁ¬½ÓÊ±´¥·¢
-	EnHandleResult OnClose(ITcpServer* pSender, CONNID dwConnID, EnSocketOperation enOperation, int iErrorCode) override;
-
-	// ·¢ËÍÊı¾İÍê³ÉÊÂ¼ş ·¢ËÍÊı¾İ³É¹¦Ê±´¥·¢
-	EnHandleResult OnSend(ITcpServer* pSender, CONNID dwConnID, const BYTE* pData, int iLength) override;
-
-	// ½ÓÊÕµ½Êı¾İÊÂ¼ş ÊÕµ½Êı¾İÊ±´¥·¢
-	EnHandleResult OnReceive(ITcpServer* pSender, CONNID dwConnID, const BYTE* pData, int iLength) override;
-
-	EnHandleResult OnReceive(ITcpServer* pSender, CONNID dwConnID, int iLength) override;
-
-	// ·şÎñÆ÷Õ¼ÓÃ¶Ë¿ÚÊÂ¼ş ÎÕÊÖ³É¹¦Ê±´¥·¢
-	EnHandleResult OnHandShake(ITcpServer* pSender, CONNID dwConnID) override;
-
-	//·şÎñÆ÷¹Ø±ÕÊ±´¥·¢
-	EnHandleResult OnShutdown(ITcpServer* pSender) override;
-
-public:
-	CTcpServerListerNet() {}
-	~CTcpServerListerNet() {}
-};
-
-extern CHPThreadPoolPtr g_thread_pool;
 #endif

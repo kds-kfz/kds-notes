@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "xsdk_libraryop.h"
 #include "SocketServerDll.h"
 
@@ -34,7 +36,7 @@ public:
 		char *p_szLogFold = nullptr);
 	void Stop();
 
-	DWORD ProcessAsynAns(NetRequsetDat * pNode, const char * pTransfer);
+	std::uint32_t ProcessAsynAns(NetRequsetDat * pNode, const char * pTransfer);
 
 	bool InitWebServerInfo(const char* p_sHomePath);
 	

@@ -1,16 +1,16 @@
-#include "USER_SHA1.h"
+ï»¿#include "USER_SHA1.h"
 #include "string.h"
 
 
 typedef struct SHAstate_st
 {
-	unsigned long h[SHA1_SIZE_BYTE / 4]; /* ´æ·ÅÕªÒª½á¹û(32*5=160 bits)*/
+	unsigned long h[SHA1_SIZE_BYTE / 4]; /* å­˜æ”¾æ‘˜è¦ç»“æžœ(32*5=160 bits)*/
 	unsigned long Nl;
-	unsigned long Nh;       /*´æ·ÅÐÅÏ¢×ÜÎ»Êý£¬Nh£º¸ß32Î»£¬Nl£ºµÍ32Î»*/
-	unsigned long data[16]; /*Êý¾Ý´ÓµÚ0¸öµÄ¸ß8Î»¿ªÊ¼ÒÀ´Î·ÅÖÃ*/
-	int FlagInWord;     /*±êÊ¶Ò»¸ödataÔªËØÖÐÕ¼ÓÃµÄ×Ö½ÚÊý£¨´Ó¸ß->µÍ£©£¬È¡Öµ0,1,2,3*/
-	int msgIndex;       /*µ±Ç°ÒÑÌî³äÂúµÄdataÊý×éÔªËØÊý¡£*/
-	int isTooMang;      /*Õý³£Îª0£¬µ±´¦ÀíµÄÐÅÏ¢³¬¹ý2^64 bitsÊ±Îª1£»*/
+	unsigned long Nh;       /*å­˜æ”¾ä¿¡æ¯æ€»ä½æ•°ï¼ŒNhï¼šé«˜32ä½ï¼ŒNlï¼šä½Ž32ä½*/
+	unsigned long data[16]; /*æ•°æ®ä»Žç¬¬0ä¸ªçš„é«˜8ä½å¼€å§‹ä¾æ¬¡æ”¾ç½®*/
+	int FlagInWord;     /*æ ‡è¯†ä¸€ä¸ªdataå…ƒç´ ä¸­å ç”¨çš„å­—èŠ‚æ•°ï¼ˆä»Žé«˜->ä½Žï¼‰ï¼Œå–å€¼0,1,2,3*/
+	int msgIndex;       /*å½“å‰å·²å¡«å……æ»¡çš„dataæ•°ç»„å…ƒç´ æ•°ã€‚*/
+	int isTooMang;      /*æ­£å¸¸ä¸º0ï¼Œå½“å¤„ç†çš„ä¿¡æ¯è¶…è¿‡2^64 bitsæ—¶ä¸º1ï¼›*/
 } SHA1_Context;
 
 #define INIT_DATA_h0 0x67452301U
@@ -24,7 +24,7 @@ typedef struct SHAstate_st
 const unsigned long SHA1_Kt[] = { 0x5A827999, 0x6ED9EBA1, 0x8F1BBCDC, 0xCA62C1D6 };
 typedef unsigned long(*SHA1_pFun)(unsigned long b, unsigned long c, unsigned long d);
 
-/*¶¨ÒåËÄ¸öº¯Êý*/
+/*å®šä¹‰å››ä¸ªå‡½æ•°*/
 static unsigned long SHA1_ft0_19(unsigned long b, unsigned long c, unsigned long d)
 {
 	return (b&c) | ((~b)&d);
@@ -49,7 +49,7 @@ SHA1_pFun ft[] = { SHA1_ft0_19, SHA1_ft20_39, SHA1_ft40_59, SHA1_ft60_79 };
 
 static int SHA1_Init(SHA1_Context *c)
 {
-	if (NULL == c)
+	if (nullptr == c)
 	{
 		return -1;
 	}
@@ -74,7 +74,7 @@ int SHA1_GetMsgBits(SHA1_Context *c)
 {
 	int a = 0;
 
-	if ((NULL == c) || (0 != c->isTooMang))
+	if ((nullptr == c) || (0 != c->isTooMang))
 	{
 		return -1;
 	}
@@ -86,7 +86,7 @@ int SHA1_GetMsgBits(SHA1_Context *c)
 
 int SHA1_Clear_data(SHA1_Context *c)
 {
-	if (NULL == c)
+	if (nullptr == c)
 	{
 		return -1;
 	}
@@ -107,7 +107,7 @@ int SHA1_One(SHA1_Context *c)
 	unsigned long temp = 0;
 	int t = 0;
 
-	if ((NULL == c) || (0 != c->isTooMang))
+	if ((nullptr == c) || (0 != c->isTooMang))
 	{
 		return -1;
 	}
@@ -151,7 +151,7 @@ int SHA1_PadMessage(SHA1_Context *c)
 {
 	int msgBits = -1;
 
-	if ((NULL == c) || (0 != c->isTooMang))
+	if ((nullptr == c) || (0 != c->isTooMang))
 	{
 		return -1;
 	}
@@ -331,7 +331,7 @@ static int SHA1_Final(SHA1_Context *c, unsigned char * md)
 {
 	int i = 0;
 
-	if ((NULL == md) || (NULL == c) || (c->isTooMang))
+	if ((nullptr == md) || (nullptr == c) || (c->isTooMang))
 	{
 		return -1;
 	}
@@ -356,7 +356,7 @@ int SHA1_String(const unsigned char* inputString, unsigned long len, unsigned ch
 	int rt = -1;
 	SHA1_Context c;
 
-	if ((NULL == inputString) || (NULL == pOutSHA1Buf))
+	if ((nullptr == inputString) || (nullptr == pOutSHA1Buf))
 	{
 		return -1;
 	}
@@ -405,14 +405,14 @@ int SHA1_String_Compare(const unsigned char* inputString, unsigned long len, con
 int SHA1_File(const char* filePath, unsigned char *buff)
 {
 	int rt = -1;
-	FILE *file = NULL;
+	FILE *file = nullptr;
 	SHA1_Context context;
 	int len = 0;
 	unsigned char buffer[0x0400] = { 0 };
 
 	file = fopen(filePath, "rb");
 
-	if (NULL == file)
+	if (nullptr == file)
 	{
 		return -1;
 	}
@@ -454,7 +454,7 @@ int SHA1_File_Compare(const char* filePathA, const char *filePathB)
 	int rt = -1;
 	int i = 0;
 
-	if ((NULL == filePathA) || (NULL == filePathB))
+	if ((nullptr == filePathA) || (nullptr == filePathB))
 	{
 		return -1;
 	}
@@ -487,3 +487,4 @@ int SHA1_File_Compare(const char* filePathA, const char *filePathB)
 		return -1;
 	}
 }
+

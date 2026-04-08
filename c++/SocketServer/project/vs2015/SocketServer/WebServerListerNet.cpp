@@ -1,4 +1,5 @@
 ﻿#include "publicGlobalvar.h"
+#include "publicfunc.h"
 #include "Log.h"
 #include "Base64.h"
 #include "USER_SHA1.h"
@@ -16,24 +17,6 @@ namespace
 	// wyl 2026-03-30：WebSocket 控制帧载荷长度上限，ping/pong/close 都必须满足该限制。
 	const unsigned long g_ulWebControlFrameMaxLen = 125;
 
-	// wyl 2026-03-30：统一处理 TCHAR 到 char 的地址复制，兼容 Unicode 配置。
-	void CopyWebClientIp(char* pDst, size_t dwDstLen, const TCHAR* pSrc)
-	{
-		if (nullptr == pDst || 0 == dwDstLen)
-			return;
-
-		pDst[0] = '\0';
-		if (nullptr == pSrc)
-			return;
-
-#if defined(UNICODE) || defined(_UNICODE)
-		WideCharToMultiByte(CP_ACP, 0, pSrc, -1, pDst, (int)dwDstLen, nullptr, nullptr);
-#else
-		_snprintf(pDst, dwDstLen, "%s", pSrc);
-#endif
-		pDst[dwDstLen - 1] = '\0';
-	}
-
 	// wyl 2026-03-30：按 WebSocket 标准生成握手应答值，避免并发握手时使用静态缓冲产生串包。
 	bool BuildWebSocketAcceptKey(const char* pSrcKey, char* pDstKey, size_t dwDstLen)
 	{
@@ -41,9 +24,9 @@ namespace
 			return false;
 
 		char szSourceKey[256] = { 0 };
-		BYTE bySha1Buf[20] = { 0 };
+		unsigned char bySha1Buf[20] = { 0 };
 		sprintf_s(szSourceKey, sizeof(szSourceKey), "%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11", pSrcKey);
-		if (SHA1_String((unsigned char*)szSourceKey, (unsigned long)strlen(szSourceKey), bySha1Buf) <= 0)
+		if (SHA1_String(reinterpret_cast<const unsigned char*>(szSourceKey), (unsigned long)strlen(szSourceKey), bySha1Buf) <= 0)
 			return false;
 
 		base64_encode(bySha1Buf, 20, pDstKey);
@@ -243,20 +226,20 @@ void ThreadWebNotifyTask(LPTSocketTask socketTask)
 			_snprintf(pstTask->szErrMsg, sizeof(pstTask->szErrMsg), "client close");
 			WEB_INFO("ip=%s,port=%d,type=%d,len=%d,msg=%s",
 				stClientData.szIp, stClientData.unPort, pstTask->enWebNotifyType, (int)strlen(pstTask->szErrMsg), pstTask->szErrMsg);
-			g_pWebHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enWebNotifyType, NULL, 0,
+			g_pWebHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enWebNotifyType, nullptr, 0,
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		case enWebConnect:
 			_snprintf(pstTask->szErrMsg, sizeof(pstTask->szErrMsg), "client connect");
 			WEB_INFO("ip=%s,port=%d,type=%d,len=%d,msg=%s",
 				stClientData.szIp, stClientData.unPort, pstTask->enWebNotifyType, (int)strlen(pstTask->szErrMsg), pstTask->szErrMsg);
-			g_pWebHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enWebNotifyType, NULL, 0,
+			g_pWebHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enWebNotifyType, nullptr, 0,
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		case enWebError:
 			WEB_INFO("ip=%s,port=%d,type=%d,len=%d,msg=%s",
 				stClientData.szIp, stClientData.unPort, pstTask->enWebNotifyType, (int)strlen(pstTask->szErrMsg), pstTask->szErrMsg);
-			g_pWebHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enWebNotifyType, NULL, 0,
+			g_pWebHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enWebNotifyType, nullptr, 0,
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		default:
@@ -874,8 +857,8 @@ EnHandleResult CWebServerListerNet::OnAccept(ITcpServer* pSender, CONNID dwConnI
 	// 如果服务器这里做处理业务，需要为每个新接入的连接附加一个对象
 
 	//获取监听的ip port信息
-	TCHAR szAddress[100] = { 0 };
-	int iAddressLen = sizeof(szAddress) / sizeof(TCHAR);
+	char szAddress[100] = { 0 };
+	int iAddressLen = sizeof(szAddress);
 	USHORT usPort = 0;
 
 	pSender->GetRemoteAddress(dwConnID, szAddress, iAddressLen, usPort);
@@ -887,8 +870,8 @@ EnHandleResult CWebServerListerNet::OnAccept(ITcpServer* pSender, CONNID dwConnI
 	refClientData.unPort = usPort;
 	// wyl 2026-03-30：WebSocket 连接要等 HTTP Upgrade 成功后才算业务层真正建链，这里先记为未连接。
 	refClientData.bConnected = false;
-	// wyl 2026-03-30：客户端地址统一按字符集安全复制，避免 Unicode 配置下地址乱码。
-	CopyWebClientIp(refClientData.szIp, sizeof(refClientData.szIp), szAddress);
+	// wyl 2026-04-08：项目侧统一使用 char 地址缓存，避免字符集宏扩散到业务代码。
+	SafeCopyCString(refClientData.szIp, sizeof(refClientData.szIp), szAddress);
 	pthread_mutex_unlock(&g_mutexWebConnet);
 	return HR_OK;
 }
@@ -986,3 +969,4 @@ EnHandleResult CWebServerListerNet::OnShutdown(ITcpServer*)
 	WEB_INFO("服务器关闭");
 	return HR_OK;
 }
+

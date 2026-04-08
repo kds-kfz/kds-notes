@@ -1,6 +1,7 @@
 ﻿#ifndef _HTTP_ASYN_REQ_OBJ_H_
 #define _HTTP_ASYN_REQ_OBJ_H_
 
+#include <cstddef>
 #include <map>
 #include <string>
 #include <vector>
@@ -59,7 +60,7 @@ public:
 	// 追加请求头，并按数量和字节数上限做限制校验。
 	bool AddRequestHead(const char* p_szName, const char* p_szValue, size_t p_uiMaxHeadCount, size_t p_uiMaxHeadBytes);
 	// 追加一段请求 BODY，并按累计总大小上限做限制校验。
-	bool AppendContent(const BYTE* p_pData, int p_iLen, size_t p_uiMaxBodyBytes);
+	bool AppendContent(const unsigned char* p_pData, int p_iLen, size_t p_uiMaxBodyBytes);
 	// 业务层放弃请求时的兜底收口：清理活动状态并主动断开连接。
 	void AbortRequest();
 	// 断开请求对象与底层 transport 的关联，防止后续继续回包到失效连接。

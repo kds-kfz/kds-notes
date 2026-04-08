@@ -1,4 +1,5 @@
 ﻿#include "publicGlobalvar.h"
+#include "publicfunc.h"
 #include "Log.h"
 
 namespace
@@ -6,23 +7,6 @@ namespace
 	const size_t HTTP_MAX_REQ_HEADER_COUNT = 128;
 	const size_t HTTP_MAX_REQ_HEADER_BYTES = 32 * 1024;
 	const size_t HTTP_MAX_REQ_BODY_BYTES = 8 * 1024 * 1024;
-
-	void CopyHttpClientIp(char* pDst, size_t dwDstLen, const TCHAR* pSrc)
-	{
-		if (nullptr == pDst || 0 == dwDstLen)
-			return;
-
-		pDst[0] = '\0';
-		if (nullptr == pSrc)
-			return;
-
-#if defined(UNICODE) || defined(_UNICODE)
-		WideCharToMultiByte(CP_ACP, 0, pSrc, -1, pDst, (int)dwDstLen, nullptr, nullptr);
-#else
-		_snprintf(pDst, dwDstLen, "%s", pSrc);
-#endif
-		pDst[dwDstLen - 1] = '\0';
-	}
 
 	char ToLowerAscii(char ch)
 	{
@@ -132,7 +116,7 @@ namespace
 		};
 
 		const bool bSendOk = !!pSender->SendResponse(dwConnID, (USHORT)enStatus, nullptr, stHeaders,
-			sizeof(stHeaders) / sizeof(stHeaders[0]), (const BYTE*)p_szBody, (int)strlen(p_szBody));
+			sizeof(stHeaders) / sizeof(stHeaders[0]), reinterpret_cast<const BYTE*>(p_szBody), (int)strlen(p_szBody));
 		if (!pSender->Release(dwConnID))
 		{
 			HTTP_WARN("ConnID=%llu,RejectReleaseFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
@@ -231,12 +215,12 @@ EnHttpParseResult CHttpServerListerNet::OnRequestLine(IHttpServer* pSender, CONN
 	const char* p_szUrlPath = pSender->GetUrlField(dwConnID, HUF_PATH);
 	pReqObj->SetUrl(nullptr != p_szUrlPath ? p_szUrlPath : lpszUrl);
 
-	TCHAR szAddress[100] = { 0 };
-	int iAddressLen = sizeof(szAddress) / sizeof(TCHAR);
+	char szAddress[100] = { 0 };
+	int iAddressLen = sizeof(szAddress);
 	USHORT usPort = 0;
 	pSender->GetRemoteAddress(dwConnID, szAddress, iAddressLen, usPort);
 	char szClientIp[STR_IP_LEN] = { 0 };
-	CopyHttpClientIp(szClientIp, sizeof(szClientIp), szAddress);
+	SafeCopyCString(szClientIp, sizeof(szClientIp), szAddress);
 	pReqObj->SetAddress(szClientIp, usPort);
 
 	bool bInserted = false;
@@ -348,7 +332,7 @@ EnHttpParseResult CHttpServerListerNet::OnBody(IHttpServer* pSender, CONNID dwCo
 	if (FindHttpParsingReqNoLock(dwConnID, ullReqID, pReqObj))
 	{
 		bFound = true;
-		bAppended = pReqObj->AppendContent(pData, iLength, HTTP_MAX_REQ_BODY_BYTES);
+		bAppended = pReqObj->AppendContent(reinterpret_cast<const unsigned char*>(pData), iLength, HTTP_MAX_REQ_BODY_BYTES);
 	}
 	pthread_mutex_unlock(&g_mutexHttpReq);
 
@@ -386,7 +370,7 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 		return HPR_ERROR;
 
 	// 先暂停该连接继续接收，避免 keep-alive 下第二个请求先于第一个请求完成回包而产生乱序。
-	if (!pSender->PauseReceive(dwConnID, TRUE))
+	if (!pSender->PauseReceive(dwConnID, true))
 	{
 		pthread_mutex_lock(&g_mutexHttpReq);
 		g_mapHttpConnActiveReq.erase(dwConnID);

@@ -150,9 +150,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\include\nsdk.h" />
+    <ClInclude Include="..\..\..\include\nsdk_atomic.h" />
     <ClInclude Include="..\..\..\include\nsdk_define.h" />
     <ClInclude Include="resource.h" />
-    <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="nsdk.rc" />

@@ -1,5 +1,9 @@
 ﻿#include "Log.h"
-#include <windows.h>
+#include <cstdarg>
+#include <chrono>
+#include <ctime>
+#include <thread>
+#include "nsdk_atomic.h"
 #include "publicfunc.h"
 
 CLog *CLog::m_pThis = nullptr;
@@ -10,15 +14,15 @@ CHttpLog* CHttpLog::m_pThis = nullptr;
 void CBaseLog::Init()
 {
 	m_vecLog.clear();
-	m_vecCacheLog.clear();
-	m_pLogFileThread = NULL;
+	m_pLogFileThread = nullptr;
 	m_enLogType = eInfo;
-	m_pFileLog = NULL;
-	m_iLastDate = 0;
+	m_pFileLog = nullptr;
+	m_uiLastDate = 0;
 	m_strLogFold = "";
 	m_strLogName = "";
 	m_strLogPath = "";
 	m_bInitStatus = false;
+	pthread_mutex_init(&m_mutexLog, nullptr);
 }
 
 CBaseLog::CBaseLog()
@@ -36,11 +40,11 @@ void CBaseLog::Close()
 	if (m_pFileLog)
 	{
 		fclose(m_pFileLog);
-		m_pFileLog = NULL;
+		m_pFileLog = nullptr;
 	}
 }
 
-int CBaseLog::InitLog()
+int CBaseLog::InitLog(int p_iLogDate)
 {
 	int iRet = MA_OK;
 
@@ -48,7 +52,7 @@ int CBaseLog::InitLog()
 	m_bInitStatus = false;
 
 	//挂起
-	if (NULL != m_pLogFileThread)
+	if (nullptr != m_pLogFileThread)
 	{
 		iRet = m_pLogFileThread->Pause();
 		if (MA_OK != iRet)
@@ -60,22 +64,19 @@ int CBaseLog::InitLog()
 	//关闭日志
 	Close();
 
-	SYSTEMTIME stCurrTime = { 0 };
-	GetSystemTime(&stCurrTime);
-	m_iLastDate = stCurrTime.wYear * 10000 + stCurrTime.wMonth * 100 + stCurrTime.wDay;
+	m_uiLastDate = 0 == p_iLogDate ? nsdk::GetCurDate() : p_iLogDate;
 
-	//
-	char szLogFile[MAX_PATH] = { 0 };
-	_snprintf(szLogFile, MAX_PATH - 1, "%s%s%s%08d.log", m_strLogFold.c_str(), PATH_DELIMETER, m_strLogName.c_str(), m_iLastDate);
+	char szLogFile[KDSC_MAX_PATH] = { 0 };
+	snprintf(szLogFile, KDSC_MAX_PATH - 1, "%s%s%s%08d.log", m_strLogFold.c_str(), PATH_DELIMETER, m_strLogName.c_str(), m_uiLastDate);
 	m_strLogPath = szLogFile;
 	m_pFileLog = fopen(szLogFile, "a+");
 
-	if (NULL == m_pFileLog)
+	if (nullptr == m_pFileLog)
 	{
 		return -2;
 	}
 
-	if (NULL != m_pLogFileThread)
+	if (nullptr != m_pLogFileThread)
 	{
 		iRet = m_pLogFileThread->Resume();
 		if (MA_OK != iRet)
@@ -86,7 +87,7 @@ int CBaseLog::InitLog()
 	else
 	{
 		m_pLogFileThread = new CLogFileThread();
-		if (NULL == m_pLogFileThread)
+		if (nullptr == m_pLogFileThread)
 		{
 			return -4;
 		}
@@ -95,12 +96,10 @@ int CBaseLog::InitLog()
 		if (MA_OK != iRet)
 		{
 			delete m_pLogFileThread;
-			m_pLogFileThread = NULL;
+			m_pLogFileThread = nullptr;
 			return -5;
 		}
 	}
-
-	pthread_mutex_init(&m_mutexLog, nullptr);
 
 	m_bInitStatus = true;
 
@@ -117,7 +116,7 @@ void CBaseLog::BaseRelease()
 	{
 		m_pLogFileThread->Stop();
 		delete m_pLogFileThread;
-		m_pLogFileThread = NULL;
+		m_pLogFileThread = nullptr;
 	}
 
 	pthread_mutex_destroy(&m_mutexLog);
@@ -135,7 +134,7 @@ void CBaseLog::Resume()
 int CBaseLog::InitLog(const char* p_szFold, enHQLogType p_eType, const char* p_szLogFileName)
 {
 	// 日志初始化
-	if (NULL == p_szFold)
+	if (nullptr == p_szFold)
 	{
 		return -1;
 	}
@@ -145,7 +144,7 @@ int CBaseLog::InitLog(const char* p_szFold, enHQLogType p_eType, const char* p_s
 	int iRet = 0;
 	if (MA_OK != FolderExists(p_szFold))
 	{
-		if ((iRet = CreatePath(p_szFold)) != MA_OK)
+		if ((iRet = CreateFolder(p_szFold)) != MA_OK)
 		{
 			return iRet;
 		}
@@ -160,7 +159,7 @@ int CBaseLog::InitLog(const char* p_szFold, enHQLogType p_eType, const char* p_s
 
 void CBaseLog::SetLogLevel(char *p_strLogLevel)
 {
-	if (NULL == p_strLogLevel)
+	if (nullptr == p_strLogLevel)
 		return;
 
 	if (strcmp(p_strLogLevel, "debug") == 0)
@@ -182,28 +181,24 @@ int CBaseLog::ThreadLog()
 	if (m_vecLog.empty())
 	{
 		pthread_mutex_unlock(&m_mutexLog);
-		//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		Sleep(1000);
+		nsdk_Sleep(1000);
 		return MA_OK;
 	}
-	m_vecCacheLog = m_vecLog;
+	std::vector<std::string> vecCacheLog;
+	vecCacheLog.swap(m_vecLog);
 	m_vecLog.clear();
 	pthread_mutex_unlock(&m_mutexLog);
 
-	//TODO 校验是否隔日
-
 	//
-	for (int i = 0; i < m_vecCacheLog.size(); i++)
+	for (int i = 0; i < vecCacheLog.size(); i++)
 	{
-		// wyl 2026-03-30：日志内容按普通字符串写入，避免内容中的 % 被二次当作格式串解析。
-		fprintf(m_pFileLog, "%s", m_vecCacheLog[i].c_str());
+		fprintf(m_pFileLog, "%s", vecCacheLog[i].c_str());
 		fprintf(m_pFileLog, "\n");
 	}
 
 	fflush(m_pFileLog);
 	//m_vecLog.clear();
 	//m_mutexLog.Unlock();
-	m_vecCacheLog.clear();
 
 	return MA_OK;
 }
@@ -213,7 +208,7 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 	if (!m_bInitStatus)
 		return;
 
-	if (NULL == p_szFormat)
+	if (nullptr == p_szFormat)
 	{
 		return;
 	}
@@ -228,13 +223,17 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 	vector<char> vecBuf(HQLOG_BUF_SIZE);
 	int iRet = 0;
 	int iCount = 0;
+
+#if defined( OS_IS_WINDOWS )
 	va_list valist;
+	va_start(valist, p_szFormat);
+#else
+	va_list valist;
+	va_start(valist, p_szFormat);
+#endif
 	for (; iCount < HQLOG_BUF_MAX; iCount++)
 	{
-		// wyl 2026-03-30：每次扩容重试都重新初始化 va_list，避免重复消费导致未定义行为。
-		va_start(valist, p_szFormat);
 		iRet = vsnprintf(&vecBuf[0], vecBuf.size(), p_szFormat, valist);
-		va_end(valist);
 		if (iRet > -1 && iRet < vecBuf.size()) //非负数，且小于 iRet
 		{
 			break;
@@ -242,20 +241,35 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 		vecBuf.resize(vecBuf.size() * 2);
 	}
 
+#if defined( OS_IS_WINDOWS )
+	va_end(valist);
+#else
+	va_end(valist);
+#endif
+
 	if (iRet == vecBuf.size())//超大内容 16k
 	{
 		vecBuf[iRet - 1] = '\0';
 	}
 
 	// 时间
-	SYSTEMTIME stCurrTime = { 0 };
-	GetLocalTime(&stCurrTime);
-	char szTime[HQTIME_BUF_SIZE] = { 0 };
+	const std::chrono::system_clock::time_point tpNow = std::chrono::system_clock::now();
+	const std::time_t ttNow = std::chrono::system_clock::to_time_t(tpNow);
+	const std::tm stCurrTime = SafeLocalTime(ttNow);
+	const int iMilliseconds = (int)(std::chrono::duration_cast<std::chrono::milliseconds>(
+		tpNow.time_since_epoch()).count() % 1000);
 
-	//
+	//校验是否隔日;
+	unsigned int uiCurDate = (stCurrTime.tm_year + 1900) * 10000 + (stCurrTime.tm_mon + 1) * 100 + stCurrTime.tm_mday;
+	if (uiCurDate > m_uiLastDate)
+	{
+		InitLog(uiCurDate);
+	}
+
+	char szTime[HQTIME_BUF_SIZE] = { 0 };
 	_snprintf(szTime, HQTIME_BUF_SIZE - 1, "[%04d%02d%02d %02d:%02d %02d:%03d] ",
-		stCurrTime.wYear, stCurrTime.wMonth, stCurrTime.wDay, stCurrTime.wHour,
-		stCurrTime.wMinute, stCurrTime.wSecond, stCurrTime.wMilliseconds);
+		stCurrTime.tm_year + 1900, stCurrTime.tm_mon + 1, stCurrTime.tm_mday, stCurrTime.tm_hour,
+		stCurrTime.tm_min, stCurrTime.tm_sec, iMilliseconds);
 
 	// 内容
 	string strLog;
@@ -265,7 +279,7 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 	if (iRet > 0)
 	{
 		// wyl 2026-03-30：仅拷贝本次真正格式化出的长度，避免把缓冲区尾部无效内容写进日志。
-		strContent.assign(&vecBuf[0], iRet);
+		strContent.assign(vecBuf.data(), iRet);
 	}
 
 	strLog += strContent;
@@ -278,7 +292,7 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 
 CLog *CLog::GetInstance()
 {
-	if (NULL == m_pThis)
+	if (nullptr == m_pThis)
 	{
 		m_pThis = new CLog;
 	}
@@ -287,16 +301,16 @@ CLog *CLog::GetInstance()
 
 void CLog::Release()
 {
-	if (NULL == m_pThis)
+	if (nullptr == m_pThis)
 		return;
 
 	delete m_pThis;
-	m_pThis = NULL;
+	m_pThis = nullptr;
 }
 
 CTcpLog *CTcpLog::GetInstance()
 {
-	if (NULL == m_pThis)
+	if (nullptr == m_pThis)
 	{
 		m_pThis = new CTcpLog;
 	}
@@ -305,16 +319,16 @@ CTcpLog *CTcpLog::GetInstance()
 
 void CTcpLog::Release()
 {
-	if (NULL == m_pThis)
+	if (nullptr == m_pThis)
 		return;
 
 	delete m_pThis;
-	m_pThis = NULL;
+	m_pThis = nullptr;
 }
 
 CWebLog *CWebLog::GetInstance()
 {
-	if (NULL == m_pThis)
+	if (nullptr == m_pThis)
 	{
 		m_pThis = new CWebLog;
 	}
@@ -323,16 +337,16 @@ CWebLog *CWebLog::GetInstance()
 
 void CWebLog::Release()
 {
-	if (NULL == m_pThis)
+	if (nullptr == m_pThis)
 		return;
 
 	delete m_pThis;
-	m_pThis = NULL;
+	m_pThis = nullptr;
 }
 
 CHttpLog *CHttpLog::GetInstance()
 {
-	if (NULL == m_pThis)
+	if (nullptr == m_pThis)
 	{
 		m_pThis = new CHttpLog;
 	}
@@ -341,11 +355,12 @@ CHttpLog *CHttpLog::GetInstance()
 
 void CHttpLog::Release()
 {
-	if (NULL == m_pThis)
+	if (nullptr == m_pThis)
 		return;
 
 	delete m_pThis;
-	m_pThis = NULL;
+	m_pThis = nullptr;
 }
+
 
 

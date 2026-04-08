@@ -1,4 +1,5 @@
 ﻿#include "publicGlobalvar.h"
+#include "publicfunc.h"
 #include "Log.h"
 
 namespace
@@ -7,24 +8,6 @@ namespace
 	const unsigned int g_uiTcpMaxPendingTaskPerConn = 1024;
 	// wyl 2026-03-30：单连接允许排队的 TCP 数据通知累计字节上限，限制慢消费时的内存占用。
 	const unsigned long long g_ullTcpMaxPendingBytesPerConn = 4ULL * 1024 * 1024;
-
-	// wyl 2026-03-30：统一处理 TCHAR 到 char 的地址复制，兼容 Unicode 配置。
-	void CopyClientIp(char* pDst, size_t dwDstLen, const TCHAR* pSrc)
-	{
-		if (nullptr == pDst || 0 == dwDstLen)
-			return;
-
-		pDst[0] = '\0';
-		if (nullptr == pSrc)
-			return;
-
-#if defined(UNICODE) || defined(_UNICODE)
-		WideCharToMultiByte(CP_ACP, 0, pSrc, -1, pDst, (int)dwDstLen, nullptr, nullptr);
-#else
-		_snprintf(pDst, dwDstLen, "%s", pSrc);
-#endif
-		pDst[dwDstLen - 1] = '\0';
-	}
 
 	// wyl 2026-03-30：为单连接的 TCP 原始数据通知做轻量配额控制，避免小包洪泛把任务队列和内存持续顶满。
 	bool ReserveTcpPendingQuota(CONNID dwConnID, unsigned int uiDataLen)
@@ -138,20 +121,20 @@ void ThreadNotifyTask(LPTSocketTask socketTask)
 			_snprintf(pstTask->szErrMsg, sizeof(pstTask->szErrMsg), "client close");
 			TCP_INFO("ip=%s,port=%d,type=%d,len=%d,msg=%s",
 				stClientData.szIp, stClientData.unPort, pstTask->enNotifyType, (int)strlen(pstTask->szErrMsg), pstTask->szErrMsg);
-			g_pTcpHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, NULL, 0,
+			g_pTcpHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, nullptr, 0,
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		case enTcpConnect:
 			_snprintf(pstTask->szErrMsg, sizeof(pstTask->szErrMsg), "client connect");
 			TCP_INFO("ip=%s,port=%d,type=%d,len=%d,msg=%s",
 				stClientData.szIp, stClientData.unPort, pstTask->enNotifyType, (int)strlen(pstTask->szErrMsg), pstTask->szErrMsg);
-			g_pTcpHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, NULL, 0,
+			g_pTcpHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, nullptr, 0,
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		case enTcpError:
 			TCP_INFO("ip=%s,port=%d,type=%d,len=%d,msg=%s",
 				stClientData.szIp, stClientData.unPort, pstTask->enNotifyType, (int)strlen(pstTask->szErrMsg), pstTask->szErrMsg);
-			g_pTcpHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, NULL, 0,
+			g_pTcpHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, nullptr, 0,
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		default:
@@ -221,8 +204,8 @@ EnHandleResult CTcpServerListerNet::OnPrepareListen(ITcpServer* pSender, SOCKET 
 
 	// 准备监听
 	//获取监听的ip port信息
-	TCHAR lpszAddress[30] = { 0 };
-	int iAddressLen = sizeof(lpszAddress) / sizeof(TCHAR);
+	char lpszAddress[30] = { 0 };
+	int iAddressLen = sizeof(lpszAddress);
 	USHORT unPort = 0;
 	pSender->GetListenAddress(lpszAddress, iAddressLen, unPort);
 	return HR_OK;
@@ -239,8 +222,8 @@ EnHandleResult CTcpServerListerNet::OnAccept(ITcpServer* pSender, CONNID dwConnI
 	// 如果服务器这里做处理业务，需要为每个新接入的连接附加一个对象
 
 	//获取监听的ip port信息
-	TCHAR szAddress[100] = { 0 };
-	int iAddressLen = sizeof(szAddress) / sizeof(TCHAR);
+	char szAddress[100] = { 0 };
+	int iAddressLen = sizeof(szAddress);
 	USHORT usPort = 0;
 
 	pSender->GetRemoteAddress(dwConnID, szAddress, iAddressLen, usPort);
@@ -252,8 +235,8 @@ EnHandleResult CTcpServerListerNet::OnAccept(ITcpServer* pSender, CONNID dwConnI
 	refClientData.unPort = usPort;
 	// wyl 2026-03-30：TCP 连接在 accept 成功后即可视为业务层可用，直接标记为已连接。
 	refClientData.bConnected = true;
-	// wyl 2026-03-30：客户端地址统一按字符集安全复制，避免 Unicode 配置下地址乱码。
-	CopyClientIp(refClientData.szIp, sizeof(refClientData.szIp), szAddress);
+	// wyl 2026-04-08：项目侧统一使用 char 地址缓存，避免字符集宏扩散到业务代码。
+	SafeCopyCString(refClientData.szIp, sizeof(refClientData.szIp), szAddress);
 	pthread_mutex_unlock(&g_mutexConnet);
 
 	//TODO 发出连接通知
@@ -391,3 +374,4 @@ EnHandleResult CTcpServerListerNet::OnShutdown(ITcpServer* pSender)
 	TCP_INFO("服务器关闭");
 	return HR_OK;
 }
+

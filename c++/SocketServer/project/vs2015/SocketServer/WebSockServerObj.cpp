@@ -68,7 +68,7 @@ void DeleteWebObj(void)
 	{
 		g_CWebPackServer->Stop();
 		HP_Destroy_HttpServer(g_CWebPackServer);
-		g_CWebPackServer = NULL;
+		g_CWebPackServer = nullptr;
 	}
 
 	// wyl 2026-03-30：线程池关闭改为等待已提交任务自然退出，避免强制停池后马上清理任务对象导致悬空指针。
@@ -195,11 +195,10 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 	g_bWebServerStatus = true;
 
 	//9.启动服务
-	const std::basic_string<TCHAR> strBindAddress = MakeBindAddress(p_szIp);
-	if (!g_CWebPackServer->Start(strBindAddress.c_str(), p_unPort))
+	if (!g_CWebPackServer->Start(p_szIp, p_unPort))
 	{
 		char szErrDesc[256] = { 0 };
-		CopyTextToAnsi(szErrDesc, sizeof(szErrDesc), g_CWebPackServer->GetLastErrorDesc());
+		SafeCopyCString(szErrDesc, sizeof(szErrDesc), g_CWebPackServer->GetLastErrorDesc());
 		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			g_CWebPackServer->GetLastError(), szErrDesc);
 		DeleteWebObj();
@@ -297,3 +296,4 @@ void CWebSockServerObj::WebSockSend(void *p_refServer, void *p_refClient, const 
 		WEB_ERROR("ConnID=%llu,SendDataLen=%d,err=%d", (unsigned long long)dwConnID, p_iDataLen, SYS_GetLastError());
 	}
 }
+

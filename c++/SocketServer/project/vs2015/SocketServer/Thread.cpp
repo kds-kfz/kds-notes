@@ -1,4 +1,4 @@
-#include "Thread.h"
+ï»¿#include "Thread.h"
 #include <iostream>
 #include <sstream>
 
@@ -48,8 +48,8 @@ int CThread::Start(unsigned int p_uiId)
 		m_bFinishFlag = false;
 		iRet = 0;
 		//m_lluThreadId = ThreadId2uLong(std::this_thread::get_id());
-		//pthread_t threadId = pthread_self(); // »ñÈ¡µ±Ç°Ïß³ÌµÄpthread_t½á¹¹
-		//unsigned long ulThreadId = pthread_getw32threadid_np(threadId); // »ñÈ¡WindowsÏß³ÌID
+		//pthread_t threadId = pthread_self(); // è·å–å½“å‰çº¿ç¨‹çš„pthread_tç»“æ„
+		//unsigned long ulThreadId = pthread_getw32threadid_np(threadId); // è·å–Windowsçº¿ç¨‹ID
 		//m_ulThreadId = ThreadId2uLong(ulThreadId);
 		m_ulThreadId = p_uiId;
 	}
@@ -64,7 +64,7 @@ int CThread::Stop()
 		m_bPauseFlag = false;
 		m_bStopFlag = true;
 		pthread_cond_signal(&m_condition);  // Notify one waiting thread, if there is one.
-		pthread_join(*m_ptrThread,NULL); // wait for thread finished
+		pthread_join(*m_ptrThread,nullptr); // wait for thread finished
 		delete m_ptrThread;
 		m_ptrThread = nullptr;
 		m_enState = Stoped;
@@ -130,3 +130,4 @@ unsigned long long CThread::ThreadId2uLong(unsigned long p_ulThreadId)
 	std::string stid = oss.str();
 	return std::stoull(stid);
 }
+

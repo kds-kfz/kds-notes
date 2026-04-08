@@ -74,7 +74,7 @@ void DeleteHttpObj(void)
 	if (nullptr != g_CHttpPackServer)
 	{
 		HP_Destroy_HttpServer(g_CHttpPackServer);
-		g_CHttpPackServer = NULL;
+		g_CHttpPackServer = nullptr;
 	}
 
 	if (nullptr != g_CHttpServerListerNet)
@@ -196,11 +196,10 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 	g_bHttpServerStatus = true;
 
 	//9.启动服务
-	const std::basic_string<TCHAR> strBindAddress = MakeBindAddress(p_szIp);
-	if (!g_CHttpPackServer->Start(strBindAddress.c_str(), p_unPort))
+	if (!g_CHttpPackServer->Start(p_szIp, p_unPort))
 	{
 		char szErrDesc[256] = { 0 };
-		CopyTextToAnsi(szErrDesc, sizeof(szErrDesc), g_CHttpPackServer->GetLastErrorDesc());
+		SafeCopyCString(szErrDesc, sizeof(szErrDesc), g_CHttpPackServer->GetLastErrorDesc());
 		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			g_CHttpPackServer->GetLastError(), szErrDesc);
 		DeleteHttpObj();
@@ -275,4 +274,5 @@ bool CHttpSockServerObj::DelHttpAsynReq(unsigned long long p_lluReqId)
 	}
 	return true;
 }
+
 

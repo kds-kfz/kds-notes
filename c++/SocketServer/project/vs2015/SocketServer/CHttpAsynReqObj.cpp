@@ -4,23 +4,11 @@
 
 #include "HPSocket.h"
 #include "Log.h"
+#include "publicfunc.h"
 #include "publicGlobalvar.h"
 
 namespace
 {
-	void CopyIpValue(char* p_szDst, int p_iDstLen, const char* p_szSrc)
-	{
-		if (nullptr == p_szDst || p_iDstLen <= 0)
-			return;
-
-		p_szDst[0] = '\0';
-		if (nullptr == p_szSrc)
-			return;
-
-		_snprintf(p_szDst, p_iDstLen, "%s", p_szSrc);
-		p_szDst[p_iDstLen - 1] = '\0';
-	}
-
 	char ToLowerAscii(char ch)
 	{
 		return (ch >= 'A' && ch <= 'Z') ? (ch - 'A' + 'a') : ch;
@@ -87,7 +75,7 @@ const char* CHttpAsynReqObj::GetHead(const char* p_szName)
 
 void CHttpAsynReqObj::GetAddress(char* p_szClientIp, int p_iIpLen, unsigned short& p_nClientPort)
 {
-	CopyIpValue(p_szClientIp, p_iIpLen, m_szClientIp);
+	SafeCopyCString(p_szClientIp, p_iIpLen, m_szClientIp);
 	p_nClientPort = m_unClientPort;
 }
 
@@ -136,7 +124,6 @@ bool CHttpAsynReqObj::SendResponse(const void* p_szData, int p_iLen)
 		return false;
 	}
 
-	const BYTE* pBody = (nullptr != p_szData && p_iLen > 0) ? (const BYTE*)p_szData : nullptr;
 	const int iBodyLen = p_iLen > 0 ? p_iLen : 0;
 
 	std::vector<THeader> vecHeaders;
@@ -150,7 +137,8 @@ bool CHttpAsynReqObj::SendResponse(const void* p_szData, int p_iLen)
 	}
 
 	if (!m_pSender->SendResponse(m_dwConnID, (USHORT)m_enHttpStatus, nullptr,
-		vecHeaders.empty() ? nullptr : &vecHeaders[0], (int)vecHeaders.size(), pBody, iBodyLen))
+		vecHeaders.empty() ? nullptr : &vecHeaders[0], (int)vecHeaders.size(),
+		(nullptr != p_szData && iBodyLen > 0) ? reinterpret_cast<const BYTE*>(p_szData) : nullptr, iBodyLen))
 	{
 		HTTP_ERROR("ReqID=%llu,ConnID=%llu,SendResponseFail,err=%d",
 			m_ullReqID, (unsigned long long)m_dwConnID, SYS_GetLastError());
@@ -164,7 +152,7 @@ bool CHttpAsynReqObj::SendResponse(const void* p_szData, int p_iLen)
 	if (m_bKeepAlive)
 	{
 		// 请求派发给上层后该连接的接收已被暂停；只有响应成功进入发送队列后才恢复读取。
-		if (!m_pSender->PauseReceive(m_dwConnID, FALSE))
+		if (!m_pSender->PauseReceive(m_dwConnID, false))
 		{
 			HTTP_WARN("ReqID=%llu,ConnID=%llu,ResumeReceiveFail,err=%d",
 				m_ullReqID, (unsigned long long)m_dwConnID, SYS_GetLastError());
@@ -216,7 +204,7 @@ void CHttpAsynReqObj::SetUrl(const char* p_szUrl)
 
 void CHttpAsynReqObj::SetAddress(const char* p_szClientIp, unsigned short p_unClientPort)
 {
-	CopyIpValue(m_szClientIp, sizeof(m_szClientIp), p_szClientIp);
+	SafeCopyCString(m_szClientIp, sizeof(m_szClientIp), p_szClientIp);
 	m_unClientPort = p_unClientPort;
 }
 
@@ -238,7 +226,7 @@ bool CHttpAsynReqObj::AddRequestHead(const char* p_szName, const char* p_szValue
 	return true;
 }
 
-bool CHttpAsynReqObj::AppendContent(const BYTE* p_pData, int p_iLen, size_t p_uiMaxBodyBytes)
+bool CHttpAsynReqObj::AppendContent(const unsigned char* p_pData, int p_iLen, size_t p_uiMaxBodyBytes)
 {
 	if (nullptr == p_pData || p_iLen <= 0)
 		return true;
@@ -248,7 +236,7 @@ bool CHttpAsynReqObj::AppendContent(const BYTE* p_pData, int p_iLen, size_t p_ui
 		return false;
 	}
 
-	m_strContent.append((const char*)p_pData, p_iLen);
+	m_strContent.append(reinterpret_cast<const char*>(p_pData), p_iLen);
 	return true;
 }
 
