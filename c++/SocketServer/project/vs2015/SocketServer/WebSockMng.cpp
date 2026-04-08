@@ -217,22 +217,6 @@ DWORD CWebSockProtobufMng::ProcessAsynAns(NetRequsetDat * pNode, const char * pT
 	INFO("[WEB服务] 应答 cookie=%lu,mainid=%ld,[%p,%llu],reqid=%d,lsize=%d,len=%d",
 		pNode->cookie, pNode->MainID, pNode->h, *(unsigned __int64 *)pNode->user, pNode->nGNID, pNode->lSize, pNode->len);
 
-	CHqMonitor::GetInstance()->AddMonitorGnData(POINT_APPEND, pNode, 0, MONITOR_HQSERVER, __FILE__, __LINE__, 997);
-/*
-	if (pNode->nGNID == 2015)
-	{
-		Jzt::QuotePackage	packprotobufreq;
-
-		bool bretpack = packprotobufreq.ParseFromArray(packdata, pNode->len);
-
-		Jzt::sort_ex_hq_ans	ansp;
-
-		packprotobufreq.packdata().UnpackTo(&ansp);
-
-		INFO("Websocket", "ProcessAsynAns", "2015解析=%d,lsize=%d,len=%d,count=%d,exlen=%d,ids=%d,field=%d \r\n", bretpack,pNode->lSize, pNode->len,
-			ansp.count(), ansp.ex_len(), ansp.fieldids_size(), ansp.fields_size());
-	}
-	*/
 	CWebSockProtobufMng::GetInstance()->WebSockSend(pNode->h, pNode->user, packdata, pNode->len);
 
 	return 0;
