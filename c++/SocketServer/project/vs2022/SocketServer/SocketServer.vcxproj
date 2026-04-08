@@ -71,7 +71,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)\lib\$(Platform)</OutDir>
+    <OutDir>$(SolutionDir)..\..\..\lib\$(Platform)vc14</OutDir>
     <TargetName>lib$(ProjectName)</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -133,7 +133,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>./vender/hpsocket/include/$(Platform);./vender/nsdk/include/;./vender/thread/include/$(Platform);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\..\vender\hpsocket\include;$(SolutionDir)..\..\..\vender\nsdk\include;$(SolutionDir)..\..\..\vender\thread\include;$(SolutionDir)..\..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -141,41 +141,54 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>./vender/hpsocket/lib/$(Platform);./vender/thread/lib/$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>HPSocket.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\..\vender\hpsocket\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\thread\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\nsdk\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>HPSocket.lib;libnsdk.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Log.h" />
-    <ClInclude Include="nsdk_define.h" />
-    <ClInclude Include="publicfunc.h" />
-    <ClInclude Include="publicGlobalvar.h" />
-    <ClInclude Include="resource.h" />
-    <ClInclude Include="SocketServer.h" />
-    <ClInclude Include="Struct.h" />
-    <ClInclude Include="TcpPackServerObj.h" />
-    <ClInclude Include="TcpServerListerNet.h" />
-    <ClInclude Include="TcpSockServerObj.h" />
-    <ClInclude Include="Thread.h" />
-    <ClInclude Include="vender\hpsocket\include\HPSocket-SSL.h" />
-    <ClInclude Include="vender\hpsocket\include\HPSocket.h" />
-    <ClInclude Include="vender\hpsocket\include\HPSocket4C-SSL.h" />
-    <ClInclude Include="vender\hpsocket\include\HPSocket4C.h" />
-    <ClInclude Include="vender\hpsocket\include\HPTypeDef.h" />
-    <ClInclude Include="vender\hpsocket\include\SocketInterface.h" />
-    <ClInclude Include="vender\nsdk\include\nsdk.h" />
-    <ClInclude Include="vender\thread\include\pthread.h" />
-    <ClInclude Include="vender\thread\include\sched.h" />
-    <ClInclude Include="vender\thread\include\semaphore.h" />
+    <ClInclude Include="..\..\..\src\Base64.h" />
+    <ClInclude Include="..\..\..\src\HttpAsynReqObj.h" />
+    <ClInclude Include="..\..\..\src\HttpServerListerNet.h" />
+    <ClInclude Include="..\..\..\src\HttpSockServerObj.h" />
+    <ClInclude Include="..\..\..\src\Log.h" />
+    <ClInclude Include="..\..\..\src\publicfunc.h" />
+    <ClInclude Include="..\..\..\src\publicGlobalvar.h" />
+    <ClInclude Include="..\..\..\src\SocketServer.h" />
+    <ClInclude Include="..\..\..\src\Struct.h" />
+    <ClInclude Include="..\..\..\src\TcpPackServerObj.h" />
+    <ClInclude Include="..\..\..\src\TcpServerListerNet.h" />
+    <ClInclude Include="..\..\..\src\TcpSockServerObj.h" />
+    <ClInclude Include="..\..\..\src\Thread.h" />
+    <ClInclude Include="..\..\..\src\USER_SHA1.h" />
+    <ClInclude Include="..\..\..\src\WebServerListerNet.h" />
+    <ClInclude Include="..\..\..\src\WebSockServerObj.h" />
+    <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket-SSL.h" />
+    <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket.h" />
+    <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket4C-SSL.h" />
+    <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket4C.h" />
+    <ClInclude Include="..\..\..\vender\hpsocket\include\HPTypeDef.h" />
+    <ClInclude Include="..\..\..\vender\hpsocket\include\SocketInterface.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_atomic.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_define.h" />
+    <ClInclude Include="..\..\..\vender\thread\include\pthread.h" />
+    <ClInclude Include="..\..\..\vender\thread\include\sched.h" />
+    <ClInclude Include="..\..\..\vender\thread\include\semaphore.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="publicfunc.cpp" />
-    <ClCompile Include="TcpServerListerNet.cpp" />
-    <ClCompile Include="Log.cpp" />
-    <ClCompile Include="publicGlobalvar.cpp" />
-    <ClCompile Include="SocketServer.cpp" />
-    <ClCompile Include="TcpSockServerObj.cpp" />
-    <ClCompile Include="Thread.cpp" />
+    <ClCompile Include="..\..\..\src\Base64.cpp" />
+    <ClCompile Include="..\..\..\src\HttpAsynReqObj.cpp" />
+    <ClCompile Include="..\..\..\src\HttpServerListerNet.cpp" />
+    <ClCompile Include="..\..\..\src\HttpSockServerObj.cpp" />
+    <ClCompile Include="..\..\..\src\Log.cpp" />
+    <ClCompile Include="..\..\..\src\publicGlobalvar.cpp" />
+    <ClCompile Include="..\..\..\src\SocketServer.cpp" />
+    <ClCompile Include="..\..\..\src\TcpServerListerNet.cpp" />
+    <ClCompile Include="..\..\..\src\TcpSockServerObj.cpp" />
+    <ClCompile Include="..\..\..\src\Thread.cpp" />
+    <ClCompile Include="..\..\..\src\USER_SHA1.cpp" />
+    <ClCompile Include="..\..\..\src\WebServerListerNet.cpp" />
+    <ClCompile Include="..\..\..\src\WebSockServerObj.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SocketServer.rc" />

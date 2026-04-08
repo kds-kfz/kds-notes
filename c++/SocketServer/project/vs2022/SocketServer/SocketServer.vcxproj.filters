@@ -22,93 +22,135 @@
     <Filter Include="thread">
       <UniqueIdentifier>{654cee1f-ac88-46aa-a0e0-4e0f6b22bb01}</UniqueIdentifier>
     </Filter>
+    <Filter Include="nsdk">
+      <UniqueIdentifier>{e7499471-403d-4a3f-a43f-a43047b3e260}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="SocketServer.h">
+    <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket4C.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket4C-SSL.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket-SSL.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\hpsocket\include\HPTypeDef.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\hpsocket\include\SocketInterface.h">
+      <Filter>hpsocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\HttpAsynReqObj.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="Log.h">
-      <Filter>public</Filter>
-    </ClInclude>
-    <ClInclude Include="nsdk_define.h">
-      <Filter>public</Filter>
-    </ClInclude>
-    <ClInclude Include="publicfunc.h">
-      <Filter>public</Filter>
-    </ClInclude>
-    <ClInclude Include="publicGlobalvar.h">
-      <Filter>public</Filter>
-    </ClInclude>
-    <ClInclude Include="Thread.h">
-      <Filter>public</Filter>
-    </ClInclude>
-    <ClInclude Include="Struct.h">
+    <ClInclude Include="..\..\..\src\HttpServerListerNet.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="TcpPackServerObj.h">
+    <ClInclude Include="..\..\..\src\HttpSockServerObj.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="TcpServerListerNet.h">
+    <ClInclude Include="..\..\..\src\SocketServer.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="TcpSockServerObj.h">
+    <ClInclude Include="..\..\..\src\Struct.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="vender\hpsocket\include\HPSocket.h">
-      <Filter>hpsocket</Filter>
+    <ClInclude Include="..\..\..\src\TcpPackServerObj.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="vender\hpsocket\include\HPSocket4C.h">
-      <Filter>hpsocket</Filter>
+    <ClInclude Include="..\..\..\src\TcpServerListerNet.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="vender\hpsocket\include\HPSocket4C-SSL.h">
-      <Filter>hpsocket</Filter>
+    <ClInclude Include="..\..\..\src\TcpSockServerObj.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="vender\hpsocket\include\HPSocket-SSL.h">
-      <Filter>hpsocket</Filter>
+    <ClInclude Include="..\..\..\src\WebServerListerNet.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="vender\hpsocket\include\HPTypeDef.h">
-      <Filter>hpsocket</Filter>
+    <ClInclude Include="..\..\..\src\WebSockServerObj.h">
+      <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="vender\hpsocket\include\SocketInterface.h">
-      <Filter>hpsocket</Filter>
-    </ClInclude>
-    <ClInclude Include="vender\nsdk\include\nsdk.h">
+    <ClInclude Include="..\..\..\src\Base64.h">
       <Filter>public</Filter>
     </ClInclude>
-    <ClInclude Include="vender\thread\include\pthread.h">
+    <ClInclude Include="..\..\..\src\Log.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\publicfunc.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\publicGlobalvar.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\Thread.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\USER_SHA1.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk.h">
+      <Filter>nsdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_atomic.h">
+      <Filter>nsdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_define.h">
+      <Filter>nsdk</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\thread\include\pthread.h">
       <Filter>thread</Filter>
     </ClInclude>
-    <ClInclude Include="vender\thread\include\sched.h">
+    <ClInclude Include="..\..\..\vender\thread\include\sched.h">
       <Filter>thread</Filter>
     </ClInclude>
-    <ClInclude Include="vender\thread\include\semaphore.h">
+    <ClInclude Include="..\..\..\vender\thread\include\semaphore.h">
       <Filter>thread</Filter>
-    </ClInclude>
-    <ClInclude Include="resource.h">
-      <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="SocketServer.cpp">
+    <ClCompile Include="..\..\..\src\Base64.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\Log.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\publicGlobalvar.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\Thread.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\USER_SHA1.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\HttpAsynReqObj.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Log.cpp">
-      <Filter>public</Filter>
-    </ClCompile>
-    <ClCompile Include="publicGlobalvar.cpp">
-      <Filter>public</Filter>
-    </ClCompile>
-    <ClCompile Include="Thread.cpp">
-      <Filter>public</Filter>
-    </ClCompile>
-    <ClCompile Include="TcpServerListerNet.cpp">
+    <ClCompile Include="..\..\..\src\HttpServerListerNet.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="TcpSockServerObj.cpp">
+    <ClCompile Include="..\..\..\src\HttpSockServerObj.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="publicfunc.cpp">
-      <Filter>public</Filter>
+    <ClCompile Include="..\..\..\src\SocketServer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\TcpServerListerNet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\TcpSockServerObj.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\WebServerListerNet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\WebSockServerObj.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
