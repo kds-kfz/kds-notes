@@ -1,0 +1,108 @@
+# VERSION_CHANGELOG
+
+## 2026-04-09
+
+### 本次变更概述
+
+本次主要补齐并整理了 `nsdk` 工程中的线程、事件、互斥锁能力，同时修复了一批头文件兼容性、跨平台宏定义和 VS 工程配置问题，便于后续在 Windows / Linux 下统一维护和编译。
+
+### 新增同步与线程基础模块
+
+- 新增 `CMutex` 头文件与实现：
+  - 新增 [nsdk_mutex.h](F:\开发资料\MyCode\kds-notes\c++\nsdk\include\nsdk_mutex.h)。
+  - 新增 [nsdk_mutex.cpp](F:\开发资料\MyCode\kds-notes\c++\nsdk\src\nsdk_mutex.cpp)。
+  - Windows 平台使用系统 `Mutex`。
+  - Linux 平台中，无名锁使用进程内 `pthread_mutex_t`；命名锁改为“共享内存 + pthread_mutex_t + 协调锁文件”实现。
+  - 二次复核后，命名锁不再依赖共享内存中的引用计数判断对象是否仍然有效，而是通过协调锁判断是否仍有活跃持有者；如果没有活跃持有者，则在下次同名 `Create()` 时自动重建共享对象，避免异常退出后复用旧锁状态。
+  - 补充 robust mutex 恢复逻辑，在 `EOWNERDEAD` 场景下执行一致性恢复。
+  - `Lock()` 对 `WAIT_ABANDONED` / `EOWNERDEAD` 场景按成功处理，并通过 `GetLastError()` / `GetLastErrorMsg()` 暴露恢复信息，避免调用方误判失败。
+
+- 新增 `CEvent` 头文件与实现：
+  - 新增 [nsdk_event.h](F:\开发资料\MyCode\kds-notes\c++\nsdk\include\nsdk_event.h)。
+  - 新增 [nsdk_event.cpp](F:\开发资料\MyCode\kds-notes\c++\nsdk\src\nsdk_event.cpp)。
+  - Windows 平台使用系统 `Event`。
+  - Linux 平台中，无名事件使用 `pthread_mutex_t + pthread_cond_t + signaled` 实现；命名事件使用“共享内存 + pthread_mutex_t + pthread_cond_t + 共享状态”实现。
+  - 二次复核后，命名事件改为通过协调锁判断是否仍有活跃持有者；若所有持有者都已经退出，则在下次同名 `Create()` 时重建共享事件对象，避免旧的 `signaled` / `manual reset` 状态残留到下一轮运行。
+  - 补充等待过程中的 robust mutex 恢复路径。
+  - 区分手动复位与自动复位语义，自动复位在放行单个等待者后清除信号状态。
+
+- 新增 `CBaseThread` 基础线程抽象：
+  - 新增 [nsdk_thread.h](F:\开发资料\MyCode\kds-notes\c++\nsdk\include\nsdk_thread.h)。
+  - 新增 [nsdk_thread.cpp](F:\开发资料\MyCode\kds-notes\c++\nsdk\src\nsdk_thread.cpp)。
+  - 线程行为对齐 [Thread.cpp](F:\开发资料\MyCode\kds-notes\c++\nsdk\src\Thread.cpp) 既有语义：创建后默认暂停，只有 `Resume()` 后才进入 `Initialize()` 和 `Work()`。
+  - `DeleteThread()` 会同时置位工作事件和结束事件，确保线程即使处于暂停等待状态也能被唤醒并正常退出。
+  - 二次复核后，修正 `Pause()` / `IsRunning()` / `DeleteThread()` 的时序语义：
+    - `Pause()` 现在会等待线程真正进入 idle 后再返回，避免调用方误以为线程已经停下但实际上仍在执行 `Work()`。
+    - `IsRunning()` 改为基于 `idle` / `dead` 状态判断线程是否仍在执行。
+    - `Pause()` 和 `DeleteThread()` 增加“线程自身调用自己”的防护，避免在工作线程中自等造成死锁；线程自身调用 `DeleteThread()` 时只发退出请求，最终回收仍需由外部拥有者完成。
+  - 对线程 ID、空闲态、工作态、结束态和死亡态事件做了统一封装，便于派生类复用。
+
+### 头文件与跨平台兼容性整理
+
+- 更新 [nsdk.h](F:\开发资料\MyCode\kds-notes\c++\nsdk\include\nsdk.h)：
+  - 将 `KDSC_MAX_PATH`、`KDSC_BUF_PATH`、`KDSC_MAX_BUF` 统一更名为 `NSDK_MAX_PATH`、`NSDK_BUF_PATH`、`NSDK_MAX_BUF`。
+  - 将 `FormatString`、`Add2String`、`GetTimes` 的声明移出 `extern "C"`，避免 C++ 返回类型导致的 `C4190` warning。
+
+- 更新 [nsdk_define.h](F:\开发资料\MyCode\kds-notes\c++\nsdk\include\nsdk_define.h)：
+  - 补充 `NSDK_OK`、`NSDK_KO`、`NSDK_TIMEOUT`、`NSDK_EXISTS` 等通用返回码。
+  - 补充 `_W64`、`NULL`、`CONST`、`TRUE`、`FALSE` 等基础兼容宏。
+  - `INFINITE`、`WAIT_TIMEOUT`、`WAIT_OBJECT_0`、`WAIT_ABANDONED`、`WAIT_FAILED` 仅在非 Windows 平台下兜底定义，避免与 Windows SDK 重复定义。
+
+- 更新 [nsdk_atomic.h](F:\开发资料\MyCode\kds-notes\c++\nsdk\include\nsdk_atomic.h)：
+  - 新增 `nsdk_arry_size`、`nsdk_del`、`nsdk_del_arry`、`nsdk_free`、`nsdk_malloc` 等常用辅助宏，减少重复样板代码。
+
+- 新增 [nsdk_libraryop.h](F:\开发资料\MyCode\kds-notes\c++\nsdk\include\nsdk_libraryop.h)：
+  - 统一封装动态库加载、释放和函数地址获取接口，为依赖动态库的上层模块提供通用能力。
+
+### 源码与工程配置修复
+
+- 更新 [nsdk.cpp](F:\开发资料\MyCode\kds-notes\c++\nsdk\src\nsdk.cpp)：
+  - 修正 `size_t` 到整型的窄化写法，减少 `C4267` / `C4244` warning。
+  - 修正 `TrimStr` / `TrimStrByChar` 中对 `npos` 的判断逻辑，避免字符串全空或全分隔字符时的边界问题。
+  - 调整 `tolower` / `toupper` 的参数处理，先转为 `unsigned char` 再做大小写变换，规避潜在符号位问题。
+  - 修正若干返回值和变量类型，使实现与 STL 接口返回类型保持一致。
+
+- 更新 [nsdk.vcxproj](F:\开发资料\MyCode\kds-notes\c++\nsdk\project\vs2022\nsdk\nsdk.vcxproj)：
+  - 修复 `OutDir` 末尾缺少反斜杠的问题，避免 `MSB8004` warning。
+  - 将 `nsdk_event.cpp`、`nsdk_mutex.cpp`、`nsdk_thread.cpp` 及对应头文件纳入 VS2022 工程。
+
+- 更新 [nsdk.vcxproj.filters](F:\开发资料\MyCode\kds-notes\c++\nsdk\project\vs2022\nsdk\nsdk.vcxproj.filters)：
+  - 同步新增文件的筛选器配置，便于在 IDE 中按头文件/源文件分类查看。
+
+### 二次复核问题说明
+
+- 命名锁 `CMutex` 的原问题：
+  - 初版实现主要依赖共享内存中的 `m_iRefCount` 判断命名锁是否仍然有效。
+  - 这种做法在“进程异常退出、未执行 `Close()`”时并不可靠，因为计数不会被系统自动回收，下一次同名 `Create()` 可能直接复用旧共享对象。
+  - 对锁而言，结果是共享内存和锁文件可能长期残留；对上层而言，更大的问题是调用方会误以为拿到的是“全新命名锁”，实际上拿到的是上一次运行残留的同步对象。
+  - 因此本次改为通过协调锁判断是否仍有活跃持有者：如果没有活跃持有者，则优先重建命名锁对象，确保异常退出后不会继续复用陈旧状态。
+
+- 命名事件 `CEvent` 的原问题：
+  - 初版实现同样依赖共享内存中的引用计数判断对象生命周期。
+  - 这在异常退出后会带来比锁更明显的行为污染：旧的 `m_bSignaled` 和 `m_bManualReset` 状态可能被下一轮运行直接继承，形成“幽灵信号”或错误复位模式。
+  - 因此本次与命名锁保持同一处理策略：没有活跃持有者时重建共享事件对象，保证事件状态不会跨异常退出被错误继承。
+
+- 线程 `CBaseThread` 的原问题：
+  - 初版 `Pause()` 在复位 `m_clEventWork` 后立即返回，且会提前把 `idle` 事件置位；如果此时线程仍在执行本轮 `Work()`，调用方会误判线程已经停下。
+  - 初版 `DeleteThread()` 和 `Pause()` 没有防御线程自身调用自己的场景；一旦在工作线程内部调用，就可能出现等待自己退出或等待自己进入 idle 的死锁。
+  - 因此本次把 `Pause()` 改为等待线程真正进入 idle 后再返回，并为 `Pause()` / `DeleteThread()` 增加线程自身调用防护。
+
+### 修改原因与残余风险
+
+- 为什么要这样修改：
+  - 这次修改的目标不是单纯“让代码能跑”，而是保证命名同步对象在异常退出后的行为可预测，避免把上一轮进程的脏状态带到下一轮运行。
+  - 对线程模型来说，重点是让 `Pause()` / `IsRunning()` / `DeleteThread()` 的语义与实际执行状态一致，减少调用方基于错误状态做资源释放或状态切换的风险。
+
+- 这样修改后仍需注意的隐患：
+  - 命名锁和命名事件现在不再保留“没有活跃持有者后的历史状态”。如果未来业务期望“同名事件在所有进程退出后仍保留之前的 signaled 状态”，当前实现不会满足，这属于有意选择的语义取舍。
+  - `Pause()` 和外部线程调用的 `DeleteThread()` 现在会等待线程真正进入可暂停/可退出状态；如果派生类 `Work()` 内部存在长时间阻塞、死循环或不可中断等待，这两个接口仍可能等待较长时间，甚至一直阻塞。这是当前线程模型的剩余约束，不是本次修复新引入的问题。
+  - 线程自身调用 `DeleteThread()` 现在会返回失败并仅发出退出请求，资源最终回收必须由外部拥有者完成；这是为了避免自等待死锁而引入的显式约束。
+
+### 本次验证
+
+- 使用 `msbuild nsdk.vcxproj /t:ClCompile /p:Configuration=Release /p:Platform=x64` 进行编译验证时，默认 `tlog` 目录存在本地访问拒绝问题，因此改用临时 `IntDir` / `OutDir` 进行了等价编译检查。
+- 本次涉及的 [nsdk_mutex.cpp](F:\开发资料\MyCode\kds-notes\c++\nsdk\src\nsdk_mutex.cpp)、[nsdk_event.cpp](F:\开发资料\MyCode\kds-notes\c++\nsdk\src\nsdk_event.cpp)、[nsdk_thread.cpp](F:\开发资料\MyCode\kds-notes\c++\nsdk\src\nsdk_thread.cpp) 已通过 `ClCompile`，当前结果为 `0 error`。
+
+### 备注
+
+- 本记录仅整理 `nsdk` 工程本次改动，不包含 `demoServer`、`SocketServer` 或编译产物目录中的变更。

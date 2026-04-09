@@ -66,8 +66,8 @@ int CBaseLog::InitLog(int p_iLogDate)
 
 	m_uiLastDate = 0 == p_iLogDate ? nsdk::GetCurDate() : p_iLogDate;
 
-	char szLogFile[KDSC_MAX_PATH] = { 0 };
-	snprintf(szLogFile, KDSC_MAX_PATH - 1, "%s%s%s%08d.log", m_strLogFold.c_str(), PATH_DELIMETER, m_strLogName.c_str(), m_uiLastDate);
+	char szLogFile[NSDK_MAX_PATH] = { 0 };
+	snprintf(szLogFile, NSDK_MAX_PATH - 1, "%s%s%s%08d.log", m_strLogFold.c_str(), PATH_DELIMETER, m_strLogName.c_str(), m_uiLastDate);
 	m_strLogPath = szLogFile;
 	m_pFileLog = fopen(szLogFile, "a+");
 

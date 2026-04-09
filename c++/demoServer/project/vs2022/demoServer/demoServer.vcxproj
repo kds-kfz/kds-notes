@@ -19,9 +19,32 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\public\CodeMsg.cpp" />
+    <ClCompile Include="..\..\..\public\Log.cpp" />
+    <ClCompile Include="..\..\..\public\MtApiUrls.cpp" />
+    <ClCompile Include="..\..\..\public\Thread.cpp" />
+    <ClCompile Include="..\..\..\public\UserMng.cpp" />
     <ClCompile Include="..\..\..\src\demoServer.cpp" />
+    <ClCompile Include="..\..\..\src\HttpSockMng.cpp" />
+    <ClCompile Include="..\..\..\src\TcpSockMng.cpp" />
+    <ClCompile Include="..\..\..\src\WebSockMng.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\include\HttpSockMng.h" />
+    <ClInclude Include="..\..\..\include\TcpSockMng.h" />
+    <ClInclude Include="..\..\..\include\WebSockMng.h" />
+    <ClInclude Include="..\..\..\public\AutoCS.h" />
+    <ClInclude Include="..\..\..\public\CodeMsg.h" />
+    <ClInclude Include="..\..\..\public\Log.h" />
+    <ClInclude Include="..\..\..\public\MtApiUrls.h" />
+    <ClInclude Include="..\..\..\public\Struct.h" />
+    <ClInclude Include="..\..\..\public\Thread.h" />
+    <ClInclude Include="..\..\..\public\UserData.h" />
+    <ClInclude Include="..\..\..\public\UserMng.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_atomic.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_define.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_libraryop.h" />
     <ClInclude Include="..\..\..\vender\SocketServer\include\SocketServer.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -83,7 +106,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -97,7 +120,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -109,7 +132,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
     <Link>
@@ -119,13 +142,16 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>
+      </SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_SCL_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\..\..\vender\hpsocket\include;$(SolutionDir)..\..\..\vender\nsdk\include;$(SolutionDir)..\..\..\vender\thread\include;$(SolutionDir)..\..\..\vender\SocketServer\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\..\vender\hpsocket\include;$(SolutionDir)..\..\..\vender\nsdk\include;$(SolutionDir)..\..\..\vender\thread\include;$(SolutionDir)..\..\..\vender\SocketServer\include;$(SolutionDir)..\..\..\include;$(SolutionDir)..\..\..\vender\json\include;$(SolutionDir)..\..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DisableSpecificWarnings>4996;4102;4267</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

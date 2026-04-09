@@ -1,7 +1,7 @@
 #if !defined(KDSC_TCP_SOCK_MANAGE_H)
 #define KDSC_TCP_SOCK_MANAGE_H
 
-#include "xsdk_libraryop.h"
+#include "nsdk_libraryop.h"
 #include "SocketServer.h"
 #include "UserData.h"
 

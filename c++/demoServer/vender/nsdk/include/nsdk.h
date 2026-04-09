@@ -24,9 +24,9 @@ BGN_NAMESPACE_NSDK
 #define RW_OK	6 // 读写权限
 
 //公共宏
-#define KDSC_MAX_PATH 260
-#define KDSC_BUF_PATH 260
-#define KDSC_MAX_BUF 1024
+#define NSDK_MAX_PATH 260
+#define NSDK_BUF_PATH 260
+#define NSDK_MAX_BUF 1024
 
 #ifdef __cplusplus
 extern "C"

@@ -71,7 +71,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)\..\..\..\lib\$(Platform)vc14</OutDir>
+    <OutDir>$(SolutionDir)\..\..\..\lib\$(Platform)vc14\</OutDir>
     <TargetName>lib$(ProjectName)</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -148,6 +148,10 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\include\nsdk.h" />
     <ClInclude Include="..\..\..\include\nsdk_define.h" />
+    <ClInclude Include="..\..\..\include\nsdk_event.h" />
+    <ClInclude Include="..\..\..\include\nsdk_libraryop.h" />
+    <ClInclude Include="..\..\..\include\nsdk_mutex.h" />
+    <ClInclude Include="..\..\..\include\nsdk_thread.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
@@ -155,6 +159,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\nsdk.cpp" />
+    <ClCompile Include="..\..\..\src\nsdk_event.cpp" />
+    <ClCompile Include="..\..\..\src\nsdk_mutex.cpp" />
+    <ClCompile Include="..\..\..\src\nsdk_thread.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,9 +1,13 @@
-#pragma once
+#ifndef _HTTP_SOCK_MNG_H_
+#define _HTTP_SOCK_MNG_H_
 
-#include "xsdk_libraryop.h"
-#include "SocketServerDll.h"
-#include "jztprotocol.pb.h"
-#define HTTP_DLL_NAME		"SocketServerDll.dll"
+#include <map>
+#include <string>
+
+#include "nsdk_libraryop.h"
+#include "SocketServer.h"
+
+#define HTTP_DLL_NAME		"SocketServer.dll"
 
 #define HTTP_RECVBUF_LEN (1024 * 1024)
 #define HTTP_CONNECT_NUM (300)
@@ -34,13 +38,14 @@ public:
 	static int SendResponse(CHttpAsynReq *p_refReq, const char* p_szData, int p_iDataLen);
 	CSocketServer* HttpHandle() { return m_pHttpServerHandle; }
 	bool IsHttpUrl(const char *p_szUrl);
-	Jzt::SetCodeType SetCodeTypeConvert(short p_nSetcodeType);
 private:
 	static CHttpSockMng *m_pThis;
 	CSocketServer *m_pHttpServerHandle;
 	CLibraryOp *m_pclLibraryOp;
 	bool m_bStatus;					//³õÊ¼»¯×´Ì¬
-	std::map<string, bool> m_mapHttpUrl;//url,ÊÇ·ñ×¢²á
+	std::map<std::string, bool> m_mapHttpUrl;//url,ÊÇ·ñ×¢²á
 	void RegisterUrl();
 };
+
+#endif
 

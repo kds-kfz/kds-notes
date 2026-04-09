@@ -24,6 +24,18 @@
     <ClInclude Include="..\..\..\include\nsdk_define.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\include\nsdk_libraryop.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\nsdk_mutex.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\nsdk_thread.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\nsdk_event.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="nsdk.rc">
@@ -32,6 +44,15 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\nsdk.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\nsdk_mutex.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\nsdk_thread.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\nsdk_event.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

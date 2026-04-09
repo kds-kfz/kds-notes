@@ -12,6 +12,12 @@ extern "C" {
 //公共部分
 #define nsdk_max(a,b)            (((a) > (b)) ? (a) : (b))
 #define nsdk_min(a,b)            (((a) < (b)) ? (a) : (b))
+#define nsdk_arry_size(arr)		(sizeof(arr) / sizeof((arr)[0]))
+#define nsdk_del(a)				{if (a) {delete a;a=NULL;}}
+#define nsdk_del_arry(a)		{if (a) {delete []a;a=NULL;}}
+#define nsdk_free(a)			{if (a) {free(a);a=NULL;}}
+#define nsdk_malloc(ptr,size,type)	{ ptr = new type[size/sizeof(type)];\
+									if(ptr) memset(ptr,0,size);\
 
 //跨平台部分
 #if defined(OS_IS_WINDOWS)

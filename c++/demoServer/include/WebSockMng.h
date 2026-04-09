@@ -2,12 +2,12 @@
 
 #include <cstdint>
 
-#include "xsdk_libraryop.h"
-#include "SocketServerDll.h"
+#include "nsdk_libraryop.h"
+#include "SocketServer.h"
+#include "UserData.h"
 
-#define HTTP_DLL_NAME		"SocketServerDll.dll"
+#define HTTP_DLL_NAME		"libSocketServer.dll"
 
-//int p_iRBufLen, int p_iMaxConnectNum, int p_iMaxAcceptNum, int p_iThreadNum, int p_iQueueNum
 #define WEB_RECVBUF_LEN (1024 * 1024)
 #define WEB_CONNECT_NUM (300)
 #define WEB_ACCEPT_NUM (1024 * 4)
@@ -20,13 +20,13 @@ typedef CSocketServer *(*pfnCreateWebSockInstance)();
 //ÊÍ·Å
 typedef void(*pfnDelWebSockInstance)(CSocketServer *&);
 
-class CWebSockProtobufMng 
+class CWebSockMng 
 {
 public:
-	CWebSockProtobufMng();
-	~CWebSockProtobufMng();
+	CWebSockMng();
+	~CWebSockMng();
 
-	static CWebSockProtobufMng* GetInstance();
+	static CWebSockMng* GetInstance();
 	void Release();
 
 	bool Start(const char *p_szIp, unsigned short p_nPort, int p_iThreadNum = WEB_THREAD_NUM, int p_iQueueNum = WEB_QUEUE_NUM,
@@ -44,10 +44,9 @@ public:
 	void WebSockClose(void* p_refServerHandle, void *p_refClinetHandle, const char* p_szData, int p_iDataLen);
 
 private:
-	static CWebSockProtobufMng *m_pThis;
+	static CWebSockMng *m_pThis;
 	CLibraryOp *m_pclLibraryOp;
 	static CSocketServer *m_pWebServerHandle;
 	pfnDelWebSockInstance m_fnDelWebSockInstance;
 	bool m_bStatus;					//³õÊ¼»¯×´Ì¬
 };
-
