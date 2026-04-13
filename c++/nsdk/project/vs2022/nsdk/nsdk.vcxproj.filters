@@ -46,9 +46,6 @@
     <ClCompile Include="..\..\..\src\nsdk.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\nsdk_mutex.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\nsdk_thread.cpp">
       <Filter>源文件</Filter>
     </ClCompile>

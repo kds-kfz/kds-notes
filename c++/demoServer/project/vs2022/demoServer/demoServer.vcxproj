@@ -22,21 +22,27 @@
     <ClCompile Include="..\..\..\public\CodeMsg.cpp" />
     <ClCompile Include="..\..\..\public\Log.cpp" />
     <ClCompile Include="..\..\..\public\MtApiUrls.cpp" />
+    <ClCompile Include="..\..\..\public\publicfunc.cpp" />
     <ClCompile Include="..\..\..\public\Thread.cpp" />
     <ClCompile Include="..\..\..\public\UserMng.cpp" />
     <ClCompile Include="..\..\..\src\demoServer.cpp" />
     <ClCompile Include="..\..\..\src\HttpSockMng.cpp" />
+    <ClCompile Include="..\..\..\src\NetQueueMng.cpp" />
+    <ClCompile Include="..\..\..\src\ServerProc.cpp" />
     <ClCompile Include="..\..\..\src\TcpSockMng.cpp" />
     <ClCompile Include="..\..\..\src\WebSockMng.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\include\HttpSockMng.h" />
+    <ClInclude Include="..\..\..\include\NetQueueMng.h" />
+    <ClInclude Include="..\..\..\include\ServerProc.h" />
     <ClInclude Include="..\..\..\include\TcpSockMng.h" />
     <ClInclude Include="..\..\..\include\WebSockMng.h" />
     <ClInclude Include="..\..\..\public\AutoCS.h" />
     <ClInclude Include="..\..\..\public\CodeMsg.h" />
     <ClInclude Include="..\..\..\public\Log.h" />
     <ClInclude Include="..\..\..\public\MtApiUrls.h" />
+    <ClInclude Include="..\..\..\public\publicfunc.h" />
     <ClInclude Include="..\..\..\public\Struct.h" />
     <ClInclude Include="..\..\..\public\Thread.h" />
     <ClInclude Include="..\..\..\public\UserData.h" />
@@ -45,7 +51,14 @@
     <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_atomic.h" />
     <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_define.h" />
     <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_libraryop.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_queue.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\xsdk_define.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\xsdk_event.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\xsdk_mutex.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\xsdk_rwlock.h" />
+    <ClInclude Include="..\..\..\vender\nsdk\include\xsdk_shm.h" />
     <ClInclude Include="..\..\..\vender\SocketServer\include\SocketServer.h" />
+    <ClInclude Include="..\..\..\vender\xsdk\include\xsdk_thread.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -147,17 +160,18 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>
       </SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_SCL_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_SCL_SECURE_NO_DEPRECATE;OS_IS_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\..\..\vender\hpsocket\include;$(SolutionDir)..\..\..\vender\nsdk\include;$(SolutionDir)..\..\..\vender\thread\include;$(SolutionDir)..\..\..\vender\SocketServer\include;$(SolutionDir)..\..\..\include;$(SolutionDir)..\..\..\vender\json\include;$(SolutionDir)..\..\..\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\..\vender\hpsocket\include;$(SolutionDir)..\..\..\vender\nsdk\include;$(SolutionDir)..\..\..\vender\thread\include;$(SolutionDir)..\..\..\vender\SocketServer\include;$(SolutionDir)..\..\..\include;$(SolutionDir)..\..\..\vender\json\include;$(SolutionDir)..\..\..\public;$(SolutionDir)..\..\..\vender\xsdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4996;4102;4267</DisableSpecificWarnings>
+      <Optimization>MaxSpeed</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\..\vender\hpsocket\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\thread\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\nsdk\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\SocketServer\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>HPSocket.lib;libnsdk.lib;pthreadVC2.lib;libSocketServer.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\..\vender\xsdk\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\hpsocket\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\thread\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\nsdk\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\SocketServer\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>HPSocket.lib;libnsdk.lib;pthreadVC2.lib;libSocketServer.lib;libxsdk.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include "nsdk.h"
+#include "nsdk_atomic.h"
 
 // 宏定义
 #define foreach(container, it) \
@@ -16,6 +17,8 @@
 //防止重名 reverse
 #define foreach_reverse(container, it) \
 	for( decltype((container).rbegin()) it = (container).rbegin(); it != (container).rend(); ++it)
+
+int ReleasePackDataFunc(void* lpParameter);
 
 #endif
 

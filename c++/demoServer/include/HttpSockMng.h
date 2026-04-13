@@ -7,7 +7,7 @@
 #include "nsdk_libraryop.h"
 #include "SocketServer.h"
 
-#define HTTP_DLL_NAME		"SocketServer.dll"
+#define HTTP_DLL_NAME		"libSocketServer.dll"
 
 #define HTTP_RECVBUF_LEN (1024 * 1024)
 #define HTTP_CONNECT_NUM (300)

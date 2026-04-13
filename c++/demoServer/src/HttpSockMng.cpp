@@ -75,32 +75,36 @@ int CHttpSockMng::SendResponse(CHttpAsynReq *p_refReq, const char* p_szData, int
 {
 	if (!m_pThis || !p_refReq)
 	{
-		HTTP_WARN("实例=%d,请求包是否有效=%d", m_pThis == nullptr, p_refReq == nullptr);
+		MT_WARN("实例=%d,请求包是否有效=%d", m_pThis == nullptr, p_refReq == nullptr);
 		return -1;
 	}
 
 	CSocketServer* pHttpHandle = m_pThis->HttpHandle();
 	if (!pHttpHandle)
 	{
-		HTTP_WARN("[HTTP服务] Http服务句柄为空");
+		MT_WARN("[HTTP服务] Http服务句柄为空");
 		return -2;
 	}
 
-	// 只有底层确认响应已提交发送后，才允许释放请求对象；否则上层还能决定是否重试或转错误处理。
-	if (!p_refReq->SendResponse(p_szData, p_iDataLen))
+	const unsigned long long ullReqId = p_refReq->GetConnAsyId();
+
+	const bool bSendOk = !!p_refReq->SendResponse(p_szData, p_iDataLen);
+	if (!bSendOk)
 	{
-		HTTP_WARN("[HTTP服务] 发送应答失败,ReqId=%llu,DataLen=%d",
-			p_refReq->GetConnAsyId(), p_iDataLen);
-		return -3;
+		// 连接提前断开/发送失败时，上层继续持有请求对象会造成 g_mapHttpReq 持续增长；
+		// 因此无论发送是否成功，都必须最终释放请求对象。
+		MT_WARN("[HTTP服务] 发送应答失败,ReqId=%llu,DataLen=%d", ullReqId, p_iDataLen);
 	}
 
-	if (!pHttpHandle->DelHttpAsynReq(p_refReq->GetConnAsyId()))
+	const bool bDelOk = !!pHttpHandle->DelHttpAsynReq(ullReqId);
+	if (!bDelOk)
 	{
-		HTTP_WARN("[HTTP服务] 释放请求对象失败,ReqId=%llu", p_refReq->GetConnAsyId());
+		MT_WARN("[HTTP服务] 释放请求对象失败,ReqId=%llu,SendOk=%d", ullReqId, (int)bSendOk);
+		// 释放失败优先返回，避免上层误以为“已完全处理完毕”。
 		return -4;
 	}
 
-	return 0;
+	return bSendOk ? 0 : -3;
 }
 
 bool CHttpSockMng::IsHttpUrl(const char *p_szUrl)
@@ -117,14 +121,14 @@ void CHttpSockMng::RegisterUrl()
 
 	for (auto it = m_mapHttpUrl.begin(); it != m_mapHttpUrl.end(); ++it)
 	{
-		HTTP_INFO("[HTTP服务] 已注册的URL: %s", it->first.c_str());
+		MT_INFO("[HTTP服务] 已注册的URL: %s", it->first.c_str());
 	}
 }
 bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 {
 	if (nullptr == p_sHomePath || strlen(p_sHomePath) == 0)
 	{
-		HTTP_WARN("[HTTP服务] 路径是空");
+		MT_WARN("[HTTP服务] 路径是空");
 		return false;
 	}
 	string strDllPath = p_sHomePath;
@@ -138,7 +142,7 @@ bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 	m_pclLibraryOp = new CLibraryOp;
 	if (!m_pclLibraryOp)
 	{
-		HTTP_WARN("[HTTP服务] 装载三方库类失败...");
+		MT_WARN("[HTTP服务] 装载三方库类失败...");
 		return false;
 	}
 
@@ -146,7 +150,7 @@ bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 	const auto fileAttributes = ::GetFileAttributes(strDllPath.c_str());
 	if (INVALID_FILE_ATTRIBUTES == fileAttributes || 0 != (fileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 	{
-		HTTP_WARN("[HTTP服务] 动态库文件不存在[%s]...", strDllPath.c_str());
+		MT_WARN("[HTTP服务] 动态库文件不存在[%s]...", strDllPath.c_str());
 		delete m_pclLibraryOp;
 		m_pclLibraryOp = nullptr;
 		return false;
@@ -155,7 +159,7 @@ bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 	//加载动态库
 	if (!m_pclLibraryOp->Load(strDllPath.c_str()))
 	{
-		HTTP_WARN("[HTTP服务] 动态库加载失败[%s]...", strDllPath.c_str());
+		MT_WARN("[HTTP服务] 动态库加载失败[%s]...", strDllPath.c_str());
 		delete m_pclLibraryOp;
 		m_pclLibraryOp = nullptr;
 		return false;
@@ -166,7 +170,7 @@ bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 
 	if (!m_pclLibraryOp->GetFuncAddress((void**)&fnCreateHttpSockInstance, "CreateHttpSockInstance") || nullptr == fnCreateHttpSockInstance)
 	{
-		HTTP_WARN("[HTTP服务] 获取方法[HttpSockIns]失败...");
+		MT_WARN("[HTTP服务] 获取方法[HttpSockIns]失败...");
 		delete m_pclLibraryOp;
 		m_pclLibraryOp = nullptr;
 		return false;
@@ -177,7 +181,7 @@ bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 		m_pHttpServerHandle = fnCreateHttpSockInstance();
 		if (nullptr == m_pHttpServerHandle)
 		{
-			HTTP_WARN("[HTTP服务] 获取监控方法失败");
+			MT_WARN("[HTTP服务] 获取监控方法失败");
 			delete m_pclLibraryOp;
 			m_pclLibraryOp = nullptr;
 			return false;
@@ -186,7 +190,7 @@ bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 
 	if (!m_pclLibraryOp->GetFuncAddress((void**)&g_fnDelHttpSockInstance, "DelHttpSockInstance") || nullptr == g_fnDelHttpSockInstance)
 	{
-		HTTP_WARN("[HTTP服务] 获取方法[DelHttpSockIns]失败...");
+		MT_WARN("[HTTP服务] 获取方法[DelHttpSockIns]失败...");
 		delete m_pclLibraryOp;
 		m_pclLibraryOp = nullptr;
 		return false;
@@ -198,7 +202,7 @@ bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 	//注册url
 	RegisterUrl();
 
-	HTTP_INFO("[HTTP服务] 初始化状态: %d", m_bStatus);
+	MT_INFO("[HTTP服务] 初始化状态: %d", m_bStatus);
 
 	return m_bStatus;
 }
@@ -209,7 +213,7 @@ bool CHttpSockMng::Start(const char *p_szIp, unsigned short p_nPort, int p_iThre
 {
 	if (nullptr == m_pHttpServerHandle)
 	{
-		HTTP_WARN("[HTTP服务] 创建http服务失败: 服务句柄是空");
+		MT_WARN("[HTTP服务] 创建http服务失败: 服务句柄是空");
 		return false;
 	}
 
@@ -227,29 +231,29 @@ bool CHttpSockMng::Start(const char *p_szIp, unsigned short p_nPort, int p_iThre
 	const char* pSafeKeyPassword = (nullptr == p_szKeyPassword) ? "" : p_szKeyPassword;
 	const char* pSafeCAPemCertFileOrPath = (nullptr == p_szCAPemCertFileOrPath) ? "" : p_szCAPemCertFileOrPath;
 
-	HTTP_INFO("[HTTP服务] 服务IP: %s", p_szIp);
-	HTTP_INFO("[HTTP服务] 服务端口: %d", p_nPort);
-	HTTP_INFO("[HTTP服务] 线程数: %d", p_iThreadNum);
-	HTTP_INFO("[HTTP服务] 队列数: %d", p_iQueueNum);
-	HTTP_INFO("[HTTP服务] 缓存大小: %d", p_iRBufLen);
-	HTTP_INFO("[HTTP服务] 最大Accept: %d", p_iMaxConnectNum);
-	HTTP_INFO("[HTTP服务] 最大Connect: %d", p_iMaxAcceptNum);
-	HTTP_INFO("[HTTP服务] 底层日志路径:%s", pSafeLogFold);
-	HTTP_INFO("[HTTP服务] 是否开启https:%d", p_bSSL);
+	MT_INFO("[HTTP服务] 服务IP: %s", p_szIp);
+	MT_INFO("[HTTP服务] 服务端口: %d", p_nPort);
+	MT_INFO("[HTTP服务] 线程数: %d", p_iThreadNum);
+	MT_INFO("[HTTP服务] 队列数: %d", p_iQueueNum);
+	MT_INFO("[HTTP服务] 缓存大小: %d", p_iRBufLen);
+	MT_INFO("[HTTP服务] 最大Accept: %d", p_iMaxConnectNum);
+	MT_INFO("[HTTP服务] 最大Connect: %d", p_iMaxAcceptNum);
+	MT_INFO("[HTTP服务] 底层日志路径:%s", pSafeLogFold);
+	MT_INFO("[HTTP服务] 是否开启https:%d", p_bSSL);
 
 	if (p_bSSL)
 	{
-		HTTP_INFO("[HTTP服务] 证书文件路径:%s", pSafePemCertFile);
-		HTTP_INFO("[HTTP服务] 私钥文件路径:%s", pSafePemKeyFile);
-		HTTP_INFO("[HTTP服务] 私钥密码:%s", pSafeKeyPassword);
-		HTTP_INFO("[HTTP服务] CA证书文件路径:%s", pSafeCAPemCertFileOrPath);
+		MT_INFO("[HTTP服务] 证书文件路径:%s", pSafePemCertFile);
+		MT_INFO("[HTTP服务] 私钥文件路径:%s", pSafePemKeyFile);
+		MT_INFO("[HTTP服务] 私钥密码:%s", pSafeKeyPassword);
+		MT_INFO("[HTTP服务] CA证书文件路径:%s", pSafeCAPemCertFileOrPath);
 
 		//启动服务
 		if (!m_pHttpServerHandle->CreateHttpsSock(p_szIp, p_nPort, p_iRBufLen, p_iMaxConnectNum, p_iMaxAcceptNum, HttpNotifyHandle, p_iThreadNum, p_iQueueNum, szBuf,
 			p_szPemCertFile, p_szPemKeyFile, p_szKeyPassword, p_szCAPemCertFileOrPath, pLogFold))
 		{
 			m_bStatus = false;
-			HTTP_WARN("[HTTP服务] 创建https服务失败: %s", szBuf);
+			MT_WARN("[HTTP服务] 创建https服务失败: %s", szBuf);
 		}
 	}
 	else
@@ -258,7 +262,7 @@ bool CHttpSockMng::Start(const char *p_szIp, unsigned short p_nPort, int p_iThre
 		if (!m_pHttpServerHandle->CreateHttpSock(p_szIp, p_nPort, p_iRBufLen, p_iMaxConnectNum, p_iMaxAcceptNum, HttpNotifyHandle, p_iThreadNum, p_iQueueNum, szBuf, pLogFold))
 		{
 			m_bStatus = false;
-			HTTP_WARN("[HTTP服务] 创建http服务失败: %s", szBuf);
+			MT_WARN("[HTTP服务] 创建http服务失败: %s", szBuf);
 		}
 	}
 	return m_bStatus;
@@ -289,12 +293,14 @@ bool CHttpSockMng::HttpProcess(CHttpAsynReq *p_refReq)
 {
 	if (!m_bStatus || !p_refReq)
 	{
-		HTTP_WARN("[HTTP服务] 状态=%d,请求包是否有效=%d", m_bStatus, p_refReq == nullptr);
+		MT_WARN("[HTTP服务] 状态=%d,请求包是否有效=%d", m_bStatus, p_refReq == nullptr);
 		return false;
 	}
 
 	//应答
-	CHttpSockMng::SendResponse(p_refReq, "Done", 4);
+	const char* pUrl = p_refReq->GetUrl();
+
+	CHttpSockMng::SendResponse(p_refReq, pUrl, strlen(pUrl));
 	return true;
 }
 

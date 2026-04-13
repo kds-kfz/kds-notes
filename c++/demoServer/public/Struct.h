@@ -66,4 +66,44 @@ union StockDataSubType
 	}
 };
 
+//TCP 客户端请求包头
+struct ST_REQ_HEADER
+{
+	unsigned int uiCrc32;//crc32校验码 预留字段
+	struct
+	{
+		unsigned char ucVersion;	// 版本号
+		unsigned char ucCompressed;	// 数据压缩类型 1:zlib 2:snappy
+		unsigned char ucEncrypted;	// 数据加密类型 预留字段
+		unsigned char ucTalkCompress;//指定压缩算法 proto
+	}Info;
+	unsigned int uiCookie;	// 用户上层自己携带的信息 预留字段
+	unsigned int uiMainID;	// 预留字段
+	unsigned int uiAssisID;	// 预留字段
+	unsigned int uiPacketLen;	// 压缩前 包体大小
+	unsigned int uiRawLen;		// 压缩后 包体大小
+	unsigned char ucPriority;	// 优先级 预留字段
+};
+
+//TCP 客户端应答包头
+struct ST_ANS_HEADER
+{
+	unsigned int uiCrc32;	// crc32校验码 预留字段
+	unsigned int uiSeparator;// 分隔符 预留字段
+	unsigned int uiPacketLen;// 压缩前 包体大小
+	unsigned int uiRawLen;	// 压缩后 包体大小
+	struct
+	{
+		unsigned char ucVersion;	// 版本号
+		unsigned char ucCompressed;	// 数据压缩类型 1:zlib 2:snappy
+		unsigned char ucEncrypted;	// 数据加密类型 预留字段
+		unsigned char ucTalkCompress;//指定压缩算法 proto
+	}Info;
+	unsigned int uiCookie;	// 用户上层自己携带的信息 预留字段
+	unsigned int uiMainID;	// 预留字段
+	unsigned int uiAssisID;	// 预留字段
+	unsigned char ucPriority;	// 优先级 预留字段
+	unsigned int uiFunid;	// 协议号
+};
+
 #endif

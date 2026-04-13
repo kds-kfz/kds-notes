@@ -160,7 +160,6 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\src\nsdk.cpp" />
     <ClCompile Include="..\..\..\src\nsdk_event.cpp" />
-    <ClCompile Include="..\..\..\src\nsdk_mutex.cpp" />
     <ClCompile Include="..\..\..\src\nsdk_thread.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

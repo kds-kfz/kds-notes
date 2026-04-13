@@ -1,7 +1,7 @@
 #if !defined(KDSC_AUTO_CS_H)
 #define KDSC_AUTO_CS_H
 
-#include "nsdk_mutex.h"
+#include "xsdk_mutex.h"
 
 typedef int (*USER_MNG_FUNC)(void *p_refFunc);
 
@@ -9,7 +9,7 @@ typedef int (*USER_MNG_FUNC)(void *p_refFunc);
 class CAutoCS  
 {
 public:
-	CAutoCS(nsdk::CMutex *p)
+	CAutoCS(xsdk::CMutex *p)
 	{
 		m_p = p;
 		m_p->Lock();
@@ -20,7 +20,7 @@ public:
 		m_p->Unlock();
 	}
 
-	nsdk::CMutex *m_p;
+	xsdk::CMutex *m_p;
 };
 
 //用户管理释放类;

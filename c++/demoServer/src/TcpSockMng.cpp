@@ -1,10 +1,7 @@
 #include "TcpSockMng.h"
 #include "Log.h"
 #include "CodeMsg.h"
-
-#include "nsdk.h"
-#include "nsdk_atomic.h"
-
+#include "publicfunc.h"
 
 CTcpSockMng* CTcpSockMng::m_pThis = nullptr;
 CSocketServer *CTcpSockMng::m_pTcpServerHandle = nullptr;
@@ -14,18 +11,6 @@ bool bNoneedAuth = (0 == nsdk::GetFileAttr("test_auth.dat", F_OK));
 #else
 bool bNoneedAuth = (0 == nsdk::GetFileAttr("./test_auth.dat", F_OK));
 #endif
-
-void ReleasePackData(char *packdata)
-{
-	nsdk_del_arry(packdata);
-}
-
-int ReleasePackDataFunc(void *lpParameter)
-{
-	if ( lpParameter )
-		ReleasePackData((char*)lpParameter);
-	return 0;
-}
 
 int ProcessIt(const char * ip, unsigned short port, USERDATA * puserdata,const char * packdata,int realdatalen)
 {

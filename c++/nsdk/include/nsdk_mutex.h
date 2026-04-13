@@ -37,16 +37,14 @@ protected:
 #if defined(OS_IS_WINDOWS)
 	HANDLE m_hMutex;
 #else
-	bool m_bNamed;                // 是否为命名锁。
-	std::string m_strName;        // 命名锁对应的共享内存名称。
-	std::string m_strLockFile;    // 创建和关闭命名锁时使用的协调锁文件。
+	bool m_bNamed;
+	std::string m_strName;
 
-	pthread_mutex_t m_stMutex;    // 无名锁使用的进程内互斥量实体。
-	pthread_mutex_t* m_pstMutex;  // 当前实际使用的互斥量，可能指向本地或共享内存。
-	void* m_pMappedAddr;          // 命名锁共享内存的映射首地址。
-	int m_iShmFd;                 // 命名锁 shm_open 返回的句柄。
-	int m_iLockFd;                // 协调锁文件句柄。
-	bool m_bInit;                 // 当前锁对象是否已经初始化完成。
+	sem_t m_stSem;
+	sem_t* m_pstSem;
+
+	pthread_mutex_t m_stMutex;
+	bool m_bInit;
 #endif
 
 	int m_iLastError;

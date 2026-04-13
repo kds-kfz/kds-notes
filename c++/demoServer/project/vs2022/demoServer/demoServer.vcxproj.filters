@@ -48,6 +48,15 @@
     <ClCompile Include="..\..\..\public\UserMng.cpp">
       <Filter>public</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\NetQueueMng.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\ServerProc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\public\publicfunc.cpp">
+      <Filter>public</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\vender\SocketServer\include\SocketServer.h">
@@ -97,6 +106,36 @@
     </ClInclude>
     <ClInclude Include="..\..\..\public\AutoCS.h">
       <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\NetQueueMng.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_queue.h">
+      <Filter>vender</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\nsdk\include\xsdk_rwlock.h">
+      <Filter>vender</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\nsdk\include\xsdk_shm.h">
+      <Filter>vender</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\nsdk\include\xsdk_define.h">
+      <Filter>vender</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\nsdk\include\xsdk_event.h">
+      <Filter>vender</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\nsdk\include\xsdk_mutex.h">
+      <Filter>vender</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\ServerProc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\public\publicfunc.h">
+      <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\vender\xsdk\include\xsdk_thread.h">
+      <Filter>vender</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

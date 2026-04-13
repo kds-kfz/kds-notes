@@ -9,6 +9,7 @@
 #include "SocketServer.h"
 #include "UserData.h"
 #include "AutoCS.h"
+#include "xsdk_mutex.h"
 
 const int MAX_CACHE_BUFLEN = 1024 * 1024;
 
@@ -89,7 +90,7 @@ public:
 public:
 	std::vector<USERDATA> m_vecUser;
 	int m_iUserCount, m_iMaxUserCount;
-	nsdk::CMutex m_mutex;
+	xsdk::CMutex m_mutex;
 
 	std::map<HDATA_HCLIENT, HDATA_SECOND> m_mapAllClient, m_aSubUser;	// 记录句柄对应的I位置，空间提前安排好
 };

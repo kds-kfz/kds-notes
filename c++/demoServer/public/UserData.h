@@ -6,6 +6,7 @@
 #include "Struct.h"
 #include "SocketServer.h"
 #include "nsdk_atomic.h"
+#include "ServerProc.h"
 
 //协议类型;
 const char	TCP_PACK_TYPE = 0;
@@ -134,7 +135,7 @@ struct USERDATA
 	unsigned long	ulReqGNID;	// 当前处理的功能ID,方便查错的;
 	nsdk_atomic_t64	llNRequest;	// 客户端可以累积在服务器堆积的请求数目,MAX_REQUEST;
 	// 业务处理类;
-	//class CServerProc *pHostProcess;	// 具体的处理函数+排序等;
+	class CServerProc *pHostProcess;	// 具体的处理函数+排序等;
 	// 订阅信息;
 	std::map<unsigned long long, StockDataSubType> *lpKeyMap;	// 品种数据;
 	std::map<unsigned long long, TagCode> *lpTagCodeMap;		// 市场+代码映射;
