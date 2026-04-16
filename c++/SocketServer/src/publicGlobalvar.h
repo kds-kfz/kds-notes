@@ -35,6 +35,9 @@ extern std::map<CONNID, ReqCacheData *> g_mapQueue;//请求缓存
 extern pthread_mutex_t g_mutexTask;	//任务锁
 extern std::map<CONNID, NotifyTask *> g_mapTask;//任务缓存
 
+// 服务生命周期锁：串行化 HTTP / Web / TCP 的实例创建与启停，避免同进程并发启停踩到进程级全局状态。
+extern pthread_mutex_t g_mutexServiceLifecycle;
+
 //********** WEB服务模块 **********/
 extern CHPThreadPoolPtr g_CWebHPThreadPool;
 extern volatile bool g_bWebServerStatus;

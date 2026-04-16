@@ -54,9 +54,6 @@
     <ClInclude Include="..\..\..\src\HttpSockServerObj.h">
       <Filter>include</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\SocketServer.h">
-      <Filter>include</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\Struct.h">
       <Filter>include</Filter>
     </ClInclude>
@@ -110,6 +107,9 @@
     </ClInclude>
     <ClInclude Include="..\..\..\vender\thread\include\semaphore.h">
       <Filter>thread</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\include\SocketServer.h">
+      <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

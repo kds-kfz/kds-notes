@@ -134,7 +134,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\..\vender\hpsocket\include;$(SolutionDir)..\..\..\vender\nsdk\include;$(SolutionDir)..\..\..\vender\thread\include;$(SolutionDir)..\..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <Optimization>Disabled</Optimization>
+      <Optimization>MaxSpeed</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\..\include\SocketServer.h" />
     <ClInclude Include="..\..\..\src\Base64.h" />
     <ClInclude Include="..\..\..\src\HttpAsynReqObj.h" />
     <ClInclude Include="..\..\..\src\HttpServerListerNet.h" />
@@ -154,7 +155,6 @@
     <ClInclude Include="..\..\..\src\Log.h" />
     <ClInclude Include="..\..\..\src\publicfunc.h" />
     <ClInclude Include="..\..\..\src\publicGlobalvar.h" />
-    <ClInclude Include="..\..\..\src\SocketServer.h" />
     <ClInclude Include="..\..\..\src\Struct.h" />
     <ClInclude Include="..\..\..\src\TcpPackServerObj.h" />
     <ClInclude Include="..\..\..\src\TcpServerListerNet.h" />

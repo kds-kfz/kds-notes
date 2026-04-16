@@ -103,12 +103,18 @@ CHttpSockServerObj::~CHttpSockServerObj()
 bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unPort, unsigned int p_uiRBufLen, unsigned int p_uiMaxConnectNum, unsigned int p_uiMaxAcceptNum,
 	HTTP_NOTIFY_PROC p_httpHandle, unsigned int p_uiThreadNum, unsigned int p_uiQueueNum, char* p_szErr, const char* p_szLogFold)
 {
+	pthread_mutex_lock(&g_mutexServiceLifecycle);
+
 	if (nullptr == p_szErr)
+	{
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
+	}
 
 	if (nullptr == p_szIp || 7 > strlen(p_szIp))
 	{
 		_snprintf(p_szErr, 1024, "code=-1,msg=init param err");
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
@@ -130,6 +136,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 		{
 			_snprintf(p_szErr, 1024, "code=-2,msg=log init fail");
 			DeleteHttpObj();
+			pthread_mutex_unlock(&g_mutexServiceLifecycle);
 			return false;
 		}
 		// 设置日志等级
@@ -148,6 +155,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 	{
 		_snprintf(p_szErr, 1024, "code=%d,msg=thread pool start fail", SYS_GetLastError());
 		DeleteHttpObj();
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
@@ -162,6 +170,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 		iRet = SYS_GetLastError();
 		_snprintf(p_szErr, 1024, "code=%d,msg=create http server listener fail", iRet);
 		DeleteHttpObj();
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
@@ -175,6 +184,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 	{
 		_snprintf(p_szErr, 1024, "code=%d,msg=create http server fail", SYS_GetLastError());
 		DeleteHttpObj();
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
@@ -203,10 +213,12 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			g_CHttpPackServer->GetLastError(), szErrDesc);
 		DeleteHttpObj();
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
 	HTTP_INFO("启动完成");
+	pthread_mutex_unlock(&g_mutexServiceLifecycle);
 	return true;
 }
 
@@ -226,7 +238,9 @@ bool CHttpSockServerObj::CreateHttpsSock(const char*, unsigned short, unsigned i
 
 void CHttpSockServerObj::StopHttpSock()
 {
+	pthread_mutex_lock(&g_mutexServiceLifecycle);
 	DeleteHttpObj();
+	pthread_mutex_unlock(&g_mutexServiceLifecycle);
 }
 
 bool CHttpSockServerObj::DelHttpAsynReq(unsigned long long p_lluReqId)

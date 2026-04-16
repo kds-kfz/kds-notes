@@ -20,6 +20,8 @@ std::map<CONNID, ReqCacheData *> g_mapQueue;
 pthread_mutex_t g_mutexTask;
 std::map<CONNID, NotifyTask *> g_mapTask;
 
+pthread_mutex_t g_mutexServiceLifecycle = PTHREAD_MUTEX_INITIALIZER;
+
 //********** WEB服务模块 **********/
 CHPThreadPoolPtr g_CWebHPThreadPool;
 volatile bool g_bWebServerStatus = false;

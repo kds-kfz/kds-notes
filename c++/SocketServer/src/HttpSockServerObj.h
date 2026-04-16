@@ -53,7 +53,8 @@ public:
 	virtual void WebSockSend(void*, void*, const char*, int) {}
 	// 关闭客户连接;
 	virtual void WebSockClose(void*, void*, const char*, int) {}
-
+	// 比较彼此客户端是否一致;
+	virtual int WebSockCompare(void* p_refSrcClient, void* p_refObjClient) { return -1; }
 };
 
 #endif

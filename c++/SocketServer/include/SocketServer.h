@@ -241,6 +241,8 @@ extern "C"
 		virtual void WebSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) = 0;
 		// 关闭客户连接;
 		virtual void WebSockClose(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) = 0;
+		// 比较彼此客户端是否一致;
+		virtual int WebSockCompare(void* p_refSrcClient, void* p_refObjClient) = 0;
 	};
 	/***************************************************************************
 	接口说明: 用于获取实例, 内部单例;

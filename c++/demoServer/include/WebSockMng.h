@@ -8,11 +8,11 @@
 
 #define HTTP_DLL_NAME		"libSocketServer.dll"
 
-#define WEB_RECVBUF_LEN (1024 * 1024)
-#define WEB_CONNECT_NUM (300)
-#define WEB_ACCEPT_NUM (1024 * 4)
-#define WEB_THREAD_NUM (0)
-#define WEB_QUEUE_NUM (1024 * 4)
+#define WEB_RECVBUF_LEN (1024 * 128)//一般情况：64k/128k/256k
+#define WEB_CONNECT_NUM (500)//一般情况：300/500/1000
+#define WEB_ACCEPT_NUM (256)//一般情况：128/256/512
+#define WEB_THREAD_NUM (10)
+#define WEB_QUEUE_NUM (1024)//一般情况：512/1024/2048
 
 //启动
 typedef CSocketServer *(*pfnCreateWebSockInstance)();

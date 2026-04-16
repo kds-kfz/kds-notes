@@ -9,11 +9,11 @@
 
 #define HTTP_DLL_NAME		"libSocketServer.dll"
 
-#define HTTP_RECVBUF_LEN (1024 * 1024)
-#define HTTP_CONNECT_NUM (300)
-#define HTTP_ACCEPT_NUM (1024 * 4)
-#define HTTP_THREAD_NUM (0)
-#define HTTP_QUEUE_NUM (1024 * 4)
+#define HTTP_RECVBUF_LEN (1024 * 64)//一般情况：32k/64k
+#define HTTP_CONNECT_NUM (300)//一般情况：200/300/500
+#define HTTP_ACCEPT_NUM (128)//一般情况：64/128/256
+#define HTTP_THREAD_NUM (10)
+#define HTTP_QUEUE_NUM (512)//一般情况：256/512/1024
 
 //回调
 void  HttpNotifyHandle(CHttpAsynReq *p_refReq);

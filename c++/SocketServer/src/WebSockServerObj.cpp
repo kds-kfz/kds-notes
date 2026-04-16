@@ -67,26 +67,41 @@ void DeleteWebObj(void)
 	if (nullptr != g_CWebPackServer)
 	{
 		g_CWebPackServer->Stop();
+	}
+
+	// wyl 2026-04-15：先等待线程池中已排队的 Web 回调自然退出，再销毁底层 server，
+	// 避免同进程并行服务或停服边界下，上层回调拿到已经失效的 p_refServerHandle。
+	g_CWebHPThreadPool->Stop();
+
+	ClearWebRuntimeData();
+
+	if (nullptr != g_CWebPackServer)
+	{
 		HP_Destroy_HttpServer(g_CWebPackServer);
 		g_CWebPackServer = nullptr;
 	}
-
-	// wyl 2026-03-30：线程池关闭改为等待已提交任务自然退出，避免强制停池后马上清理任务对象导致悬空指针。
-	g_CWebHPThreadPool->Stop();
 
 	if (nullptr != g_CWebServerListerNet)
 	{
 		delete g_CWebServerListerNet;
 		g_CWebServerListerNet = nullptr;
 	}
-
-	ClearWebRuntimeData();
 	DestroyWebMutexes();
 
 	g_pWebHandle = nullptr;
 	g_ullWebTaskID = 0;
 
 	CWebLog::Release();
+}
+
+int CWebSockServerObj::WebSockCompare(void* p_refSrcClient, void* p_refObjClient)
+{
+	if (nullptr == p_refSrcClient || nullptr == p_refObjClient)
+		return -1;
+
+	CONNID dwSrcConnID = (CONNID)p_refSrcClient;
+	CONNID dwObjConnID = (CONNID)p_refObjClient;
+	return dwSrcConnID == dwObjConnID ? 0 : 1;
 }
 
 CWebSockServerObj::CWebSockServerObj()
@@ -102,12 +117,18 @@ CWebSockServerObj::~CWebSockServerObj()
 bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPort, unsigned int p_uiRBufLen, unsigned int p_uiMaxConnectNum, unsigned int p_uiMaxAcceptNum,
 	WEB_NOTIFY_PROC p_webHandle, unsigned int p_uiThreadNum, unsigned int p_uiQueueNum, char *p_szErr, const char *p_szLogFold)
 {
+	pthread_mutex_lock(&g_mutexServiceLifecycle);
+
 	if (nullptr == p_szErr)
+	{
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
+	}
 
 	if (nullptr == p_szIp || 7 > strlen(p_szIp))
 	{
 		_snprintf(p_szErr, 1024, "code=-1,msg=init param err");
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
@@ -129,6 +150,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 		{
 			_snprintf(p_szErr, 1024, "code=-2,msg=log init fail");
 			DeleteWebObj();
+			pthread_mutex_unlock(&g_mutexServiceLifecycle);
 			return false;
 		}
 		// 设置日志等级
@@ -147,6 +169,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 	{
 		_snprintf(p_szErr, 1024, "code=%d,msg=thread pool start fail", SYS_GetLastError());
 		DeleteWebObj();
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
@@ -161,6 +184,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 		iRet = SYS_GetLastError();
 		_snprintf(p_szErr, 1024, "code=%d,msg=create web server lister fail", iRet);
 		DeleteWebObj();
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
@@ -174,6 +198,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 	{
 		_snprintf(p_szErr, 1024, "code=%d,msg=create web server fail", SYS_GetLastError());
 		DeleteWebObj();
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
@@ -202,10 +227,12 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			g_CWebPackServer->GetLastError(), szErrDesc);
 		DeleteWebObj();
+		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
 	WEB_INFO("启动完成");
+	pthread_mutex_unlock(&g_mutexServiceLifecycle);
 	return true;
 }
 
@@ -225,7 +252,9 @@ bool CWebSockServerObj::CreateWssSock(const char*, unsigned short, unsigned int,
 
 void CWebSockServerObj::StopWebSock()
 {
+	pthread_mutex_lock(&g_mutexServiceLifecycle);
 	DeleteWebObj();
+	pthread_mutex_unlock(&g_mutexServiceLifecycle);
 }
 
 void CWebSockServerObj::WebSockClose(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen)

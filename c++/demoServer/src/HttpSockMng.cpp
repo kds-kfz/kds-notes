@@ -8,11 +8,11 @@
 #include "json/json.h"
 #include "Log.h"
 
-//Æô¶¯
+//å¯åŠ¨
 typedef CSocketServer *(*pfnCreateHttpSockInstance)();
 pfnCreateHttpSockInstance fnCreateHttpSockInstance = nullptr;
 
-//ÊÍ·Å
+//é‡Šæ”¾
 typedef void(*pfnDelHttpSockInstance)(CSocketServer *&);
 pfnDelHttpSockInstance fnDelHttpSockInstance = nullptr;
 
@@ -75,14 +75,14 @@ int CHttpSockMng::SendResponse(CHttpAsynReq *p_refReq, const char* p_szData, int
 {
 	if (!m_pThis || !p_refReq)
 	{
-		MT_WARN("ÊµÀý=%d,ÇëÇó°üÊÇ·ñÓÐÐ§=%d", m_pThis == nullptr, p_refReq == nullptr);
+		MT_WARN("å®žä¾‹=%d,è¯·æ±‚åŒ…æ˜¯å¦æœ‰æ•ˆ=%d", m_pThis == nullptr, p_refReq == nullptr);
 		return -1;
 	}
 
 	CSocketServer* pHttpHandle = m_pThis->HttpHandle();
 	if (!pHttpHandle)
 	{
-		MT_WARN("[HTTP·þÎñ] Http·þÎñ¾ä±úÎª¿Õ");
+		MT_WARN("[HTTPæœåŠ¡] HttpæœåŠ¡å¥æŸ„ä¸ºç©º");
 		return -2;
 	}
 
@@ -91,16 +91,16 @@ int CHttpSockMng::SendResponse(CHttpAsynReq *p_refReq, const char* p_szData, int
 	const bool bSendOk = !!p_refReq->SendResponse(p_szData, p_iDataLen);
 	if (!bSendOk)
 	{
-		// Á¬½ÓÌáÇ°¶Ï¿ª/·¢ËÍÊ§°ÜÊ±£¬ÉÏ²ã¼ÌÐø³ÖÓÐÇëÇó¶ÔÏó»áÔì³É g_mapHttpReq ³ÖÐøÔö³¤£»
-		// Òò´ËÎÞÂÛ·¢ËÍÊÇ·ñ³É¹¦£¬¶¼±ØÐë×îÖÕÊÍ·ÅÇëÇó¶ÔÏó¡£
-		MT_WARN("[HTTP·þÎñ] ·¢ËÍÓ¦´ðÊ§°Ü,ReqId=%llu,DataLen=%d", ullReqId, p_iDataLen);
+		// è¿žæŽ¥æå‰æ–­å¼€/å‘é€å¤±è´¥æ—¶ï¼Œä¸Šå±‚ç»§ç»­æŒæœ‰è¯·æ±‚å¯¹è±¡ä¼šé€ æˆ g_mapHttpReq æŒç»­å¢žé•¿ï¼›
+		// å› æ­¤æ— è®ºå‘é€æ˜¯å¦æˆåŠŸï¼Œéƒ½å¿…é¡»æœ€ç»ˆé‡Šæ”¾è¯·æ±‚å¯¹è±¡ã€‚
+		MT_WARN("[HTTPæœåŠ¡] å‘é€åº”ç­”å¤±è´¥,ReqId=%llu,DataLen=%d", ullReqId, p_iDataLen);
 	}
 
 	const bool bDelOk = !!pHttpHandle->DelHttpAsynReq(ullReqId);
 	if (!bDelOk)
 	{
-		MT_WARN("[HTTP·þÎñ] ÊÍ·ÅÇëÇó¶ÔÏóÊ§°Ü,ReqId=%llu,SendOk=%d", ullReqId, (int)bSendOk);
-		// ÊÍ·ÅÊ§°ÜÓÅÏÈ·µ»Ø£¬±ÜÃâÉÏ²ãÎóÒÔÎª¡°ÒÑÍêÈ«´¦ÀíÍê±Ï¡±¡£
+		MT_WARN("[HTTPæœåŠ¡] é‡Šæ”¾è¯·æ±‚å¯¹è±¡å¤±è´¥,ReqId=%llu,SendOk=%d", ullReqId, (int)bSendOk);
+		// é‡Šæ”¾å¤±è´¥ä¼˜å…ˆè¿”å›žï¼Œé¿å…ä¸Šå±‚è¯¯ä»¥ä¸ºâ€œå·²å®Œå…¨å¤„ç†å®Œæ¯•â€ã€‚
 		return -4;
 	}
 
@@ -121,56 +121,56 @@ void CHttpSockMng::RegisterUrl()
 
 	for (auto it = m_mapHttpUrl.begin(); it != m_mapHttpUrl.end(); ++it)
 	{
-		MT_INFO("[HTTP·þÎñ] ÒÑ×¢²áµÄURL: %s", it->first.c_str());
+		MT_INFO("[HTTPæœåŠ¡] å·²æ³¨å†Œçš„URL: %s", it->first.c_str());
 	}
 }
 bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 {
 	if (nullptr == p_sHomePath || strlen(p_sHomePath) == 0)
 	{
-		MT_WARN("[HTTP·þÎñ] Â·¾¶ÊÇ¿Õ");
+		MT_WARN("[HTTPæœåŠ¡] è·¯å¾„æ˜¯ç©º");
 		return false;
 	}
 	string strDllPath = p_sHomePath;
 	strDllPath.append("\\");
 	strDllPath.append(HTTP_DLL_NAME);
 
-	//TODO ¶ÁÈ¡websocket·þÎñ¿ª¹Ø
+	//TODO è¯»å–websocketæœåŠ¡å¼€å…³
 
-	//TODO ¶ÁÈ¡websocket·þÎñÈÕÖ¾Â·¾¶
+	//TODO è¯»å–websocketæœåŠ¡æ—¥å¿—è·¯å¾„
 
 	m_pclLibraryOp = new CLibraryOp;
 	if (!m_pclLibraryOp)
 	{
-		MT_WARN("[HTTP·þÎñ] ×°ÔØÈý·½¿âÀàÊ§°Ü...");
+		MT_WARN("[HTTPæœåŠ¡] è£…è½½ä¸‰æ–¹åº“ç±»å¤±è´¥...");
 		return false;
 	}
 
-	//¼ÓÔØ¼à¿Ø¶¯Ì¬¿â
+	//åŠ è½½ç›‘æŽ§åŠ¨æ€åº“
 	const auto fileAttributes = ::GetFileAttributes(strDllPath.c_str());
 	if (INVALID_FILE_ATTRIBUTES == fileAttributes || 0 != (fileAttributes & FILE_ATTRIBUTE_DIRECTORY))
 	{
-		MT_WARN("[HTTP·þÎñ] ¶¯Ì¬¿âÎÄ¼þ²»´æÔÚ[%s]...", strDllPath.c_str());
+		MT_WARN("[HTTPæœåŠ¡] åŠ¨æ€åº“æ–‡ä»¶ä¸å­˜åœ¨[%s]...", strDllPath.c_str());
 		delete m_pclLibraryOp;
 		m_pclLibraryOp = nullptr;
 		return false;
 	}
 
-	//¼ÓÔØ¶¯Ì¬¿â
+	//åŠ è½½åŠ¨æ€åº“
 	if (!m_pclLibraryOp->Load(strDllPath.c_str()))
 	{
-		MT_WARN("[HTTP·þÎñ] ¶¯Ì¬¿â¼ÓÔØÊ§°Ü[%s]...", strDllPath.c_str());
+		MT_WARN("[HTTPæœåŠ¡] åŠ¨æ€åº“åŠ è½½å¤±è´¥[%s]...", strDllPath.c_str());
 		delete m_pclLibraryOp;
 		m_pclLibraryOp = nullptr;
 		return false;
 	}
 
-	// ´´½¨º¯Êý
+	// åˆ›å»ºå‡½æ•°
 	pfnCreateHttpSockInstance fnCreateHttpSockInstance = nullptr;
 
 	if (!m_pclLibraryOp->GetFuncAddress((void**)&fnCreateHttpSockInstance, "CreateHttpSockInstance") || nullptr == fnCreateHttpSockInstance)
 	{
-		MT_WARN("[HTTP·þÎñ] »ñÈ¡·½·¨[HttpSockIns]Ê§°Ü...");
+		MT_WARN("[HTTPæœåŠ¡] èŽ·å–æ–¹æ³•[HttpSockIns]å¤±è´¥...");
 		delete m_pclLibraryOp;
 		m_pclLibraryOp = nullptr;
 		return false;
@@ -181,7 +181,7 @@ bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 		m_pHttpServerHandle = fnCreateHttpSockInstance();
 		if (nullptr == m_pHttpServerHandle)
 		{
-			MT_WARN("[HTTP·þÎñ] »ñÈ¡¼à¿Ø·½·¨Ê§°Ü");
+			MT_WARN("[HTTPæœåŠ¡] èŽ·å–ç›‘æŽ§æ–¹æ³•å¤±è´¥");
 			delete m_pclLibraryOp;
 			m_pclLibraryOp = nullptr;
 			return false;
@@ -190,19 +190,19 @@ bool CHttpSockMng::InitHttpServerInfo(const char* p_sHomePath)
 
 	if (!m_pclLibraryOp->GetFuncAddress((void**)&g_fnDelHttpSockInstance, "DelHttpSockInstance") || nullptr == g_fnDelHttpSockInstance)
 	{
-		MT_WARN("[HTTP·þÎñ] »ñÈ¡·½·¨[DelHttpSockIns]Ê§°Ü...");
+		MT_WARN("[HTTPæœåŠ¡] èŽ·å–æ–¹æ³•[DelHttpSockIns]å¤±è´¥...");
 		delete m_pclLibraryOp;
 		m_pclLibraryOp = nullptr;
 		return false;
 	}
 
-	//TODO ³õÊ¼»¯ÈÕÖ¾
+	//TODO åˆå§‹åŒ–æ—¥å¿—
 	m_bStatus = true;
 
-	//×¢²áurl
+	//æ³¨å†Œurl
 	RegisterUrl();
 
-	MT_INFO("[HTTP·þÎñ] ³õÊ¼»¯×´Ì¬: %d", m_bStatus);
+	MT_INFO("[HTTPæœåŠ¡] åˆå§‹åŒ–çŠ¶æ€: %d", m_bStatus);
 
 	return m_bStatus;
 }
@@ -213,7 +213,7 @@ bool CHttpSockMng::Start(const char *p_szIp, unsigned short p_nPort, int p_iThre
 {
 	if (nullptr == m_pHttpServerHandle)
 	{
-		MT_WARN("[HTTP·þÎñ] ´´½¨http·þÎñÊ§°Ü: ·þÎñ¾ä±úÊÇ¿Õ");
+		MT_WARN("[HTTPæœåŠ¡] åˆ›å»ºhttpæœåŠ¡å¤±è´¥: æœåŠ¡å¥æŸ„æ˜¯ç©º");
 		return false;
 	}
 
@@ -231,38 +231,38 @@ bool CHttpSockMng::Start(const char *p_szIp, unsigned short p_nPort, int p_iThre
 	const char* pSafeKeyPassword = (nullptr == p_szKeyPassword) ? "" : p_szKeyPassword;
 	const char* pSafeCAPemCertFileOrPath = (nullptr == p_szCAPemCertFileOrPath) ? "" : p_szCAPemCertFileOrPath;
 
-	MT_INFO("[HTTP·þÎñ] ·þÎñIP: %s", p_szIp);
-	MT_INFO("[HTTP·þÎñ] ·þÎñ¶Ë¿Ú: %d", p_nPort);
-	MT_INFO("[HTTP·þÎñ] Ïß³ÌÊý: %d", p_iThreadNum);
-	MT_INFO("[HTTP·þÎñ] ¶ÓÁÐÊý: %d", p_iQueueNum);
-	MT_INFO("[HTTP·þÎñ] »º´æ´óÐ¡: %d", p_iRBufLen);
-	MT_INFO("[HTTP·þÎñ] ×î´óAccept: %d", p_iMaxConnectNum);
-	MT_INFO("[HTTP·þÎñ] ×î´óConnect: %d", p_iMaxAcceptNum);
-	MT_INFO("[HTTP·þÎñ] µ×²ãÈÕÖ¾Â·¾¶:%s", pSafeLogFold);
-	MT_INFO("[HTTP·þÎñ] ÊÇ·ñ¿ªÆôhttps:%d", p_bSSL);
+	MT_INFO("[HTTPæœåŠ¡] æœåŠ¡IP: %s", p_szIp);
+	MT_INFO("[HTTPæœåŠ¡] æœåŠ¡ç«¯å£: %d", p_nPort);
+	MT_INFO("[HTTPæœåŠ¡] çº¿ç¨‹æ•°: %d", p_iThreadNum);
+	MT_INFO("[HTTPæœåŠ¡] é˜Ÿåˆ—æ•°: %d", p_iQueueNum);
+	MT_INFO("[HTTPæœåŠ¡] ç¼“å­˜å¤§å°: %d", p_iRBufLen);
+	MT_INFO("[HTTPæœåŠ¡] æœ€å¤§Accept: %d", p_iMaxConnectNum);
+	MT_INFO("[HTTPæœåŠ¡] æœ€å¤§Connect: %d", p_iMaxAcceptNum);
+	MT_INFO("[HTTPæœåŠ¡] åº•å±‚æ—¥å¿—è·¯å¾„:%s", pSafeLogFold);
+	MT_INFO("[HTTPæœåŠ¡] æ˜¯å¦å¼€å¯https:%d", p_bSSL);
 
 	if (p_bSSL)
 	{
-		MT_INFO("[HTTP·þÎñ] Ö¤ÊéÎÄ¼þÂ·¾¶:%s", pSafePemCertFile);
-		MT_INFO("[HTTP·þÎñ] Ë½Ô¿ÎÄ¼þÂ·¾¶:%s", pSafePemKeyFile);
-		MT_INFO("[HTTP·þÎñ] Ë½Ô¿ÃÜÂë:%s", pSafeKeyPassword);
-		MT_INFO("[HTTP·þÎñ] CAÖ¤ÊéÎÄ¼þÂ·¾¶:%s", pSafeCAPemCertFileOrPath);
+		MT_INFO("[HTTPæœåŠ¡] è¯ä¹¦æ–‡ä»¶è·¯å¾„:%s", pSafePemCertFile);
+		MT_INFO("[HTTPæœåŠ¡] ç§é’¥æ–‡ä»¶è·¯å¾„:%s", pSafePemKeyFile);
+		MT_INFO("[HTTPæœåŠ¡] ç§é’¥å¯†ç :%s", pSafeKeyPassword);
+		MT_INFO("[HTTPæœåŠ¡] CAè¯ä¹¦æ–‡ä»¶è·¯å¾„:%s", pSafeCAPemCertFileOrPath);
 
-		//Æô¶¯·þÎñ
+		//å¯åŠ¨æœåŠ¡
 		if (!m_pHttpServerHandle->CreateHttpsSock(p_szIp, p_nPort, p_iRBufLen, p_iMaxConnectNum, p_iMaxAcceptNum, HttpNotifyHandle, p_iThreadNum, p_iQueueNum, szBuf,
 			p_szPemCertFile, p_szPemKeyFile, p_szKeyPassword, p_szCAPemCertFileOrPath, pLogFold))
 		{
 			m_bStatus = false;
-			MT_WARN("[HTTP·þÎñ] ´´½¨https·þÎñÊ§°Ü: %s", szBuf);
+			MT_WARN("[HTTPæœåŠ¡] åˆ›å»ºhttpsæœåŠ¡å¤±è´¥: %s", szBuf);
 		}
 	}
 	else
 	{
-		//Æô¶¯·þÎñ
+		//å¯åŠ¨æœåŠ¡
 		if (!m_pHttpServerHandle->CreateHttpSock(p_szIp, p_nPort, p_iRBufLen, p_iMaxConnectNum, p_iMaxAcceptNum, HttpNotifyHandle, p_iThreadNum, p_iQueueNum, szBuf, pLogFold))
 		{
 			m_bStatus = false;
-			MT_WARN("[HTTP·þÎñ] ´´½¨http·þÎñÊ§°Ü: %s", szBuf);
+			MT_WARN("[HTTPæœåŠ¡] åˆ›å»ºhttpæœåŠ¡å¤±è´¥: %s", szBuf);
 		}
 	}
 	return m_bStatus;
@@ -293,11 +293,11 @@ bool CHttpSockMng::HttpProcess(CHttpAsynReq *p_refReq)
 {
 	if (!m_bStatus || !p_refReq)
 	{
-		MT_WARN("[HTTP·þÎñ] ×´Ì¬=%d,ÇëÇó°üÊÇ·ñÓÐÐ§=%d", m_bStatus, p_refReq == nullptr);
+		MT_WARN("[HTTPæœåŠ¡] çŠ¶æ€=%d,è¯·æ±‚åŒ…æ˜¯å¦æœ‰æ•ˆ=%d", m_bStatus, p_refReq == nullptr);
 		return false;
 	}
 
-	//Ó¦´ð
+	//åº”ç­”
 	const char* pUrl = p_refReq->GetUrl();
 
 	CHttpSockMng::SendResponse(p_refReq, pUrl, strlen(pUrl));
