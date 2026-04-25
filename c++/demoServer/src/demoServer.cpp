@@ -4,6 +4,7 @@
 #include "HttpSockMng.h"
 #include "WebSockMng.h"
 #include "Log.h"
+#include "nsdk.h"
 
 //服务库路径
 std::string g_strDllPath = "F:\\开发资料\\MyCode\\kds-notes\\c++\\demoServer\\bin\\x64vc14";
@@ -90,11 +91,20 @@ int main()
 	
 
 	//日志初始化
-	InitLog();
+	//InitLog();
 
 	//服务初始化
-	InitAllServer();
+	//InitAllServer();
 
+	//测试加密模块
+	string strClientInfo = "10086";//userid
+	string strAseClientInfo = nsdk::MakeFeatrue(strClientInfo);
+	string strClientToken = "";
+	//授权获取Token
+	int iRet = nsdk::BuildFeatrue(strAseClientInfo, strClientInfo.length(), -1, strClientToken);
+	//验证Token
+	string strSrcClientToken = "";
+	iRet = nsdk::AuthFeatrue(strClientInfo, strClientToken, strSrcClientToken);
 	system("pause");
 	return 0;
 }

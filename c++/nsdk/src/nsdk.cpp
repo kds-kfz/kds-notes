@@ -25,10 +25,25 @@
 #endif
 
 #include "nsdk_atomic.h"
+#include "aes.h"
 
 //内部使用的宏
 #define NSDK_MAX_PATH 260
 #define COMPPREC		0.001 // Round使用
+
+//加密部分
+//注意编译给客户端时需要把 Aes Deaes Base64Encode Base64Decode 去掉
+//#define SERVER_AUTH_FLAG //服务端认证宏 客户端授权控制
+#define AUTH_DAY	(0)//授权天数 0当天有效
+
+std::string g_strAuthKey = "tjzt!@#$%^&*()_+<>?;";
+std::string g_strAuthIV = "gfdertfghjkuyrtg";   //ECB MODE不需要关心chain，可以填空
+std::string g_strSignature = "TJZT";//签名
+
+static const std::string g_strBase64Chars =
+"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+"abcdefghijklmnopqrstuvwxyz"
+"0123456789+/";
 
 BGN_NAMESPACE_NSDK
 
@@ -955,6 +970,363 @@ unsigned long GetNumberOfCores(bool p_bUsable)
 	//sysconf(_SC_NPROCESSORS_ONLN);//返回系统中可用的CPU核数
 #endif
 }
+
+/******************** 加密认证处理 ********************/
+static bool IsBase64(unsigned char p_ch) {
+	return (isalnum(p_ch) || (p_ch == '+') || (p_ch == '/'));
+}
+
+std::string Base64Encode(unsigned char const* p_ucBytes, unsigned int p_uiLen)
+{
+	std::string strResult = "";
+	unsigned char ucCharArray3[3] = { 0 };
+	unsigned char ucCharArray4[4] = { 0 };
+
+	int i = 0, j = 0;
+
+	while (p_uiLen--)
+	{
+		ucCharArray3[i++] = *(p_ucBytes++);
+		if (i == 3)
+		{
+			ucCharArray4[0] = (ucCharArray3[0] & 0xfc) >> 2;
+			ucCharArray4[1] = ((ucCharArray3[0] & 0x03) << 4) + ((ucCharArray3[1] & 0xf0) >> 4);
+			ucCharArray4[2] = ((ucCharArray3[1] & 0x0f) << 2) + ((ucCharArray3[2] & 0xc0) >> 6);
+			ucCharArray4[3] = ucCharArray3[2] & 0x3f;
+
+			for (i = 0; (i < 4); i++)
+			{
+				strResult += g_strBase64Chars[ucCharArray4[i]];
+			}
+			i = 0;
+		}
+	}
+
+	if (i)
+	{
+		for (j = i; j < 3; j++)
+		{
+			ucCharArray3[j] = '\0';
+		}
+
+		ucCharArray4[0] = (ucCharArray3[0] & 0xfc) >> 2;
+		ucCharArray4[1] = ((ucCharArray3[0] & 0x03) << 4) + ((ucCharArray3[1] & 0xf0) >> 4);
+		ucCharArray4[2] = ((ucCharArray3[1] & 0x0f) << 2) + ((ucCharArray3[2] & 0xc0) >> 6);
+		ucCharArray4[3] = ucCharArray3[2] & 0x3f;
+
+		for (j = 0; (j < i + 1); j++)
+		{
+			strResult += g_strBase64Chars[ucCharArray4[j]];
+		}
+
+		while ((i++ < 3))
+		{
+			strResult += '=';
+		}
+	}
+
+	return strResult;
+}
+
+std::string Base64Decode(std::string const& p_strEncoded)
+{
+	std::string strResult = "";
+	unsigned char ucCharArray3[3] = { 0 };
+	unsigned char ucCharArray4[4] = { 0 };
+
+	int i = 0, j = 0, iInPos = 0;
+	int iLen = p_strEncoded.size();
+
+	while (iLen-- && (p_strEncoded[iInPos] != '=') && IsBase64(p_strEncoded[iInPos]))
+	{
+		ucCharArray4[i++] = p_strEncoded[iInPos];
+		iInPos++;
+		if (i == 4)
+		{
+			for (i = 0; i < 4; i++)
+			{
+				ucCharArray4[i] = g_strBase64Chars.find(ucCharArray4[i]);
+			}
+
+			ucCharArray3[0] = (ucCharArray4[0] << 2) + ((ucCharArray4[1] & 0x30) >> 4);
+			ucCharArray3[1] = ((ucCharArray4[1] & 0xf) << 4) + ((ucCharArray4[2] & 0x3c) >> 2);
+			ucCharArray3[2] = ((ucCharArray4[2] & 0x3) << 6) + ucCharArray4[3];
+
+			for (i = 0; (i < 3); i++)
+			{
+				strResult += ucCharArray3[i];
+			}
+			i = 0;
+		}
+	}
+
+	if (i)
+	{
+		for (j = i; j < 4; j++)
+		{
+			ucCharArray4[j] = 0;
+		}
+
+		for (j = 0; j < 4; j++)
+		{
+			ucCharArray4[j] = g_strBase64Chars.find(ucCharArray4[j]);
+		}
+
+		ucCharArray3[0] = (ucCharArray4[0] << 2) + ((ucCharArray4[1] & 0x30) >> 4);
+		ucCharArray3[1] = ((ucCharArray4[1] & 0xf) << 4) + ((ucCharArray4[2] & 0x3c) >> 2);
+		ucCharArray3[2] = ((ucCharArray4[2] & 0x3) << 6) + ucCharArray4[3];
+
+		for (j = 0; (j < i - 1); j++)
+		{
+			strResult += ucCharArray3[j];
+		}
+	}
+
+	return strResult;
+}
+
+std::string Aes(const std::string& p_strSrc) //AES加密
+{
+	size_t ullLength = p_strSrc.length();
+	int iBlockNum = ullLength / BLOCK_SIZE + 1;
+	//明文
+	char* pszDataIn = new char[iBlockNum * BLOCK_SIZE + 1];
+	memset(pszDataIn, 0x00, iBlockNum * BLOCK_SIZE + 1);
+	strcpy(pszDataIn, p_strSrc.c_str());
+
+	//进行PKCS7Padding填充。
+	int k = ullLength % BLOCK_SIZE;
+	int j = ullLength / BLOCK_SIZE;
+	int iPadding = BLOCK_SIZE - k;
+	for (int i = 0; i < iPadding; i++)
+	{
+		pszDataIn[j * BLOCK_SIZE + k + i] = iPadding;
+	}
+	pszDataIn[iBlockNum * BLOCK_SIZE] = '\0';
+
+	//加密后的密文
+	char* pszDataOut = new char[iBlockNum * BLOCK_SIZE + 1];
+	memset(pszDataOut, 0, iBlockNum * BLOCK_SIZE + 1);
+
+	//进行进行AES的CBC模式加密
+	AES Aes;
+	Aes.MakeKey(g_strAuthKey.c_str(), g_strAuthIV.c_str(), 16, 16);
+	Aes.Encrypt(pszDataIn, pszDataOut, iBlockNum * BLOCK_SIZE, AES::CBC);
+	std::string str = Base64Encode((unsigned char*)pszDataOut,
+		iBlockNum * BLOCK_SIZE);
+
+	delete[] pszDataIn;
+	delete[] pszDataOut;
+	return str;
+}
+
+std::string Deaes(const std::string& p_strSrc) //AES解密
+{
+	string strData = Base64Decode(p_strSrc);
+	size_t ullLength = strData.length();
+
+	//密文
+	char* pszDataIn = new char[ullLength + 1];
+	memcpy(pszDataIn, strData.c_str(), ullLength + 1);
+
+	//明文
+	char* pszDataOut = new char[ullLength + 1];
+	memcpy(pszDataOut, strData.c_str(), ullLength + 1);
+
+	//进行AES的CBC模式解密
+	AES Aes;
+	Aes.MakeKey(g_strAuthKey.c_str(), g_strAuthIV.c_str(), 16, 16);
+	Aes.Decrypt(pszDataIn, pszDataOut, ullLength, AES::CBC);
+
+	//去PKCS7Padding填充
+	if (0x00 < pszDataOut[ullLength - 1] <= 0x16)
+	{
+		int tmp = pszDataOut[ullLength - 1];
+		for (unsigned int i = ullLength - 1; i >= ullLength - tmp; i--)
+		{
+			if (pszDataOut[i] != tmp)
+			{
+				memset(pszDataOut, 0, ullLength);
+				//cout << "去填充失败！解密出错！！" << endl;
+				break;
+			}
+			else
+				pszDataOut[i] = 0;
+		}
+	}
+	string strDest(pszDataOut);
+
+	delete[] pszDataIn;
+	delete[] pszDataOut;
+
+	return strDest;
+}
+
+std::string MakeFeatrue(const std::string p_strClientInfo)
+{
+	//p_strClientInfo：客户信息，例如：userId
+	//返回 客户信息密文。生成方式：公钥+TJZT+开始日期 --> AES加密 --> BASE64加密
+	string strClientInfo = "";//明文
+	strClientInfo.append(p_strClientInfo);
+	strClientInfo.append(g_strAuthKey);
+	strClientInfo.append(g_strSignature);
+	strClientInfo.append(std::to_string(GetCurDate()));
+
+	return Aes(strClientInfo);
+}
+
+#ifndef SERVER_AUTH_FLAG
+int BuildFeatrue(std::string p_strClientInfo, unsigned int p_uiClientInfoLen, int p_iAuthDay, std::string& p_strFeatrue)
+{
+	//p_iAuthDay 授权天数
+	//p_usClientInfoLen 客户信息长度，例如：userId，长度是6
+	//p_strClientInfo 客户信息密文。生成方式：公钥+TJZT+开始日期 --> AES加密 --> BASE64加密
+	//p_strFeatrue 服务器授权密文。生成方式：公钥+TJZT+开始日期+结束日期 --> AES加密 --> BASE64加密
+
+	//1、解密：BASE64解密 --> AES解密 --> 公钥+TJZT+开始日期
+	if (p_strClientInfo.empty())
+	{
+		//长度是0
+		return -1;
+	}
+
+	std::string strAesData = Deaes(p_strClientInfo);
+	if (strAesData.empty())
+	{
+		//AES解密失败
+		return -2;
+	}
+
+	//2、校验：公钥+TJZT
+	unsigned int uiClientInfoLen = p_uiClientInfoLen;
+	int iAuthKeyLength = g_strAuthKey.length();
+	int iSignatureLength = g_strSignature.length();
+	int iDateLength = 8;//年月日 20241219
+
+	if (strAesData.length() != uiClientInfoLen + iAuthKeyLength + iSignatureLength + iDateLength)
+	{
+		//长度匹配失败 公钥+TJZT+开始日期
+		return -3;
+	}
+
+	std::string strAuthKey = strAesData.substr(uiClientInfoLen, iAuthKeyLength);
+	if (strAuthKey != g_strAuthKey)
+	{
+		//公钥匹配失败
+		return -4;
+	}
+
+	std::string strSignature = strAesData.substr(uiClientInfoLen + iAuthKeyLength, iSignatureLength);
+	if (strSignature != g_strSignature)
+	{
+		//签名匹配失败
+		return -5;
+	}
+
+	//3、授权：服务器授权密文
+	std::string strDate = strAesData.substr(uiClientInfoLen +iAuthKeyLength + iSignatureLength, iDateLength);
+	int iDate = atoi(strDate.c_str());
+	int iCurDate = GetCurDate();
+	int iAuthDay = p_iAuthDay;
+	//授权天数在-30到30天之间
+	iAuthDay = nsdk_min(iAuthDay, 30);
+	iAuthDay = nsdk_max(iAuthDay, -30);
+	int iNextDate = GetNextDate(iDate, iAuthDay);
+	std::string strNewFeatrue = strAesData + std::to_string(iNextDate);
+	p_strFeatrue = Aes(strNewFeatrue);
+
+	return 0;
+}
+
+int AuthFeatrue(const std::string p_strClientInfo, std::string p_strFeatrue, std::string& p_strFeatrueInfo)
+{
+	//p_strFeatrue 服务器授权密文。生成方式：公钥+TJZT+开始日期+结束日期 --> AES加密 --> BASE64加密
+	//p_strFeatrueInfo 解密明文
+
+	//1、解密：BASE64解密 --> AES解密 --> 公钥+TJZT+开始日期+结束日期
+	if (p_strFeatrue.empty())
+	{
+		//长度是0
+		return -1;
+	}
+	p_strFeatrueInfo = Deaes(p_strFeatrue);
+	if (p_strFeatrueInfo.empty())
+	{
+		//AES解密失败
+		return -2;
+	}
+
+	//2、校验：公钥+TJZT
+	unsigned int uiClientInfoLen = p_strClientInfo.length();
+	int iAuthKeyLength = g_strAuthKey.length();
+	int iSignatureLength = g_strSignature.length();
+	int iDateLength = 8 + 8;//开始日期 20241219 结束日期 20241220
+
+	if (p_strFeatrueInfo.length() != uiClientInfoLen + iAuthKeyLength + iSignatureLength + iDateLength)
+	{
+		//长度匹配失败 公钥+TJZT+开始日期+结束日期
+		return -3;
+	}
+
+	std::string strClientInfo = p_strFeatrueInfo.substr(0, uiClientInfoLen);
+	if (strClientInfo != p_strClientInfo)
+	{
+		//客户信息匹配失败
+		return -4;
+	}
+
+	std::string strAuthKey = p_strFeatrueInfo.substr(uiClientInfoLen, iAuthKeyLength);
+	if (strAuthKey != g_strAuthKey)
+	{
+		//公钥匹配失败
+		return -5;
+	}
+
+	std::string strSignature = p_strFeatrueInfo.substr(uiClientInfoLen + iAuthKeyLength, iSignatureLength);
+	if (strSignature != g_strSignature)
+	{
+		//签名匹配失败
+		return -6;
+	}
+
+	//3、检验结束日期时间
+	std::string strStartEndDate = p_strFeatrueInfo.substr(uiClientInfoLen + iAuthKeyLength + iSignatureLength, iDateLength);
+	int iStartDate = atoi(strStartEndDate.substr(0, 8).c_str());
+	int iEndDate = atoi(strStartEndDate.substr(8).c_str());
+	int iCurDate = GetCurDate();
+
+	if (iCurDate > iEndDate)
+	{
+		//结束日期失效
+		return -7;
+	}
+
+	if (iStartDate > iEndDate)
+	{
+		//开始结束日期时序错误
+		return -8;
+	}
+
+	int iNextDate = GetNextDate(iStartDate, AUTH_DAY);
+	if (iNextDate != iEndDate)
+	{
+		//授权结束日期错误 未按照制定天数授权
+		return -9;
+	}
+
+	return 0;
+}
+#else
+int BuildFeatrue(std::string p_strClientInfo, unsigned int p_uiClientInfoLen, int p_iAuthDay, std::string& p_strFeatrue)
+{
+	return -99;
+}
+int AuthFeatrue(const std::string p_strClientInfo, std::string p_strFeatrue, std::string& p_strFeatrueInfo)
+{
+	return -99;
+}
+#endif
+
 
 END_NAMESPACE_NSDK
 

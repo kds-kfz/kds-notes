@@ -21,6 +21,10 @@ extern "C" {
 
 //跨平台部分
 #if defined(OS_IS_WINDOWS)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
 #include <Windows.h>
 #define NSDK_PATH_DELIMETER "\\"
 #define nsdk_atomic_t                         LONG

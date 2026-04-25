@@ -122,6 +122,21 @@ extern "C"
 	//获取cpu核心数
 	NSDK_API unsigned long GetNumberOfCores(bool p_bUsable = false);
 
+	/******************** 加密认证处理 ********************/
+	//AES加密
+	NSDK_API std::string Aes(const std::string& p_strSrc);
+	//AES解密
+	NSDK_API std::string Deaes(const std::string& p_strSrc);
+	//BASE64加密
+	NSDK_API std::string Base64Encode(unsigned char const* p_ucBytes, unsigned int p_uiLen);
+	//BASE64解密
+	NSDK_API std::string Base64Decode(std::string const& p_strEncoded);
+	//客户端 生成信息密文
+	NSDK_API std::string MakeFeatrue(const std::string p_strClientInfo);
+	//服务器 生成授权码 p_strClientInfo：客户信息密文 p_uiClientInfoLen：客户信息长度 p_iAuthDay：授权天数 p_strFeatrue：服务器授权密文
+	NSDK_API int BuildFeatrue(std::string p_strClientInfo, unsigned int p_uiClientInfoLen, int p_iAuthDay, std::string& p_strFeatrue);
+	//服务器 校验授权码 p_strClientInfo: 客户信息 p_strFeatrue: 授权密文 p_strFeatrueInfo：授权解密明文
+	NSDK_API int AuthFeatrue(const std::string p_strClientInfo, std::string p_strFeatrue, std::string& p_strFeatrueInfo);
 
 #ifdef __cplusplus
 }

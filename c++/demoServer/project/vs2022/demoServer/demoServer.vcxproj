@@ -165,7 +165,7 @@
       <AdditionalIncludeDirectories>$(SolutionDir)..\..\..\vender\hpsocket\include;$(SolutionDir)..\..\..\vender\nsdk\include;$(SolutionDir)..\..\..\vender\thread\include;$(SolutionDir)..\..\..\vender\SocketServer\include;$(SolutionDir)..\..\..\include;$(SolutionDir)..\..\..\vender\json\include;$(SolutionDir)..\..\..\public;$(SolutionDir)..\..\..\vender\xsdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4996;4102;4267</DisableSpecificWarnings>
-      <Optimization>MaxSpeed</Optimization>
+      <Optimization>Disabled</Optimization>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

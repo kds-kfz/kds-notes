@@ -152,12 +152,14 @@
     <ClInclude Include="..\..\..\include\nsdk_libraryop.h" />
     <ClInclude Include="..\..\..\include\nsdk_mutex.h" />
     <ClInclude Include="..\..\..\include\nsdk_thread.h" />
+    <ClInclude Include="..\..\..\src\aes.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="nsdk.rc" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\..\src\aes.cpp" />
     <ClCompile Include="..\..\..\src\nsdk.cpp" />
     <ClCompile Include="..\..\..\src\nsdk_event.cpp" />
     <ClCompile Include="..\..\..\src\nsdk_thread.cpp" />

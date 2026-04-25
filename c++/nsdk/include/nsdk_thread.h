@@ -1,10 +1,14 @@
-ï»¿#ifndef _NSDK_THREAD_H_
+#ifndef _NSDK_THREAD_H_
 #define _NSDK_THREAD_H_
 
 #include "nsdk_define.h"
 #include "nsdk_event.h"
 
 #if defined(OS_IS_WINDOWS)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
 #include <windows.h>
 #else
 #include <pthread.h>
@@ -51,14 +55,14 @@ protected:
 #else
 	pthread_t m_hThread;
 #endif
-	unsigned int m_uiThreadID;    // å¯¹å¤–æš´éœ²çš„çº¿ç¨‹IDç¼“å­˜ã€‚
+	unsigned int m_uiThreadID;    // ¶ÔÍâ±©Â¶µÄÏß³ÌID»º´æ¡£
 
-	CEvent m_clEventIdle;         // ç©ºé—²äº‹ä»¶ï¼Œæš‚åœæˆ–ç­‰å¾…å·¥ä½œæ—¶ç½®ä½ã€‚
-	CEvent m_clEventWork;         // å·¥ä½œäº‹ä»¶ï¼ŒResume åå…è®¸çº¿ç¨‹è¿›å…¥åˆå§‹åŒ–å’Œå·¥ä½œå¾ªç¯ã€‚
-	CEvent m_clEventKill;         // ç»“æŸäº‹ä»¶ï¼Œè¯·æ±‚çº¿ç¨‹é€€å‡ºã€‚
-	CEvent m_clEventDead;         // æ­»äº¡äº‹ä»¶ï¼Œçº¿ç¨‹æ¸…ç†å®Œæˆåç½®ä½ã€‚
+	CEvent m_clEventIdle;         // ¿ÕÏĞÊÂ¼ş£¬ÔİÍ£»òµÈ´ı¹¤×÷Ê±ÖÃÎ»¡£
+	CEvent m_clEventWork;         // ¹¤×÷ÊÂ¼ş£¬Resume ºóÔÊĞíÏß³Ì½øÈë³õÊ¼»¯ºÍ¹¤×÷Ñ­»·¡£
+	CEvent m_clEventKill;         // ½áÊøÊÂ¼ş£¬ÇëÇóÏß³ÌÍË³ö¡£
+	CEvent m_clEventDead;         // ËÀÍöÊÂ¼ş£¬Ïß³ÌÇåÀíÍê³ÉºóÖÃÎ»¡£
 
-	void* m_pvdParam;             // åˆ›å»ºçº¿ç¨‹æ—¶ä¼ å…¥çš„ç”¨æˆ·å‚æ•°ã€‚
+	void* m_pvdParam;             // ´´½¨Ïß³ÌÊ±´«ÈëµÄÓÃ»§²ÎÊı¡£
 };
 
 END_NAMESPACE_NSDK
