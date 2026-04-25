@@ -1428,3 +1428,140 @@
 
 - Web 模块代码可读性更高
 - 降低未使用参数、无效分支和历史测试残留带来的维护干扰
+
+## 2026-04-25 补充：Web / HTTP 大包分片处理与日志安全优化
+
+### 本轮结论
+
+- 已复查网络库 Web / HTTP 当前链路，本轮目标内没有需要继续追加的代码修改。
+- HTTP 请求现在由网络层按 `OnBody()` 分片累计，只有 `OnMessageComplete()` 后才派发给上层，上层拿到的是完整请求。
+- WebSocket 请求现在由网络层按帧头、帧体、完成事件累计完整消息，只有整条消息完成后才派发给上层，上层不会再收到半包。
+- 请求和响应日志均只记录长度、状态、连接等元信息，不打印请求 BODY 或响应 BODY。
+
+### 本次涉及文件
+
+- `Struct.h`
+- `HttpAsynReqObj.h`
+- `HttpAsynReqObj.cpp`
+- `HttpServerListerNet.cpp`
+- `WebServerListerNet.cpp`
+
+### 1. HTTP 请求 BODY 分片累计与大包保护
+
+修改前的问题：
+
+- HTTP 底层 `OnBody()` 可能被多次触发，上层如果在未完整累计时处理，会存在半包理解风险。
+- 大请求 BODY 如果反复触发 `std::string` 扩容，会带来额外内存分配和拷贝成本。
+- 如果请求头或 BODY 不做上限保护，异常请求可能持续占用内存。
+
+本次修改内容：
+
+- 在 `HttpServerListerNet.cpp` 中增加 HTTP 请求保护阈值：
+  - `HTTP_MAX_REQ_HEADER_COUNT`：限制单请求头数量
+  - `HTTP_MAX_REQ_HEADER_BYTES`：限制单请求头累计字节数
+  - `HTTP_MAX_REQ_BODY_BYTES`：限制单请求 BODY 最大字节数
+- `OnHeadersComplete()` 读取 `Content-Length`，超限时提前返回 `413 PayloadTooLarge`。
+- `OnHeadersComplete()` 在 BODY 长度已知时调用 `ReserveContent()` 预留缓冲，减少大包分片追加时的重复扩容。
+- `OnBody()` 只做分片累计和总大小校验，不打印请求正文。
+- `OnMessageComplete()` 才把完整 HTTP 请求提交给上层线程池。
+- 新增 `CHttpAsynReqObj::ReserveContent(...)`，用于按 `Content-Length` 提前预留 BODY 缓冲。
+- `CHttpAsynReqObj::AppendContent(...)` 增加异常保护，分片追加失败时返回失败给 HTTP 层处理。
+
+为什么这样修改：
+
+- HTTP 和 TCP 一样会存在分包/分片情况，只是 HTTP 的完整性应该由 HTTP 解析层收口。
+- 网络库先组完整 HTTP 请求再交给上层，比让上层业务轮询补包更符合 HTTP 服务职责。
+- 对大包提前做上限和预留，可以降低异常请求和大包请求对内存的冲击。
+
+预期效果：
+
+- 上层应用收到 HTTP 请求时不再需要判断 BODY 是否完整。
+- 大 BODY 请求的追加过程更稳定。
+- 超限请求更早失败，不继续占用解析和缓存资源。
+
+### 2. WebSocket 完整消息派发与大包缓存转移
+
+修改前的问题：
+
+- WebSocket 底层可能按帧头、帧体、完成事件多次回调；如果把 body 片段直接抛给上层，上层会收到半包。
+- 完整消息较大时，如果在通知上层前再申请一块同等大小缓冲并拷贝，会造成额外内存峰值和 CPU 拷贝成本。
+- 上层消费慢时，如果没有派发配额保护，连接级任务可能持续堆积。
+
+本次修改内容：
+
+- `OnWSMessageHeader()` 按连接准备 `ReqCacheData`，记录当前帧长度、位置、FIN、opcode 等状态。
+- `OnWSMessageBody()` 只把片段写入连接级缓存，不提前通知上层。
+- `OnWSMessageComplete()` 先校验当前帧是否收齐；只有完整 WebSocket 消息结束时才创建 `NotifyTask` 派发给上层。
+- 对大于保留阈值的完整消息，直接把 `ReqCacheData::pBuf` 所有权转给 `NotifyTask::pBuf`，避免再次申请同等大小内存并 `memcpy`。
+- 小包仍深拷贝到通知任务，连接级缓存保留复用，减少小包高频场景的申请释放。
+- 通知派发前调用 `ReserveWebPendingQuota(...)`，防止单连接慢消费时任务数和待处理字节数无限增长。
+- `NotifyTask`、`ReqCacheData`、通知缓冲等关键申请改为 `new (std::nothrow)`，申请失败时记录错误并返回失败，不让异常穿透网络回调。
+
+为什么这样修改：
+
+- WebSocket 是消息语义，上层业务更应该拿到完整消息，而不是底层网络片段。
+- 大包直接转移缓存所有权，可以明显降低峰值内存和一次大拷贝成本。
+- 慢消费保护可以避免单个连接拖垮线程池任务队列或进程内存。
+
+预期效果：
+
+- 上层 Web 服务收到的是完整 WebSocket 消息。
+- 大包派发路径减少一次内存申请和一次完整拷贝。
+- 单连接异常堆积时更早触发保护，降低全局服务风险。
+
+### 3. HTTP 响应路径和日志安全补强
+
+修改前的问题：
+
+- 响应头转换为底层 `THeader` 数组时，会涉及 `std::vector` / `std::string` 分配，旧逻辑没有兜住分配失败。
+- 请求和响应日志如果打印 BODY，可能造成大日志、敏感信息泄露和二进制内容越界读取风险。
+
+本次修改内容：
+
+- `AddResponseHead()` 对响应头保存流程增加异常保护。
+- `SendResponse()` 对响应头数组构造流程增加异常保护。
+- `SendResponse()` 发送成功后才清理当前连接的活动请求状态。
+- keep-alive 请求在响应成功进入发送队列后才恢复接收，避免同连接下第二个请求先于第一个请求完成回包。
+- HTTP 请求日志只记录 method、url、连接、长度等元信息，不打印 BODY。
+- HTTP 响应日志只记录 `BodyLen`，不打印响应 BODY。
+- WebSocket 数据日志只记录 `len`，不打印消息内容。
+
+为什么这样修改：
+
+- 网络日志不应该承担 payload dump 的职责，尤其不能默认打印大包或敏感正文。
+- 响应头构造失败应可控返回，不能因为内存异常破坏网络线程。
+- keep-alive 连接需要保证请求和响应顺序清晰。
+
+预期效果：
+
+- 日志量更可控，避免请求/响应正文进入日志。
+- 回包失败路径更明确。
+- HTTP keep-alive 下的请求处理顺序更稳。
+
+### 4. 结构字段与关键流程中文注释补充
+
+本次修改内容：
+
+- 在 `Struct.h` 中补充 `ReqCacheData`、`NotifyTask` 关键字段说明。
+- 在 HTTP 请求解析、BODY 预留、BODY 追加、完整请求派发、响应发送等关键步骤补充中文注释。
+- 在 WebSocket 帧头解析、Body 累计、Complete 派发、大包缓存转移、小包缓存复用、通知配额等关键步骤补充中文注释。
+- 新增注释统一使用既有格式：`wyl 2026-04-25：...`。
+- 源码按 UTF-8 BOM 写回，避免中文注释乱码。
+
+### 本轮验证结果
+
+验证命令：
+
+- `msbuild SocketServer.sln /p:Configuration=Release /p:Platform=x64`
+
+验证结果：
+
+- `Release|x64` 构建成功。
+- `0` 个错误。
+- 仍有原有工程告警：
+  - `MSB8004`：Output 目录未以斜杠结尾，MSBuild 自动补齐。
+  - `nsdk.h C4190`：C 链接函数返回 `std::string` 的历史告警。
+
+说明：
+
+- 以上告警为工程既有告警，不是本轮 Web / HTTP 优化新增问题。

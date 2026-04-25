@@ -3,6 +3,7 @@
 #include "Log.h"
 #include "Base64.h"
 #include "USER_SHA1.h"
+#include <new>
 
 namespace
 {
@@ -120,7 +121,13 @@ namespace
 		ReqCacheData *&refReqCacheData = g_mapWebQueue[dwConnID];
 		if (nullptr == refReqCacheData)
 		{
-			refReqCacheData = new ReqCacheData();
+			// wyl 2026-04-25：配额统计对象按连接懒创建；使用 nothrow，申请失败时拒绝本次通知，避免异常穿透线程池。
+			refReqCacheData = new (std::nothrow) ReqCacheData();
+			if (nullptr == refReqCacheData)
+			{
+				pthread_mutex_unlock(&g_mutexWebReq);
+				return false;
+			}
 			refReqCacheData->ullConnID = dwConnID;
 		}
 
@@ -286,7 +293,11 @@ namespace
 			ulNewCapacity *= 2;
 		}
 
-		char* pNewBuf = new char[ulNewCapacity];
+		// wyl 2026-04-25：扩容采用 nothrow，失败时让调用方按协议错误关闭连接，而不是抛异常中断网络线程。
+		char* pNewBuf = new (std::nothrow) char[ulNewCapacity];
+		if (nullptr == pNewBuf)
+			return false;
+
 		if (nullptr != pReqCacheData->pBuf && pReqCacheData->ulPos > 0)
 		{
 			memcpy(pNewBuf, pReqCacheData->pBuf, pReqCacheData->ulPos);
@@ -480,7 +491,12 @@ EnHttpParseResult CWebServerListerNet::OnUpgrade(IHttpServer* pSender, CONNID dw
 		return HPR_OK;
 
 	// wyl 2026-03-30：只有升级真正完成后才向上层派发连接成功，避免业务过早按 WebSocket 已就绪处理。
-	NotifyTask *pNotifyTask = new NotifyTask();
+	NotifyTask *pNotifyTask = new (std::nothrow) NotifyTask();
+	if (nullptr == pNotifyTask)
+	{
+		WEB_ERROR("ConnID=%llu,WebConnectNotifyAllocFail", (unsigned long long)dwConnID);
+		return HPR_ERROR;
+	}
 	pNotifyTask->enWebNotifyType = enWebConnect;
 	pNotifyTask->ullConnID = dwConnID;
 
@@ -545,10 +561,18 @@ EnHandleResult CWebServerListerNet::OnWSMessageHeader(IHttpServer* pSender, CONN
 
 	bool bProtocolError = false;
 	pthread_mutex_lock(&g_mutexWebReq);
+	// wyl 2026-04-25：帧头阶段准备连接级缓存，后续 Body 回调按该状态累计，Complete 阶段再统一判断是否完整。
 	ReqCacheData *&refReqCacheData = g_mapWebQueue[dwConnID];
 	if (nullptr == refReqCacheData)
 	{
-		refReqCacheData = new ReqCacheData();
+		// wyl 2026-04-25：WebSocket 分片缓存对象采用 nothrow 创建；失败时终止本连接解析，不再进入半初始化状态。
+		refReqCacheData = new (std::nothrow) ReqCacheData();
+		if (nullptr == refReqCacheData)
+		{
+			pthread_mutex_unlock(&g_mutexWebReq);
+			WEB_ERROR("ConnID=%llu,WebSocketCacheAllocFail", (unsigned long long)dwConnID);
+			return HR_ERROR;
+		}
 		refReqCacheData->ullConnID = dwConnID;
 	}
 
@@ -723,10 +747,13 @@ EnHandleResult CWebServerListerNet::OnWSMessageComplete(IHttpServer* pSender, CO
 	if (!g_bWebServerStatus)
 		return HR_ERROR;
 
+	// wyl 2026-04-25：Complete 阶段只在整条 WebSocket 消息收齐后创建通知任务，上层不会再收到半包。
 	NotifyTask *pNotifyTask = nullptr;
 	bool bProtocolError = false;
+	bool bAllocError = false;
 	bool bNeedPong = false;
 	int iPongLen = 0;
+	unsigned long ulNotifyLenForLog = 0;
 	char szPongBuf[125] = { 0 };
 
 	pthread_mutex_lock(&g_mutexWebReq);
@@ -734,6 +761,7 @@ EnHandleResult CWebServerListerNet::OnWSMessageComplete(IHttpServer* pSender, CO
 	if (itReqCache != g_mapWebQueue.end() && nullptr != itReqCache->second)
 	{
 		ReqCacheData *pReqCacheData = itReqCache->second;
+		// wyl 2026-04-25：先校验当前帧 BODY 是否收齐，未收齐说明分片状态异常，不能向上层派发。
 		if (pReqCacheData->ulWsFramePos != pReqCacheData->ulWsFrameLength)
 		{
 			bProtocolError = true;
@@ -783,14 +811,43 @@ EnHandleResult CWebServerListerNet::OnWSMessageComplete(IHttpServer* pSender, CO
 			// wyl 2026-03-30：只在完整 WebSocket 消息结束时向上层派发一次数据通知。
 			if (1 == pReqCacheData->ucWsOperationCode || 2 == pReqCacheData->ucWsOperationCode)
 			{
-				pNotifyTask = new NotifyTask();
-				pNotifyTask->enWebNotifyType = enWebData;
-				pNotifyTask->ullConnID = dwConnID;
-				pNotifyTask->uiLen = (unsigned int)pReqCacheData->ulPos;
-				if (pReqCacheData->ulPos > 0)
+				pNotifyTask = new (std::nothrow) NotifyTask();
+				ulNotifyLenForLog = pReqCacheData->ulPos;
+				if (nullptr == pNotifyTask)
 				{
-					pNotifyTask->pBuf = new char[pReqCacheData->ulPos];
-					memcpy(pNotifyTask->pBuf, pReqCacheData->pBuf, pReqCacheData->ulPos);
+					bAllocError = true;
+				}
+				else
+				{
+					pNotifyTask->enWebNotifyType = enWebData;
+					pNotifyTask->ullConnID = dwConnID;
+					pNotifyTask->uiLen = (unsigned int)pReqCacheData->ulPos;
+					if (pReqCacheData->ulPos > 0)
+					{
+						if (pReqCacheData->ulCapacity > g_ulWebCacheKeepLen)
+						{
+							// wyl 2026-04-25：大包缓存已经是一条完整 WebSocket 消息，直接把缓冲所有权转给通知任务。
+							// wyl 2026-04-25：这样避免再申请一块同等大小内存并 memcpy；转移后 ReqCacheData 不再释放这块缓冲。
+							pNotifyTask->pBuf = pReqCacheData->pBuf;
+							pReqCacheData->pBuf = nullptr;
+							pReqCacheData->ulCapacity = 0;
+						}
+						else
+						{
+							// wyl 2026-04-25：小包继续深拷贝到通知任务，连接缓存保留下来复用，降低频繁申请释放的成本。
+							pNotifyTask->pBuf = new (std::nothrow) char[pReqCacheData->ulPos];
+							if (nullptr == pNotifyTask->pBuf)
+							{
+								bAllocError = true;
+								delete pNotifyTask;
+								pNotifyTask = nullptr;
+							}
+							else
+							{
+								memcpy(pNotifyTask->pBuf, pReqCacheData->pBuf, pReqCacheData->ulPos);
+							}
+						}
+					}
 				}
 			}
 
@@ -805,6 +862,12 @@ EnHandleResult CWebServerListerNet::OnWSMessageComplete(IHttpServer* pSender, CO
 		return HR_ERROR;
 	}
 
+
+	if (bAllocError)
+	{
+		WEB_ERROR("ConnID=%llu,WebSocketNotifyAllocFail,len=%lu", (unsigned long long)dwConnID, ulNotifyLenForLog);
+		return HR_ERROR;
+	}
 	if (bNeedPong)
 	{
 		// wyl 2026-03-30：pong 先于业务通知发送，避免上层处理较慢时影响心跳往返时延。
@@ -819,6 +882,7 @@ EnHandleResult CWebServerListerNet::OnWSMessageComplete(IHttpServer* pSender, CO
 	if (nullptr == pNotifyTask)
 		return HR_OK;
 
+	// wyl 2026-04-25：派发前占用单连接配额，防止上层慢消费时通知任务和内存无限堆积。
 	if (!ReserveWebPendingQuota(dwConnID, pNotifyTask->uiLen))
 	{
 		WEB_ERROR("ConnID=%llu,PendingWebNotifyOverflow,len=%u", (unsigned long long)dwConnID, pNotifyTask->uiLen);
@@ -925,7 +989,12 @@ EnHandleResult CWebServerListerNet::OnClose(ITcpServer* pSender, CONNID dwConnID
 	if (!bHasClient)
 		return HR_ERROR;
 
-	NotifyTask *pNotifyTask = new NotifyTask();
+	NotifyTask *pNotifyTask = new (std::nothrow) NotifyTask();
+	if (nullptr == pNotifyTask)
+	{
+		WEB_ERROR("ConnID=%llu,WebCloseNotifyAllocFail", (unsigned long long)dwConnID);
+		return HR_ERROR;
+	}
 	pNotifyTask->enWebNotifyType = enWebClose;
 	pNotifyTask->ullConnID = dwConnID;
 	return SubmitWebNotifyTask((IHttpServer*)pSender, dwConnID, pNotifyTask) ? HR_OK : HR_ERROR;
@@ -952,7 +1021,7 @@ EnHandleResult CWebServerListerNet::OnReceive(ITcpServer*, CONNID dwConnID, int 
 	pthread_mutex_unlock(&g_mutexWebConnet);
 
 	// wyl 2026-03-30：当前 Web 服务的数据主链路走 HTTP 解析和 WebSocket 回调，这个原始 Pull 收包回调不应进入。
-	// 如果这里被触发，通常说明底层模型或配置和当前实现预期不一致，直接拒绝比继续分配错误缓存更安全。
+	// wyl 2026-04-25：如果这里被触发，通常说明底层模型或配置和当前实现预期不一致，直接拒绝比继续分配错误缓存更安全。
 	WEB_WARN("ConnID=%llu,UnexpectedPullReceiveLen=%d", (unsigned long long)dwConnID, iLength);
 	return HR_ERROR;
 }

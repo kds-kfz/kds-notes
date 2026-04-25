@@ -61,6 +61,8 @@ public:
 	bool AddRequestHead(const char* p_szName, const char* p_szValue, size_t p_uiMaxHeadCount, size_t p_uiMaxHeadBytes);
 	// 追加一段请求 BODY，并按累计总大小上限做限制校验。
 	bool AppendContent(const unsigned char* p_pData, int p_iLen, size_t p_uiMaxBodyBytes);
+	// wyl 2026-04-25：按 Content-Length 预留 BODY 缓冲，减少大包分片追加时的重复扩容拷贝。
+	bool ReserveContent(size_t p_uiContentLen, size_t p_uiMaxBodyBytes);
 	// 业务层放弃请求时的兜底收口：清理活动状态并主动断开连接。
 	void AbortRequest();
 	// 断开请求对象与底层 transport 的关联，防止后续继续回包到失效连接。

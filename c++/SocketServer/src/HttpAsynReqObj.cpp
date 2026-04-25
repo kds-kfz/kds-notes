@@ -1,6 +1,7 @@
 ﻿#include "HttpAsynReqObj.h"
 
 #include <string.h>
+#include <new>
 
 #include "HPSocket.h"
 #include "Log.h"
@@ -99,13 +100,21 @@ void CHttpAsynReqObj::AddResponseHead(const char* p_szName, const char* p_szValu
 	if (nullptr == p_szName || '\0' == *p_szName)
 		return;
 
-	HttpHeaderItem stHeaderItem;
-	stHeaderItem.strName = p_szName;
-	if (nullptr != p_szValue)
+	// wyl 2026-04-25：响应头会写入 std::vector/std::string，可能触发内存分配；这里兜住异常，避免回包流程崩溃。
+	try
 	{
-		stHeaderItem.strValue = p_szValue;
+		HttpHeaderItem stHeaderItem;
+		stHeaderItem.strName = p_szName;
+		if (nullptr != p_szValue)
+		{
+			stHeaderItem.strValue = p_szValue;
+		}
+		m_vecResponseHead.push_back(stHeaderItem);
 	}
-	m_vecResponseHead.push_back(stHeaderItem);
+	catch (...)
+	{
+		HTTP_ERROR("ReqID=%llu,ConnID=%llu,AddResponseHeadAllocFail", m_ullReqID, (unsigned long long)m_dwConnID);
+	}
 }
 
 bool CHttpAsynReqObj::SendResponse(const void* p_szData, int p_iLen)
@@ -126,14 +135,23 @@ bool CHttpAsynReqObj::SendResponse(const void* p_szData, int p_iLen)
 
 	const int iBodyLen = p_iLen > 0 ? p_iLen : 0;
 
+	// wyl 2026-04-25：发送前把内部响应头转换成 HP-Socket 的 THeader 数组；日志只记录响应长度，不打印响应正文。
 	std::vector<THeader> vecHeaders;
-	vecHeaders.reserve(m_vecResponseHead.size());
-	for (size_t i = 0; i < m_vecResponseHead.size(); ++i)
+	try
 	{
-		THeader stHeader;
-		stHeader.name = m_vecResponseHead[i].strName.c_str();
-		stHeader.value = m_vecResponseHead[i].strValue.c_str();
-		vecHeaders.push_back(stHeader);
+		vecHeaders.reserve(m_vecResponseHead.size());
+		for (size_t i = 0; i < m_vecResponseHead.size(); ++i)
+		{
+			THeader stHeader;
+			stHeader.name = m_vecResponseHead[i].strName.c_str();
+			stHeader.value = m_vecResponseHead[i].strValue.c_str();
+			vecHeaders.push_back(stHeader);
+		}
+	}
+	catch (...)
+	{
+		HTTP_ERROR("ReqID=%llu,ConnID=%llu,BuildResponseHeaderAllocFail", m_ullReqID, (unsigned long long)m_dwConnID);
+		return false;
 	}
 
 	if (!m_pSender->SendResponse(m_dwConnID, (USHORT)m_enHttpStatus, nullptr,
@@ -146,12 +164,12 @@ bool CHttpAsynReqObj::SendResponse(const void* p_szData, int p_iLen)
 	}
 
 	m_bResponseSent = true;
-	// 只有当本次响应已经被底层网络层接受后，才清理当前连接的活动请求限制。
+	// wyl 2026-04-25：只有当本次响应已经被底层网络层接受后，才清理当前连接的活动请求限制。
 	ClearHttpActiveReq(m_dwConnID, m_ullReqID);
 
 	if (m_bKeepAlive)
 	{
-		// 请求派发给上层后该连接的接收已被暂停；只有响应成功进入发送队列后才恢复读取。
+		// wyl 2026-04-25：请求派发给上层后该连接的接收已被暂停；只有响应成功进入发送队列后才恢复读取。
 		if (!m_pSender->PauseReceive(m_dwConnID, false))
 		{
 			HTTP_WARN("ReqID=%llu,ConnID=%llu,ResumeReceiveFail,err=%d",
@@ -213,19 +231,57 @@ bool CHttpAsynReqObj::AddRequestHead(const char* p_szName, const char* p_szValue
 	if (nullptr == p_szName || '\0' == *p_szName)
 		return true;
 
-	// 这里按“头名 + ': ' + 头值 + CRLF”的近似格式估算单个请求头占用字节数，用于做总量限制。
+	// wyl 2026-04-25：这里按“头名 + ': ' + 头值 + CRLF”的近似格式估算单个请求头占用字节数，用于做总量限制。
 	const size_t uiOneHeadBytes = SafeStringLength(p_szName) + SafeStringLength(p_szValue) + 4;
 	if ((m_uiRequestHeadCount + 1) > p_uiMaxHeadCount || (m_uiRequestHeadBytes + uiOneHeadBytes) > p_uiMaxHeadBytes)
 	{
 		return false;
 	}
 
+	try
+	{
+		const std::string strHeaderName = NormalizeHeaderName(p_szName);
+		const std::string strHeaderValue = (nullptr == p_szValue) ? "" : p_szValue;
+		m_mapRequestHead[strHeaderName] = strHeaderValue;
+	}
+	catch (...)
+	{
+		HTTP_ERROR("ReqID=%llu,ConnID=%llu,AddRequestHeadAllocFail", m_ullReqID, (unsigned long long)m_dwConnID);
+		return false;
+	}
+
 	++m_uiRequestHeadCount;
 	m_uiRequestHeadBytes += uiOneHeadBytes;
-	m_mapRequestHead[NormalizeHeaderName(p_szName)] = (nullptr == p_szValue) ? "" : p_szValue;
 	return true;
 }
 
+// wyl 2026-04-25：按 Content-Length 提前预留请求 BODY 缓冲。
+// wyl 2026-04-25：作用：大包分片到达时减少 std::string 反复扩容和拷贝；失败时由 HTTP 层拒绝请求。
+bool CHttpAsynReqObj::ReserveContent(size_t p_uiContentLen, size_t p_uiMaxBodyBytes)
+{
+	if (p_uiContentLen > p_uiMaxBodyBytes)
+	{
+		return false;
+	}
+
+	// wyl 2026-04-25：reserve 只改变容量，不改变已接收长度；真正内容仍由 AppendContent 逐片追加。
+	try
+	{
+		if (p_uiContentLen > m_strContent.capacity())
+		{
+			m_strContent.reserve(p_uiContentLen);
+		}
+	}
+	catch (...)
+	{
+		HTTP_ERROR("ReqID=%llu,ConnID=%llu,ReserveContentAllocFail,len=%zu", m_ullReqID, (unsigned long long)m_dwConnID, p_uiContentLen);
+		return false;
+	}
+	return true;
+}
+
+// wyl 2026-04-25：追加一次 OnBody 回调带来的 BODY 分片。
+// wyl 2026-04-25：作用：网络层负责把分片累计成完整 HTTP BODY，上层拿到请求时看到的是完整包。
 bool CHttpAsynReqObj::AppendContent(const unsigned char* p_pData, int p_iLen, size_t p_uiMaxBodyBytes)
 {
 	if (nullptr == p_pData || p_iLen <= 0)
@@ -236,7 +292,16 @@ bool CHttpAsynReqObj::AppendContent(const unsigned char* p_pData, int p_iLen, si
 		return false;
 	}
 
-	m_strContent.append(reinterpret_cast<const char*>(p_pData), p_iLen);
+	try
+	{
+		// wyl 2026-04-25：只缓存正文内容，不在网络库日志中打印请求 BODY，避免大包日志和敏感信息泄露。
+		m_strContent.append(reinterpret_cast<const char*>(p_pData), p_iLen);
+	}
+	catch (...)
+	{
+		HTTP_ERROR("ReqID=%llu,ConnID=%llu,AppendContentAllocFail,len=%d,total=%zu", m_ullReqID, (unsigned long long)m_dwConnID, p_iLen, m_strContent.size());
+		return false;
+	}
 	return true;
 }
 
@@ -246,7 +311,7 @@ void CHttpAsynReqObj::AbortRequest()
 
 	if (nullptr != m_pSender && 0 != m_dwConnID)
 	{
-		// 如果上层直接放弃请求且没有回包，最稳妥的兜底方式就是主动关闭当前连接。
+		// wyl 2026-04-25：如果上层直接放弃请求且没有回包，最稳妥的兜底方式就是主动关闭当前连接。
 		if (!m_pSender->Release(m_dwConnID))
 		{
 			HTTP_WARN("ReqID=%llu,ConnID=%llu,AbortReleaseConnFail,err=%d",

@@ -1,12 +1,14 @@
 ﻿#include "publicGlobalvar.h"
 #include "publicfunc.h"
 #include "Log.h"
+#include <new>
 
 namespace
 {
-	const size_t HTTP_MAX_REQ_HEADER_COUNT = 128;
-	const size_t HTTP_MAX_REQ_HEADER_BYTES = 32 * 1024;
-	const size_t HTTP_MAX_REQ_BODY_BYTES = 8 * 1024 * 1024;
+	// wyl 2026-04-25：HTTP 请求保护阈值：限制头数量、头总字节和 BODY 总字节，避免异常请求或大包拖垮内存。
+	const size_t HTTP_MAX_REQ_HEADER_COUNT = 128;			// wyl 2026-04-25：单个 HTTP 请求允许的最大请求头数量
+	const size_t HTTP_MAX_REQ_HEADER_BYTES = 32 * 1024;	// wyl 2026-04-25：单个 HTTP 请求允许的请求头累计字节数
+	const size_t HTTP_MAX_REQ_BODY_BYTES = 8 * 1024 * 1024;	// wyl 2026-04-25：单个 HTTP 请求允许的 BODY 最大字节数
 
 	char ToLowerAscii(char ch)
 	{
@@ -180,7 +182,7 @@ EnHttpParseResult CHttpServerListerNet::OnMessageBegin(IHttpServer*, CONNID dwCo
 	if (!g_bHttpServerStatus)
 		return HPR_ERROR;
 
-	// 当前实现不支持同一连接并发处理多个 HTTP 请求；若上一个请求还没收尾，这里直接拒绝继续解析。
+	// wyl 2026-04-25：当前实现不支持同一连接并发处理多个 HTTP 请求；若上一个请求还没收尾，这里直接拒绝继续解析。
 	pthread_mutex_lock(&g_mutexHttpReq);
 	const bool bHasParsingReq = (g_mapHttpConnReq.find(dwConnID) != g_mapHttpConnReq.end());
 	const bool bHasActiveReq = (g_mapHttpConnActiveReq.find(dwConnID) != g_mapHttpConnActiveReq.end());
@@ -207,21 +209,38 @@ EnHttpParseResult CHttpServerListerNet::OnRequestLine(IHttpServer* pSender, CONN
 		return RejectHttpRequest(pSender, dwConnID, NotImplemented, "method not support");
 	}
 
-	CHttpAsynReqObj* pReqObj = new CHttpAsynReqObj();
-	pReqObj->SetSender(pSender);
-	pReqObj->SetConnId(dwConnID);
-	pReqObj->SetMethod(lpszMethod);
+	// wyl 2026-04-25：请求行阶段创建请求上下文；使用 nothrow，内存不足时直接回复 500，不让异常穿透 HP-Socket 回调。
+	CHttpAsynReqObj* pReqObj = new (std::nothrow) CHttpAsynReqObj();
+	if (nullptr == pReqObj)
+	{
+		HTTP_ERROR("ConnID=%llu,CreateHttpReqAllocFail", (unsigned long long)dwConnID);
+		return RejectHttpRequest(pSender, dwConnID, InternalServerError, "request alloc fail");
+	}
 
-	const char* p_szUrlPath = pSender->GetUrlField(dwConnID, HUF_PATH);
-	pReqObj->SetUrl(nullptr != p_szUrlPath ? p_szUrlPath : lpszUrl);
+	// wyl 2026-04-25：这里只记录 method、url、client 地址等元信息；BODY 由后续 OnBody 分片累计，不在这里读取或打印。
+	try
+	{
+		pReqObj->SetSender(pSender);
+		pReqObj->SetConnId(dwConnID);
+		pReqObj->SetMethod(lpszMethod);
 
-	char szAddress[100] = { 0 };
-	int iAddressLen = sizeof(szAddress);
-	USHORT usPort = 0;
-	pSender->GetRemoteAddress(dwConnID, szAddress, iAddressLen, usPort);
-	char szClientIp[STR_IP_LEN] = { 0 };
-	SafeCopyCString(szClientIp, sizeof(szClientIp), szAddress);
-	pReqObj->SetAddress(szClientIp, usPort);
+		const char* p_szUrlPath = pSender->GetUrlField(dwConnID, HUF_PATH);
+		pReqObj->SetUrl(nullptr != p_szUrlPath ? p_szUrlPath : lpszUrl);
+
+		char szAddress[100] = { 0 };
+		int iAddressLen = sizeof(szAddress);
+		USHORT usPort = 0;
+		pSender->GetRemoteAddress(dwConnID, szAddress, iAddressLen, usPort);
+		char szClientIp[STR_IP_LEN] = { 0 };
+		SafeCopyCString(szClientIp, sizeof(szClientIp), szAddress);
+		pReqObj->SetAddress(szClientIp, usPort);
+	}
+	catch (...)
+	{
+		delete pReqObj;
+		HTTP_ERROR("ConnID=%llu,InitHttpReqAllocFail", (unsigned long long)dwConnID);
+		return RejectHttpRequest(pSender, dwConnID, InternalServerError, "request init fail");
+	}
 
 	bool bInserted = false;
 	unsigned long long ullReqID = 0;
@@ -229,7 +248,7 @@ EnHttpParseResult CHttpServerListerNet::OnRequestLine(IHttpServer* pSender, CONN
 	if (g_mapHttpConnReq.find(dwConnID) == g_mapHttpConnReq.end()
 		&& g_mapHttpConnActiveReq.find(dwConnID) == g_mapHttpConnActiveReq.end())
 	{
-		// 请求对象始终先进入全局请求表，再记录“连接 -> 正在解析中的请求”，便于后续统一清理。
+		// wyl 2026-04-25：请求对象始终先进入全局请求表，再记录“连接 -> 正在解析中的请求”，便于后续统一清理。
 		ullReqID = ++g_ullHttpAsynReqID;
 		pReqObj->SetConnAsyId(ullReqID);
 		g_mapHttpReq[ullReqID] = pReqObj;
@@ -291,13 +310,27 @@ EnHttpParseResult CHttpServerListerNet::OnHeadersComplete(IHttpServer* pSender, 
 		return RejectHttpRequest(pSender, dwConnID, BadRequest, "upgrade not support");
 	}
 
+	// wyl 2026-04-25：HeadersComplete 阶段可以拿到 Content-Length：先做大包拦截，再按长度预留缓存。
+	const ULONGLONG ullContentLength = pSender->GetContentLength(dwConnID);
+	// wyl 2026-04-25：若 Content-Length 已经超限，就不再继续等待 BODY 分片，尽早返回 413。
+	if (ullContentLength > HTTP_MAX_REQ_BODY_BYTES)
+	{
+		return RejectHttpRequest(pSender, dwConnID, PayloadTooLarge, "request body too large");
+	}
+
 	bool bFound = false;
+	bool bReserved = true;
 	pthread_mutex_lock(&g_mutexHttpReq);
 	unsigned long long ullReqID = 0;
 	CHttpAsynReqObj* pReqObj = nullptr;
 	if (FindHttpParsingReqNoLock(dwConnID, ullReqID, pReqObj))
 	{
 		pReqObj->SetKeepAlive(!!pSender->IsKeepAlive(dwConnID));
+		if (ullContentLength > 0)
+		{
+			// wyl 2026-04-25：这里只预留 BODY 容量，不代表请求已经完整；真正数据仍由 OnBody 分片追加。
+			bReserved = pReqObj->ReserveContent((size_t)ullContentLength, HTTP_MAX_REQ_BODY_BYTES);
+		}
 		bFound = true;
 	}
 	pthread_mutex_unlock(&g_mutexHttpReq);
@@ -305,10 +338,9 @@ EnHttpParseResult CHttpServerListerNet::OnHeadersComplete(IHttpServer* pSender, 
 	if (!bFound)
 		return HPR_ERROR;
 
-	// 若 Content-Length 已经超限，就不再继续等待 BODY 分片，尽早返回 413。
-	if (pSender->GetContentLength(dwConnID) > HTTP_MAX_REQ_BODY_BYTES)
+	if (!bReserved)
 	{
-		return RejectHttpRequest(pSender, dwConnID, PayloadTooLarge, "request body too large");
+		return RejectHttpRequest(pSender, dwConnID, InternalServerError, "request body reserve fail");
 	}
 
 	return HPR_OK;
@@ -322,8 +354,9 @@ EnHttpParseResult CHttpServerListerNet::OnBody(IHttpServer* pSender, CONNID dwCo
 	if (nullptr == pData || iLength <= 0)
 		return HPR_OK;
 
-	// HP-Socket 的 HTTP BODY 可能分多次触发 OnBody() 回调。
-	// 因此这里必须按片段累计组包，并对累计总大小做上限保护。
+	// wyl 2026-04-25：HP-Socket 的 HTTP BODY 可能分多次触发 OnBody() 回调。
+	// wyl 2026-04-25：因此这里必须按片段累计组包，并对累计总大小做上限保护。
+	// wyl 2026-04-25：OnBody 只累计分片并校验总大小，不打印请求正文；完整请求在 OnMessageComplete 统一派发给上层。
 	bool bFound = false;
 	bool bAppended = false;
 	pthread_mutex_lock(&g_mutexHttpReq);
@@ -358,7 +391,7 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 	if (g_mapHttpConnActiveReq.find(dwConnID) == g_mapHttpConnActiveReq.end()
 		&& FindHttpParsingReqNoLock(dwConnID, ullReqID, pReqObj))
 	{
-		// 到这里请求已完整解析，状态从“解析中”切到“等待上层应答中”。
+		// wyl 2026-04-25：到这里请求已完整解析，状态从“解析中”切到“等待上层应答中”。
 		g_mapHttpConnReq.erase(dwConnID);
 		g_mapHttpConnActiveReq[dwConnID] = ullReqID;
 		pReqObj->SetKeepAlive(!!pSender->IsKeepAlive(dwConnID));
@@ -369,7 +402,7 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 	if (nullptr == pReqObj)
 		return HPR_ERROR;
 
-	// 先暂停该连接继续接收，避免 keep-alive 下第二个请求先于第一个请求完成回包而产生乱序。
+	// wyl 2026-04-25：先暂停该连接继续接收，避免 keep-alive 下第二个请求先于第一个请求完成回包而产生乱序。
 	if (!pSender->PauseReceive(dwConnID, true))
 	{
 		pthread_mutex_lock(&g_mutexHttpReq);
@@ -388,6 +421,7 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 		return HPR_ERROR;
 	}
 
+	// wyl 2026-04-25：到这里 HTTP 头和 BODY 都已解析完成，提交给线程池后由上层异步处理并发送响应。
 	if (!SubmitHttpRequestTask(pReqObj))
 	{
 		pthread_mutex_lock(&g_mutexHttpReq);
@@ -459,7 +493,7 @@ EnHandleResult CHttpServerListerNet::OnClose(ITcpServer*, CONNID dwConnID, EnSoc
 	HTTP_INFO("ConnID=%llu,Operation=%d,ErrorCode=%d",
 		(unsigned long long)dwConnID, enOperation, iErrorCode);
 	CleanupHttpParsingReq(dwConnID);
-	// 已派发给上层但尚未释放的请求对象不能再继续持有底层 sender，避免后续误回包到失效连接。
+	// wyl 2026-04-25：已派发给上层但尚未释放的请求对象不能再继续持有底层 sender，避免后续误回包到失效连接。
 	DetachHttpActiveReq(dwConnID);
 	return HR_OK;
 }

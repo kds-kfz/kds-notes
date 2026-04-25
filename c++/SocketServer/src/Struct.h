@@ -1,12 +1,13 @@
 ﻿#ifndef _STRUCT_SERVER_H_
 #define _STRUCT_SERVER_H_
 
-// 请求缓存
+// wyl 2026-04-25：请求缓存：TCP/Web 共用的连接级缓存对象。
+// wyl 2026-04-25：WebSocket 优化会在这里维护帧分片累计状态、完整消息缓存和待上层处理的任务配额。
 struct ReqCacheData
 {
-	unsigned long long ullConnID;
-	unsigned long ulLength;
-	unsigned long ulPos;
+	unsigned long long ullConnID;			// wyl 2026-04-25：当前缓存所属连接 ID
+	unsigned long ulLength;				// wyl 2026-04-25：当前正在累计的完整业务消息目标长度
+	unsigned long ulPos;				// wyl 2026-04-25：当前业务消息已经累计到缓存中的字节数
 	unsigned int uiTcpPendingTaskCount;	// wyl 2026-03-30：当前连接等待上层处理的 TCP 数据通知任务数，用于小包洪泛时做过载保护。
 	unsigned long long ullTcpPendingBytes;// wyl 2026-03-30：当前连接等待上层处理的 TCP 数据通知累计字节数，用于限制排队内存占用。
 	unsigned int uiWebPendingTaskCount;	// wyl 2026-03-30：当前连接等待上层处理的 Web 数据通知任务数，用于 WebSocket 慢消费场景的过载保护。
@@ -22,7 +23,7 @@ struct ReqCacheData
 	unsigned char ucWsFrameOperationCode;// wyl 2026-03-30：当前 WebSocket 帧操作码，区分数据帧、续帧以及 ping/pong 等控制帧。
 	unsigned char ucWsOperationCode;	// wyl 2026-03-30：当前 WebSocket 消息的操作码，区分文本帧、二进制帧、续帧等类型。
 	char szWsControlBuf[125];			// wyl 2026-03-30：控制帧最大载荷固定 125 字节，缓存 ping 内容以便在 complete 时回 pong。
-	char *pBuf;
+	char *pBuf;						// wyl 2026-04-25：消息缓存缓冲区；大包完整后可能把所有权转移给 NotifyTask::pBuf
 public:
 	ReqCacheData()
 		: ullConnID(0), ulLength(0), ulPos(0), uiTcpPendingTaskCount(0), ullTcpPendingBytes(0),
@@ -32,6 +33,7 @@ public:
 	{
 		memset(szWsControlBuf, 0, sizeof(szWsControlBuf));
 	}
+	// wyl 2026-04-25：拷贝时对 pBuf 做深拷贝，避免两个缓存对象指向同一块内存。
 	ReqCacheData(const ReqCacheData& p_stData)
 		: ullConnID(0), ulLength(0), ulPos(0), uiTcpPendingTaskCount(0), ullTcpPendingBytes(0),
 		uiWebPendingTaskCount(0), ullWebPendingBytes(0), ulCapacity(0),
@@ -41,6 +43,7 @@ public:
 		memset(szWsControlBuf, 0, sizeof(szWsControlBuf));
 		*this = p_stData;
 	}
+	// wyl 2026-04-25：默认由 ReqCacheData 持有 pBuf；若大包已经转移给 NotifyTask，这里看到的 pBuf 会是 nullptr。
 	~ReqCacheData() {
 		if (nullptr != pBuf)
 		{
@@ -88,7 +91,7 @@ public:
 //用户信息
 struct ClientData
 {
-	unsigned long long ullConnID;
+	unsigned long long ullConnID;			// wyl 2026-04-25：客户端连接 ID
 	char szIp[32];
 	unsigned short unPort;
 	bool bConnected;					// wyl 2026-03-30：当前连接是否已经完成业务层可见的建链；Web 侧在握手成功后才置 true。
@@ -110,9 +113,9 @@ public:
 //通知任务
 struct NotifyTask
 {
-	char *pBuf;
-	unsigned int uiLen;
-	unsigned long long ullConnID;
+	char *pBuf;						// wyl 2026-04-25：通知任务携带的数据缓冲，任务对象析构时负责释放
+	unsigned int uiLen;					// wyl 2026-04-25：通知数据长度；日志只打印长度，不打印正文内容
+	unsigned long long ullConnID;			// wyl 2026-04-25：通知所属连接 ID
 	char szErrMsg[1024];
 	unsigned long long ullTaskID;
 	TcpSockNotifyType enNotifyType;
