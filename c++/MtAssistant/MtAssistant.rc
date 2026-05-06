@@ -1,0 +1,270 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#ifndef APSTUDIO_INVOKED
+#include "targetver.h"
+#endif
+#include "afxres.h"
+#include "verrsrc.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// 中文(简体，中国) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+#pragma code_page(936)
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#ifndef APSTUDIO_INVOKED\r\n"
+    "#include ""targetver.h""\r\n"
+    "#endif\r\n"
+    "#include ""afxres.h""\r\n"
+    "#include ""verrsrc.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "#define _AFX_NO_SPLITTER_RESOURCES\r\n"
+    "#define _AFX_NO_OLE_RESOURCES\r\n"
+    "#define _AFX_NO_TRACKER_RESOURCES\r\n"
+    "#define _AFX_NO_PROPERTY_RESOURCES\r\n"
+    "\r\n"
+    "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)\r\n"
+    "LANGUAGE 4, 2\r\n"
+    "#include ""res\\MtAssistant.rc2""  // Resources not edited by Microsoft Visual C++\r\n"
+    "#include ""l.CHS\\afxres.rc""      // Standard components\r\n"
+    "#if !defined(_AFXDLL)\r\n"
+    "#include ""l.CHS\\afxribbon.rc""   // MFC ribbon and control bar resources\r\n"
+    "#endif\r\n"
+    "#endif\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDR_MAINFRAME           ICON                    "res\\MtAssistant.ico"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ABOUTBOX DIALOGEX 0, 0, 170, 62
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About MtAssistant"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    ICON            IDR_MAINFRAME,IDC_STATIC,14,14,21,20
+    LTEXT           "MtAssistant, Version 1.0",IDC_STATIC,42,14,114,8,SS_NOPREFIX
+    LTEXT           "Copyright (C) 2024",IDC_STATIC,42,26,114,8
+    DEFPUSHBUTTON   "OK",IDOK,113,41,50,14,WS_GROUP
+END
+
+IDD_SERVICE_DIALOG DIALOGEX 0, 0, 549, 261
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_MINIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "MtAssistant"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    GROUPBOX        "Program",IDC_STATIC,389,5,155,251
+    LTEXT           "Choose:",IDC_CHOOSE_STATIC,397,19,36,11
+    PUSHBUTTON      "Add",IDC_ADD_BUTTON,433,36,36,14
+    PUSHBUTTON      "Delete",IDC_DEL_BUTTON,469,36,36,14
+    LTEXT           "Args:",IDC_PARAM_STATIC,396,61,37,11
+    GROUPBOX        "Schedule",IDC_STATIC,393,76,147,173
+    LTEXT           "Week:",IDC_WEEK_STATIC,412,89,26,11
+    LTEXT           "Start:",IDC_START_STATIC,398,109,34,11
+    LTEXT           "End:",IDC_END_STATIC,398,128,34,11
+    CONTROL         "",IDC_START_DATETIMEPICKER,"SysDateTimePick32",DTS_RIGHTALIGN | DTS_UPDOWN | WS_TABSTOP | 0x8,443,105,89,15
+    CONTROL         "",IDC_END_DATETIMEPICKER,"SysDateTimePick32",DTS_RIGHTALIGN | DTS_UPDOWN | WS_TABSTOP | 0x8,443,124,89,15
+    PUSHBUTTON      "Delete",IDC_TIME_DEL_BUTTON,486,146,36,14
+    PUSHBUTTON      "Add",IDC_TIME_ADD_BUTTON,413,146,36,14
+    EDITTEXT        IDC_PARAM_EDIT,443,58,96,14,ES_AUTOHSCROLL
+    EDITTEXT        IDC_EXE_EDIT,436,17,103,14,ES_AUTOHSCROLL | ES_READONLY
+    CONTROL         "",IDC_SERVICE_LIST,"SysListView32",LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,5,5,380,251
+    CONTROL         "",IDC_TIME_LIST,"SysListView32",LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,399,166,136,77
+    PUSHBUTTON      "Browse",IDC_LOOK_BUTTON,397,36,36,14
+    COMBOBOX        IDC_WEEK_COMBO,443,87,89,86,CBS_DROPDOWN | WS_VSCROLL,WS_EX_STATICEDGE
+    PUSHBUTTON      "Log",IDC_LOG_BUTTON,505,36,36,14
+END
+
+IDD_LOG_DIALOG DIALOGEX 0, 0, 328, 209
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CAPTION | WS_SYSMENU
+CAPTION "MtAssistant Log"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "Open Log",IDOK,272,188,50,14
+    CONTROL         "",IDC_LIST_LOG,"SysListView32",LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,7,7,314,179
+END
+
+
+IDD_FILE_PICK_DIALOG DIALOGEX 0, 0, 360, 238
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Select Program"
+FONT 9, "MS Shell Dlg", 0, 0, 0x1
+BEGIN
+    LTEXT           "Path:",IDC_STATIC,7,9,24,8
+    EDITTEXT        IDC_PICK_PATH_EDIT,34,6,272,14,ES_AUTOHSCROLL | ES_READONLY
+    PUSHBUTTON      "Up",IDC_PICK_UP_BUTTON,313,6,38,14
+    LISTBOX         IDC_PICK_FILE_LIST,7,26,346,184,LBS_NOTIFY | LBS_NOINTEGRALHEIGHT | WS_BORDER | WS_VSCROLL | WS_TABSTOP
+    DEFPUSHBUTTON   "OK",IDOK,244,217,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,303,217,50,14
+END
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 1,0,0,1
+ PRODUCTVERSION 1,0,0,1
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x1L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404b0"
+        BEGIN
+            VALUE "CompanyName", "Shenzhen Guangweizi Technology Co., Ltd."
+            VALUE "FileDescription", "MtAssistant.exe"
+            VALUE "FileVersion", "1.0.0.1"
+            VALUE "InternalName", "MtAssistant.exe"
+            VALUE "LegalCopyright", "All rights reserved."
+            VALUE "OriginalFilename", "MtAssistant.exe"
+            VALUE "ProductName", "MtAssistant.exe"
+            VALUE "ProductVersion", "1.0.0.1"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_ABOUTBOX, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 163
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 55
+    END
+
+    IDD_SERVICE_DIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 5
+        RIGHTMARGIN, 544
+        TOPMARGIN, 5
+        BOTTOMMARGIN, 256
+    END
+
+    IDD_LOG_DIALOG, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 321
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 202
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+IDD_SERVICE_DIALOG AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+IDD_LOG_DIALOG AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE
+BEGIN
+    IDS_ABOUTBOX            "About MtAssistant(&A)..."
+END
+
+#endif    // 中文(简体，中国) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#define _AFX_NO_SPLITTER_RESOURCES
+#define _AFX_NO_OLE_RESOURCES
+#define _AFX_NO_TRACKER_RESOURCES
+#define _AFX_NO_PROPERTY_RESOURCES
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+LANGUAGE 4, 2
+#include "res\MtAssistant.rc2"  // Resources not edited by Microsoft Visual C++
+#include "l.CHS\afxres.rc"      // Standard components
+#if !defined(_AFXDLL)
+#include "l.CHS\afxribbon.rc"   // MFC ribbon and control bar resources
+#endif
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+
