@@ -14,6 +14,9 @@
 #include "ServiceDataMng.h"
 #include <algorithm>
 
+#include "nsdk.h"
+
+
 std::map<int, ServiceInfo> g_mapServiceInfo;
 std::map<int, bool> g_mapServiceStatus;
 int g_iServiceCount = -1;// wyl 2026-05-06：当前配置中的服务数量，刷新列表时用来限制遍历范围。
@@ -22,7 +25,6 @@ string g_strNewName = "";// wyl 2026-05-06：文件选择后缓存待添加服务名。
 string g_strNewPath = "";// wyl 2026-05-06：文件选择后缓存待添加服务完整路径。
 string g_strCfg = "";
 static const UINT_PTR SERVICE_STATUS_TIMER_ID = 1;// wyl 2026-05-06：服务状态刷新定时器ID，只在UI线程更新列表。
-
 namespace
 {
 	struct LocalPickItem
@@ -231,7 +233,7 @@ namespace
 	bool ShowLocalProgramPicker(HWND p_hOwner, string& p_refSelectedPath)
 	{
 		LocalPickData stData;
-		stData.strCurrentDir = GetRootPath();
+		stData.strCurrentDir = nsdk::GetRootPath();
 		INT_PTR iRet = DialogBoxParamA(AfxGetInstanceHandle(), MAKEINTRESOURCEA(IDD_FILE_PICK_DIALOG), p_hOwner, LocalProgramPickerProc, (LPARAM)&stData);
 		if (iRet != IDOK || stData.strSelectedPath.empty())
 			return false;
@@ -366,6 +368,7 @@ BOOL CServiceDlg::OnInitDialog()
 			pSysMenu->AppendMenu(MF_STRING, IDM_ABOUTBOX, strAboutMenu);
 		}
 	}
+
 
 	// wyl 2026-05-06：初始化前固定主窗口标题，避免标题带进程号导致下次启动无法找到旧窗口。
 	CString strProcessID;

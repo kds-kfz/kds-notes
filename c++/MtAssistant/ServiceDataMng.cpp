@@ -2,6 +2,9 @@
 #include "ServiceDataMng.h"
 #include <io.h>
 
+#include "nsdk.h"
+#include "nsdk_atomic.h"
+
 CServiceDataMng *CServiceDataMng::m_pThis = NULL;
 
 CServiceDataMng *CServiceDataMng::GetInstance()
@@ -140,10 +143,10 @@ namespace
 
 void CServiceDataMng::ReadCfg()
 {
-	m_strHome = GetRootPath();
+	m_strHome = nsdk::GetRootPath();
 
 	string strLogFolder = m_strHome;
-	strLogFolder.append("\\run\\log");
+	strLogFolder.append(NSDK_PATH_DELIMETER "run" NSDK_PATH_DELIMETER "log");
 	// wyl 2026-05-06：这里只传日志目录，完整日志文件路径统一由CLog::m_strLogPath维护。
 	int iRet = CLog::GetInstance()->InitLog(strLogFolder.c_str());
 	if (MA_OK != iRet)
@@ -246,6 +249,8 @@ void CServiceDataMng::ReadCfg()
 		m_mapServiceInfo[i] = pstServiceInfo;
 		m_ServiceInfoLock.unlock();
 	}
+	//测试崩溃
+	//*(int*)0 = 0;
 
 	MT_INFO("[MtAssistant] load config done");
 }

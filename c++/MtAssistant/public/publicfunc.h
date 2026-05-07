@@ -5,8 +5,7 @@
 
 BOOL GetFileVersion(LPCTSTR strFile, CString& strVersion);
 BOOL CenterAndActivateWindow(HWND hWnd);
-const char* GetRootPath();
-UINT GetCurDate(bool bDate = true);
+void InitBreakpad();
 
 int KillProcess(long p_lProcessID);
 // wyl 2026-05-06：停止完整进程树：先优雅退出，超时后强杀，并确认进程树持续清空。

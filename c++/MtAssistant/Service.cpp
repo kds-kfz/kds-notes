@@ -70,6 +70,9 @@ BOOL CServiceApp::InitInstance()
 	// 例如修改为公司或组织名
 	SetRegistryKey(_T("MtAssistant"));
 
+	// wyl 2026-05-07：尽早注册异常捕获，确保主窗口创建阶段也能生成dump。
+	InitBreakpad();
+
 	CServiceDlg dlg;
 	m_pMainWnd = &dlg;
 	INT_PTR nResponse = dlg.DoModal();
