@@ -171,22 +171,22 @@ do{ \
 /* TCP 日志宏 */
 #define TCP_INFO(log_fmt, ... ) \
 do{ \
-	CTcpLog::GetInstance()->AddLog(eInfo, "[INFO] [TCP服务] " log_fmt, ##__VA_ARGS__); \
+	CTcpLog::GetInstance()->AddLog(eInfo, "[INFO] [TCP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define TCP_DEBUG(log_fmt, ... ) \
 do{ \
-	CTcpLog::GetInstance()->AddLog(eDebug, "[DEBUG] [TCP服务] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
+	CTcpLog::GetInstance()->AddLog(eDebug, "[DEBUG] [TCP] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
 } while (0)
 
 #define TCP_WARN(log_fmt, ... ) \
 do{ \
-	CTcpLog::GetInstance()->AddLog(eWarn, "[WARN] [TCP服务] " log_fmt, ##__VA_ARGS__); \
+	CTcpLog::GetInstance()->AddLog(eWarn, "[WARN] [TCP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define TCP_ERROR(log_fmt, ... ) \
 do{ \
-	CTcpLog::GetInstance()->AddLog(eError, "[ERROR] [TCP服务] " log_fmt, ##__VA_ARGS__); \
+	CTcpLog::GetInstance()->AddLog(eError, "[ERROR] [TCP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 /* WEB 日志宏 */
@@ -199,22 +199,22 @@ do{ \
 
 #define WEB_INFO(log_fmt, ... ) \
 do{ \
-	CWebLog::GetInstance()->AddLog(eInfo, "[INFO] [WEB服务] " log_fmt, ##__VA_ARGS__); \
+	CWebLog::GetInstance()->AddLog(eInfo, "[INFO] [WEB] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define WEB_DEBUG(log_fmt, ... ) \
 do{ \
-	CWebLog::GetInstance()->AddLog(eDebug, "[DEBUG] [WEB服务] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
+	CWebLog::GetInstance()->AddLog(eDebug, "[DEBUG] [WEB] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
 } while (0)
 
 #define WEB_WARN(log_fmt, ... ) \
 do{ \
-	CWebLog::GetInstance()->AddLog(eWarn, "[WARN] [WEB服务] " log_fmt, ##__VA_ARGS__); \
+	CWebLog::GetInstance()->AddLog(eWarn, "[WARN] [WEB] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define WEB_ERROR(log_fmt, ... ) \
 do{ \
-	CWebLog::GetInstance()->AddLog(eError, "[ERROR] [WEB服务] " log_fmt, ##__VA_ARGS__); \
+	CWebLog::GetInstance()->AddLog(eError, "[ERROR] [WEB] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 /* HTTP 日志宏 */
@@ -227,22 +227,22 @@ do{ \
 
 #define HTTP_INFO(log_fmt, ... ) \
 do{ \
-	CHttpLog::GetInstance()->AddLog(eInfo, "[INFO] [HTTP服务] " log_fmt, ##__VA_ARGS__); \
+	CHttpLog::GetInstance()->AddLog(eInfo, "[INFO] [HTTP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define HTTP_DEBUG(log_fmt, ... ) \
 do{ \
-	CHttpLog::GetInstance()->AddLog(eDebug, "[DEBUG] [HTTP服务] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
+	CHttpLog::GetInstance()->AddLog(eDebug, "[DEBUG] [HTTP] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
 } while (0)
 
 #define HTTP_WARN(log_fmt, ... ) \
 do{ \
-	CHttpLog::GetInstance()->AddLog(eWarn, "[WARN] [HTTP服务] " log_fmt, ##__VA_ARGS__); \
+	CHttpLog::GetInstance()->AddLog(eWarn, "[WARN] [HTTP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define HTTP_ERROR(log_fmt, ... ) \
 do{ \
-	CHttpLog::GetInstance()->AddLog(eError, "[ERROR] [HTTP服务] " log_fmt, ##__VA_ARGS__); \
+	CHttpLog::GetInstance()->AddLog(eError, "[ERROR] [HTTP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #endif // _HQLOG_H_

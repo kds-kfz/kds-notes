@@ -144,7 +144,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 		if (MA_OK == CWebLog::GetInstance()->InitLog(p_szLogFold))
 		{
 			CWebLog::GetInstance()->Resume();//恢复工作
-			WEB_INFO("启动LOG  ****************************");
+			WEB_INFO("log started");
 		}
 		else
 		{
@@ -231,7 +231,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 		return false;
 	}
 
-	WEB_INFO("启动完成");
+	WEB_INFO("server started");
 	pthread_mutex_unlock(&g_mutexServiceLifecycle);
 	return true;
 }

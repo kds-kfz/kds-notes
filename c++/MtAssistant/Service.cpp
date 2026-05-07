@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "Service.h"
 #include "ServiceDlg.h"
+#include "nsdk.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -29,6 +30,9 @@ CServiceApp::CServiceApp()
 	// 将所有重要的初始化放置在 InitInstance 中
 }
 
+
+// wyl 2026-05-07：保存 nsdk::InitBreakpad 返回值，等业务日志初始化完成后再正式写入日志。
+int g_iBreakpadInitRet = NSDK_KO;
 
 // 唯一的一个 CServiceApp 对象
 
@@ -70,8 +74,8 @@ BOOL CServiceApp::InitInstance()
 	// 例如修改为公司或组织名
 	SetRegistryKey(_T("MtAssistant"));
 
-	// wyl 2026-05-07：尽早注册异常捕获，确保主窗口创建阶段也能生成dump。
-	InitBreakpad();
+	// wyl 2026-05-07：尽早通过 nsdk 统一接口注册异常捕获，确保主窗口创建阶段也能生成dump。
+	g_iBreakpadInitRet = nsdk::InitBreakpad();
 
 	CServiceDlg dlg;
 	m_pMainWnd = &dlg;

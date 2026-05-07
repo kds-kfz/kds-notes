@@ -15,6 +15,7 @@
 #include <algorithm>
 
 #include "nsdk.h"
+#include "nsdk_atomic.h"
 
 
 std::map<int, ServiceInfo> g_mapServiceInfo;
@@ -51,10 +52,30 @@ namespace
 		return _stricmp(strExt.c_str(), ".exe") == 0 || _stricmp(strExt.c_str(), ".bat") == 0;
 	}
 
+	bool IsLocalPathDelimiter(char p_chValue)
+	{
+#if defined(OS_IS_WINDOWS)
+		return p_chValue == NSDK_PATH_DELIMETER[0] || p_chValue == '/';
+#else
+		return p_chValue == NSDK_PATH_DELIMETER[0];
+#endif
+	}
+
+	size_t FindLastLocalPathDelimiter(const string& p_refPath)
+	{
+		size_t nPos = p_refPath.find_last_of(NSDK_PATH_DELIMETER);
+#if defined(OS_IS_WINDOWS)
+		size_t nAltPos = p_refPath.find_last_of('/');
+		if (nAltPos != string::npos && (nPos == string::npos || nAltPos > nPos))
+			nPos = nAltPos;
+#endif
+		return nPos;
+	}
+
 	// wyl 2026-05-06：判断路径是否为盘符根目录，避免向上目录越界。
 	bool IsDriveRootPath(const string& p_refPath)
 	{
-		return p_refPath.length() == 3 && p_refPath[1] == ':' && (p_refPath[2] == '\\' || p_refPath[2] == '/');
+		return p_refPath.length() == 3 && p_refPath[1] == ':' && IsLocalPathDelimiter(p_refPath[2]);
 	}
 
 	// wyl 2026-05-06：拼接本地路径，统一补充分隔符。
@@ -64,10 +85,10 @@ namespace
 			return p_refName;
 
 		char chLast = p_refDir[p_refDir.length() - 1];
-		if (chLast == '\\' || chLast == '/')
+		if (IsLocalPathDelimiter(chLast))
 			return p_refDir + p_refName;
 
-		return p_refDir + "\\" + p_refName;
+		return p_refDir + NSDK_PATH_DELIMETER + p_refName;
 	}
 
 	// wyl 2026-05-06：获取上一级目录，根目录保持不变。
@@ -76,10 +97,10 @@ namespace
 		if (p_strDir.empty() || IsDriveRootPath(p_strDir))
 			return p_strDir;
 
-		while (p_strDir.length() > 3 && (p_strDir[p_strDir.length() - 1] == '\\' || p_strDir[p_strDir.length() - 1] == '/'))
+		while (p_strDir.length() > 3 && IsLocalPathDelimiter(p_strDir[p_strDir.length() - 1]))
 			p_strDir.erase(p_strDir.length() - 1);
 
-		size_t pos = p_strDir.find_last_of("\\/");
+		size_t pos = FindLastLocalPathDelimiter(p_strDir);
 		if (pos == string::npos)
 			return p_strDir;
 		if (pos <= 2)
@@ -376,7 +397,7 @@ BOOL CServiceDlg::OnInitDialog()
 	char szProcessName[256] = { 0 };
 	GetModuleFileName(NULL, szProcessName, 256);
 	GetFileVersion(szProcessName, strVersion);
-	strProcessID.Format("--MtAssistant--( Ver:%s )", strVersion);
+	strProcessID.Format("MtAssistant(Ver:%s)", strVersion);
 
 	HWND hwnd = ::FindWindow(NULL, strProcessID);
 	if (hwnd)
@@ -731,7 +752,7 @@ void CServiceDlg::OnBnClickedLookButton()
 	if (!ShowLocalProgramPicker(GetSafeHwnd(), strAppPath))
 		return;
 
-	g_strNewName = strAppPath.substr(strAppPath.find_last_of("\\") + 1);
+	g_strNewName = strAppPath.substr(FindLastLocalPathDelimiter(strAppPath) + 1);
 	g_strNewPath = strAppPath;
 
 	// wyl 2026-05-06：复用统一后缀校验，避免短文件名触发越界判断。

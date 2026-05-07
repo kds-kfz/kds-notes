@@ -130,7 +130,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 		if (MA_OK == CHttpLog::GetInstance()->InitLog(p_szLogFold))
 		{
 			CHttpLog::GetInstance()->Resume();//恢复工作
-			HTTP_INFO("启动LOG  ****************************");
+			HTTP_INFO("log started");
 		}
 		else
 		{
@@ -217,7 +217,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 		return false;
 	}
 
-	HTTP_INFO("启动完成");
+	HTTP_INFO("server started");
 	pthread_mutex_unlock(&g_mutexServiceLifecycle);
 	return true;
 }

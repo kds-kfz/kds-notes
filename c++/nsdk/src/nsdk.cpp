@@ -1,8 +1,14 @@
-ï»¿#include "nsdk.h"
+#include "nsdk.h"
 #include <sys/stat.h>
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
+#include <chrono>
+#include <vector>
+#include <thread>
+#include <sstream>
+#include <iomanip>
+#include <fstream>
 #include <time.h>
 #include <assert.h>
 #include <math.h>
@@ -26,19 +32,22 @@
 
 #include "nsdk_atomic.h"
 #include "aes.h"
+#if defined(OS_IS_WINDOWS) && defined(NSDK_ENABLE_BREAKPAD)
+#include "exception_handler.h"
+#endif
 
-//å†…éƒ¨ä½¿ç”¨çš„å®
+//ÄÚ²¿Ê¹ÓÃµÄºê
 #define NSDK_MAX_PATH 260
-#define COMPPREC		0.001 // Roundä½¿ç”¨
+#define COMPPREC		0.001 // RoundÊ¹ÓÃ
 
-//åŠ å¯†éƒ¨åˆ†
-//æ³¨æ„ç¼–è¯‘ç»™å®¢æˆ·ç«¯æ—¶éœ€è¦æŠŠ Aes Deaes Base64Encode Base64Decode å»æ‰
-//#define SERVER_AUTH_FLAG //æœåŠ¡ç«¯è®¤è¯å® å®¢æˆ·ç«¯æˆæƒæ§åˆ¶
-#define AUTH_DAY	(0)//æˆæƒå¤©æ•° 0å½“å¤©æœ‰æ•ˆ
+//¼ÓÃÜ²¿·Ö
+//×¢Òâ±àÒë¸ø¿Í»§¶ËÊ±ĞèÒª°Ñ Aes Deaes Base64Encode Base64Decode È¥µô
+//#define SERVER_AUTH_FLAG //·şÎñ¶ËÈÏÖ¤ºê ¿Í»§¶ËÊÚÈ¨¿ØÖÆ
+#define AUTH_DAY	(0)//ÊÚÈ¨ÌìÊı 0µ±ÌìÓĞĞ§
 
 std::string g_strAuthKey = "tjzt!@#$%^&*()_+<>?;";
-std::string g_strAuthIV = "gfdertfghjkuyrtg";   //ECB MODEä¸éœ€è¦å…³å¿ƒchainï¼Œå¯ä»¥å¡«ç©º
-std::string g_strSignature = "TJZT";//ç­¾å
+std::string g_strAuthIV = "gfdertfghjkuyrtg";   //ECB MODE²»ĞèÒª¹ØĞÄchain£¬¿ÉÒÔÌî¿Õ
+std::string g_strSignature = "TJZT";//Ç©Ãû
 
 static const std::string g_strBase64Chars =
 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -47,7 +56,85 @@ static const std::string g_strBase64Chars =
 
 BGN_NAMESPACE_NSDK
 
-/******************** æ–‡ä»¶å¤¹å¤„ç† ********************/
+#define NSDK_BREAKPAD_DUMP_FOLDER_NAME "CrashDumps"
+#define NSDK_BREAKPAD_CRASH_MARKER_FILE_NAME L"last_crash.txt"
+
+namespace
+{
+#if defined(OS_IS_WINDOWS) && defined(NSDK_ENABLE_BREAKPAD)
+	google_breakpad::ExceptionHandler* g_pBreakpad = nullptr;
+
+	std::string WideToAsciiText(const wchar_t* p_wszText)
+	{
+		std::string strText;
+		if (p_wszText == nullptr)
+			return strText;
+
+		while (*p_wszText != 0)
+		{
+			wchar_t wchValue = *p_wszText++;
+			strText += (wchValue >= 0 && wchValue <= 0x7F) ? static_cast<char>(wchValue) : '?';
+		}
+
+		return strText;
+	}
+
+	bool DumpCallback(const wchar_t* p_wszDumpPath,
+		const wchar_t* p_wszDumpId,
+		void* p_pContext,
+		EXCEPTION_POINTERS* p_pExInfo,
+		MDRawAssertionInfo* p_pAssertion,
+		bool p_bSucceeded)
+	{
+		(void)p_pContext;
+		(void)p_pAssertion;
+
+		// wyl 2026-05-07£º±ÀÀ£ÏÖ³¡Ö»Ğ´¼«¼ò±ê¼Ç£¬±ÜÃâµ÷ÓÃÒµÎñÈÕÖ¾¡¢µ¯´°¡¢ÍøÂçµÈ¸´ÔÓÂß¼­µ¼ÖÂ¶ş´ÎÒì³£¡£
+		if (p_wszDumpPath != nullptr && p_wszDumpPath[0] != L'\0')
+		{
+			std::wstring strMarkerPath = p_wszDumpPath;
+			if (!strMarkerPath.empty() && strMarkerPath[strMarkerPath.length() - 1] != L'\\' && strMarkerPath[strMarkerPath.length() - 1] != L'/')
+				strMarkerPath += L"\\";
+			strMarkerPath += NSDK_BREAKPAD_CRASH_MARKER_FILE_NAME;
+
+			std::wofstream ofsCrashFile(strMarkerPath.c_str(), std::ios::out | std::ios::app);
+			if (ofsCrashFile.is_open())
+			{
+				auto tpNow = std::chrono::system_clock::now();
+				std::time_t tNow = std::chrono::system_clock::to_time_t(tpNow);
+				std::tm tmNow = SafeLocalTime(tNow);
+				auto nMillisecond = std::chrono::duration_cast<std::chrono::milliseconds>(tpNow.time_since_epoch()).count() % 1000;
+
+				unsigned long dwExceptionCode = 0;
+				void* pExceptionAddress = nullptr;
+				if (p_pExInfo != nullptr && p_pExInfo->ExceptionRecord != nullptr)
+				{
+					dwExceptionCode = p_pExInfo->ExceptionRecord->ExceptionCode;
+					pExceptionAddress = p_pExInfo->ExceptionRecord->ExceptionAddress;
+				}
+
+				// wyl 2026-05-07£ºlast_crash.txt Ã¿ĞĞ×Ö¶ÎËµÃ÷£ºÊ±¼ä¡¢dumpÉú³É½á¹û¡¢µ±Ç°Ïß³ÌID¡¢Òì³£Âë¡¢Òì³£µØÖ·¡¢dump_id¡£
+				// succeeded=1 ±íÊ¾ Breakpad Ğ´ dump ³É¹¦£»exception ÎªÒì³£Âë£»address ÎªÒì³£·¢ÉúµØÖ·£»dump_id ¶ÔÓ¦Éú³ÉµÄ dmp ÎÄ¼şÃû¡£
+				std::ostringstream ossCrashLine;
+				ossCrashLine << "[" << std::put_time(&tmNow, "%Y-%m-%d %H:%M:%S")
+					<< "." << std::setw(3) << std::setfill('0') << nMillisecond << std::setfill(' ')
+					<< "] succeeded=" << (p_bSucceeded ? 1 : 0)
+					<< " tid=" << std::this_thread::get_id()
+					<< " exception=0x" << std::uppercase << std::hex << std::setw(8) << std::setfill('0') << dwExceptionCode
+					<< std::nouppercase << std::dec << std::setfill(' ')
+					<< " address=" << pExceptionAddress
+					<< " dump_id=" << WideToAsciiText(p_wszDumpId)
+					<< "\n";
+				ofsCrashFile << ossCrashLine.str().c_str();
+			}
+		}
+
+		return p_bSucceeded;
+	}
+#endif
+}
+
+/******************** ÎÄ¼ş¼Ğ´¦Àí ********************/
 int FolderExists(const char* p_szFolderPath)
 {
 	if (p_szFolderPath == nullptr || strlen(p_szFolderPath) == 0)
@@ -117,8 +204,8 @@ int CreateFolder(const char* p_szFolderPath)
 			std::string curPath = fullPath.substr(0, i);
 			if (access(curPath.c_str(), F_OK) != 0)
 			{
-				//S_IRUSR ç”¨æˆ·è¯»æƒé™ S_IWUSR ç”¨æˆ·å†™æƒé™ S_IRGRP ç”¨æˆ·ç»„è¯»æƒé™ S_IWGRP ç”¨æˆ·ç»„å†™æƒé™ S_IROTH å…¶ä»–ç»„è¯»æƒé™ S_IWOTH å…¶ä»–ç»„å†™æƒé™
-				//è‡³å°‘764æ‰èƒ½è¿›å…¥æ“ä½œè¯»å†™
+				//S_IRUSR ÓÃ»§¶ÁÈ¨ÏŞ S_IWUSR ÓÃ»§Ğ´È¨ÏŞ S_IRGRP ÓÃ»§×é¶ÁÈ¨ÏŞ S_IWGRP ÓÃ»§×éĞ´È¨ÏŞ S_IROTH ÆäËû×é¶ÁÈ¨ÏŞ S_IWOTH ÆäËû×éĞ´È¨ÏŞ
+				//ÖÁÉÙ764²ÅÄÜ½øÈë²Ù×÷¶ÁĞ´
 				if (mkdir(curPath.c_str(), S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH) == -1)
 				{
 					return -1;
@@ -201,6 +288,56 @@ const char* GetRootPath(void)
 	return s_szMoundlePath;
 }
 
+int InitBreakpad(const char* p_szDumpPath)
+{
+#if defined(OS_IS_WINDOWS) && defined(NSDK_ENABLE_BREAKPAD)
+	if (g_pBreakpad != nullptr)
+		return NSDK_OK;
+
+	std::string strDumpPath;
+	if (p_szDumpPath != nullptr && p_szDumpPath[0] != '\0')
+	{
+		strDumpPath = p_szDumpPath;
+	}
+	else
+	{
+		strDumpPath = GetRootPath();
+		if (!strDumpPath.empty() && strDumpPath.compare(strDumpPath.length() - 1, 1, NSDK_PATH_DELIMETER) != 0)
+			strDumpPath += NSDK_PATH_DELIMETER;
+		strDumpPath += NSDK_BREAKPAD_DUMP_FOLDER_NAME;
+	}
+
+	RegularPath(strDumpPath);
+	if (FolderExists(strDumpPath.c_str()) != NSDK_OK)
+	{
+		if (CreateFolder(strDumpPath.c_str()) != NSDK_OK)
+			return NSDK_KO;
+	}
+
+	int iWideLen = MultiByteToWideChar(CP_ACP, 0, strDumpPath.c_str(), -1, NULL, 0);
+	if (iWideLen <= 0)
+		return NSDK_KO;
+
+	std::vector<wchar_t> vecDumpPath(iWideLen);
+	if (MultiByteToWideChar(CP_ACP, 0, strDumpPath.c_str(), -1, &vecDumpPath[0], iWideLen) <= 0)
+		return NSDK_KO;
+
+	std::wstring strDumpPathW(&vecDumpPath[0]);
+	g_pBreakpad = new google_breakpad::ExceptionHandler(
+		strDumpPathW,
+		nullptr,
+		DumpCallback,
+		nullptr,
+		google_breakpad::ExceptionHandler::HANDLER_ALL
+	);
+
+	return g_pBreakpad != nullptr ? NSDK_OK : NSDK_KO;
+#else
+	(void)p_szDumpPath;
+	return NSDK_KO;
+#endif
+}
+
 int GetAllFiles(std::string p_strDir, std::vector<std::string>& p_vecFiles)
 {
 #if defined( OS_IS_WINDOWS )
@@ -217,7 +354,7 @@ int GetAllFiles(std::string p_strDir, std::vector<std::string>& p_vecFiles)
 			std::string(findData.cFileName).compare("..") == 0)continue;
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		{
-			//å¦‚æœæ˜¯ç›®å½•
+			//Èç¹ûÊÇÄ¿Â¼
 			std::string strDir1 = p_strDir + "\\";
 			strDir1.append(std::string(findData.cFileName).c_str());
 			GetAllFiles(strDir1, p_vecFiles);
@@ -236,7 +373,7 @@ int GetAllFiles(std::string p_strDir, std::vector<std::string>& p_vecFiles)
 	}
 
 	struct dirent* dp = NULL;
-	char szBasePath[NSDK_MAX_PATH] = { 0 };        //åŸºç›®å½•
+	char szBasePath[NSDK_MAX_PATH] = { 0 };        //»ùÄ¿Â¼
 	while ((dp = readdir(dir)) != nullptr) {
 		if (0 == strncmp(dp->d_name, ".", 1) || 0 == strcmp(dp->d_name, ".."))
 		{
@@ -250,7 +387,7 @@ int GetAllFiles(std::string p_strDir, std::vector<std::string>& p_vecFiles)
 			strcat(szBasePath, dp->d_name);
 			p_vecFiles.push_back(szBasePath);
 		}
-		else if (10 == dp->d_type || 4 == dp->d_type)//é“¾æ¥æ–‡ä»¶ //dir æ˜¯ç›®å½•åˆ™é€’å½’è°ƒç”¨
+		else if (10 == dp->d_type || 4 == dp->d_type)//Á´½ÓÎÄ¼ş //dir ÊÇÄ¿Â¼Ôòµİ¹éµ÷ÓÃ
 		{
 			memset(szBasePath, '\0', NSDK_MAX_PATH);
 			strcpy(szBasePath, p_strDir.c_str());
@@ -280,7 +417,7 @@ int GetSubDirs(std::string p_strDir, std::vector<std::string>& p_vecFiles)
 			std::string(findData.cFileName).compare("..") == 0)continue;
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		{
-			//å¦‚æœæ˜¯ç›®å½•
+			//Èç¹ûÊÇÄ¿Â¼
 			p_vecFiles.push_back(p_strDir + "\\" + std::string(findData.cFileName));
 		}
 		//else continue;
@@ -295,13 +432,13 @@ int GetSubDirs(std::string p_strDir, std::vector<std::string>& p_vecFiles)
 	}
 
 	struct dirent* dp = NULL;
-	char szBasePath[NSDK_MAX_PATH] = { 0 };        //åŸºç›®å½•
+	char szBasePath[NSDK_MAX_PATH] = { 0 };        //»ùÄ¿Â¼
 	while ((dp = readdir(dir)) != nullptr) {
 		if (0 == strcmp(dp->d_name, ".") && 0 == strcmp(dp->d_name, ".."))
 		{
 			continue;
 		}
-		else if (10 == dp->d_type || 4 == dp->d_type)//é“¾æ¥æ–‡ä»¶ //dir æ˜¯ç›®å½•åˆ™é€’å½’è°ƒç”¨
+		else if (10 == dp->d_type || 4 == dp->d_type)//Á´½ÓÎÄ¼ş //dir ÊÇÄ¿Â¼Ôòµİ¹éµ÷ÓÃ
 		{
 			memset(szBasePath, '\0', NSDK_MAX_PATH);
 			strcpy(szBasePath, p_strDir.c_str());
@@ -351,7 +488,7 @@ bool DeleteDirectory(const char* p_szFilePath, const char* p_szExpath)
 	DIR* dir = opendir(p_szFilePath);
 	if (dir == nullptr)
 	{
-		// æ‰“å¼€ç›®å½•å¤±è´¥
+		// ´ò¿ªÄ¿Â¼Ê§°Ü
 		return false;
 	}
 
@@ -359,13 +496,13 @@ bool DeleteDirectory(const char* p_szFilePath, const char* p_szExpath)
 	while ((entry = readdir(dir)) != nullptr) {
 		if (strncmp(entry->d_name, ".", 1) == 0 || strcmp(entry->d_name, "..") == 0)
 		{
-			// è·³è¿‡å½“å‰ç›®å½•å’Œçˆ¶ç›®å½•
+			// Ìø¹ıµ±Ç°Ä¿Â¼ºÍ¸¸Ä¿Â¼
 			continue;
 		}
 
 		if (entry->d_type == DT_DIR)
 		{
-			// å¦‚æœæ˜¯æ–‡ä»¶å¤¹ï¼Œé€’å½’åˆ é™¤
+			// Èç¹ûÊÇÎÄ¼ş¼Ğ£¬µİ¹éÉ¾³ı
 			if (strcmp(entry->d_name, p_szExpath) != 0)
 			{
 				char szFile[NSDK_MAX_PATH] = { 0 };
@@ -379,7 +516,7 @@ bool DeleteDirectory(const char* p_szFilePath, const char* p_szExpath)
 		}
 		else
 		{
-			// å¦‚æœæ˜¯æ–‡ä»¶ï¼Œç›´æ¥åˆ é™¤
+			// Èç¹ûÊÇÎÄ¼ş£¬Ö±½ÓÉ¾³ı
 			char szFile[NSDK_MAX_PATH] = { 0 };
 			snprintf(szFile, sizeof(szFile) - 1, "%s/%s", p_szFilePath, entry->d_name);
 			if (remove(szFile) != 0)
@@ -390,17 +527,17 @@ bool DeleteDirectory(const char* p_szFilePath, const char* p_szExpath)
 		}
 	}
 
-	// å…³é—­ç›®å½•æµ
+	// ¹Ø±ÕÄ¿Â¼Á÷
 	closedir(dir);
 
-	// åˆ é™¤å½“å‰ç›®å½•
-	rmdir(p_szFilePath);//æœ€åä¸€å±‚è·¯å¾„ä¸åˆ é™¤,åªåˆ é™¤ép_szExpathçš„ç›®å½•
+	// É¾³ıµ±Ç°Ä¿Â¼
+	rmdir(p_szFilePath);//×îºóÒ»²ãÂ·¾¶²»É¾³ı,Ö»É¾³ı·Çp_szExpathµÄÄ¿Â¼
 
 #endif
 	return true;
 }
 
-/******************** æ–‡ä»¶å¤„ç† ********************/
+/******************** ÎÄ¼ş´¦Àí ********************/
 int FileExists(const char* p_szFilePath)
 {
 	if (p_szFilePath == nullptr || strlen(p_szFilePath) == 0)
@@ -420,7 +557,7 @@ int GetFileAttr(const char* p_szFilePath, int p_iMode)
 
 	if (p_iMode != F_OK && p_iMode != X_OK && p_iMode != W_OK &&
 		p_iMode != R_OK && p_iMode != RW_OK)
-		return -2;//å±æ€§ä¸æ”¯æŒ
+		return -2;//ÊôĞÔ²»Ö§³Ö
 #if defined( OS_IS_WINDOWS )
 	if (_access(p_szFilePath, p_iMode) == 0)
 		return 0;
@@ -428,7 +565,7 @@ int GetFileAttr(const char* p_szFilePath, int p_iMode)
 	if (access(p_szFilePath, p_iMode) == 0)
 		return 0;
 #endif
-	return -3;//å¯¹åº”å±æ€§ä¸å­˜åœ¨
+	return -3;//¶ÔÓ¦ÊôĞÔ²»´æÔÚ
 }
 
 unsigned long FileLength(FILE* p_pFile)
@@ -460,7 +597,7 @@ FILE* CreateAppendFile(const char* p_pszFile)
 	return fp;
 }
 
-/******************** å­—ç¬¦ä¸²å¤„ç† ********************/
+/******************** ×Ö·û´®´¦Àí ********************/
 int unsigned StringSplit(const std::string p_strSrc, const std::string p_strSep, std::vector<std::string>& p_vecObj)
 {
 	std::string::size_type begin, end;
@@ -562,25 +699,25 @@ void TrimCharArraySelf(char* p_pzStr)
 {
 	char* src = p_pzStr;
 	char* end;
-	//å»é™¤å¼€å¤´ç©ºç™½å­—ç¬¦
+	//È¥³ı¿ªÍ·¿Õ°××Ö·û
 	while (isspace(*p_pzStr))
 	{
 		p_pzStr++;
 	}
-	//å¦‚æœå­—ç¬¦ä¸²å…¨æ˜¯ç©ºç™½ï¼Œåˆ™ç›´æ¥è¿”å›ç©ºå­—ç¬¦ä¸²
+	//Èç¹û×Ö·û´®È«ÊÇ¿Õ°×£¬ÔòÖ±½Ó·µ»Ø¿Õ×Ö·û´®
 	if (*p_pzStr == '\0')
 	{
 		strcpy(src, p_pzStr);
 		return;
 	}
-	//å»é™¤å­—ç¬¦ä¸²ç»“å°¾çš„ç©ºç™½å­—ç¬¦
+	//È¥³ı×Ö·û´®½áÎ²µÄ¿Õ°××Ö·û
 	end = p_pzStr + strlen(p_pzStr) - 1;
 	while (end > p_pzStr && isspace(*end))
 	{
 		end--;
 	}
 
-	//å­—ç¬¦ä¸²ç»“å°¾æ·»åŠ ç»“æŸç¬¦
+	//×Ö·û´®½áÎ²Ìí¼Ó½áÊø·û
 	*(end + 1) = '\0';
 	strcpy(src, p_pzStr);
 }
@@ -605,7 +742,7 @@ void TrimStr(std::string& p_refStr)
 
 void TrimStrByChar(std::string& p_refStr, char p_ch)
 {
-	//å»é™¤å­—ç¬¦ä¸²å‰åçš„å­—ç¬¦c
+	//È¥³ı×Ö·û´®Ç°ºóµÄ×Ö·ûc
 	int s = p_refStr.find_first_not_of(p_ch);
 	int e = p_refStr.find_last_not_of(p_ch);
 
@@ -621,10 +758,10 @@ void TrimStrByChar(std::string& p_refStr, char p_ch)
 
 std::string FormatString(const char* p_szFormat, ...)
 {
-	char szBuffer[260]; // æœ€å¤§è·¯å¾„é•¿åº¦
+	char szBuffer[260]; // ×î´óÂ·¾¶³¤¶È
 	va_list args;
 	va_start(args, p_szFormat);
-	vsprintf(szBuffer, p_szFormat, args); //TODO åŠ¨æ€å‚æ•°æ¯”formatå°‘æ—¶ä¼šå¯¼è‡´ç¨‹åºæŠ¥é”™
+	vsprintf(szBuffer, p_szFormat, args); //TODO ¶¯Ì¬²ÎÊı±ÈformatÉÙÊ±»áµ¼ÖÂ³ÌĞò±¨´í
 	va_end(args);
 	std::string strRtn(szBuffer);
 	return strRtn;
@@ -689,14 +826,14 @@ void SafeCopyCString(char* p_szDst, size_t p_dwDstLen, const char* p_szSrc)
 	p_szDst[dwCopyLen] = '\0';
 }
 
-/******************** æ—¥æœŸæ—¶é—´å¤„ç† ********************/
+/******************** ÈÕÆÚÊ±¼ä´¦Àí ********************/
 
-// å‡½æ•°ç”¨äºå°†æŒ‡å®šæ—¥æœŸæŒ‰ç…§åç§»é‡è¿›è¡Œåç§»è®¡ç®—
+// º¯ÊıÓÃÓÚ½«Ö¸¶¨ÈÕÆÚ°´ÕÕÆ«ÒÆÁ¿½øĞĞÆ«ÒÆ¼ÆËã
 std::tm OffsetDays(std::tm& p_tmSpecified_date, int p_iOffset)
 {
-	// å¯¹æ—¥æœŸè¿›è¡Œåç§»
+	// ¶ÔÈÕÆÚ½øĞĞÆ«ÒÆ
 	p_tmSpecified_date.tm_mday += p_iOffset;
-	// è§„èŒƒåŒ–æ—¥æœŸï¼Œç¡®ä¿æ—¥æœŸçš„åˆç†æ€§
+	// ¹æ·¶»¯ÈÕÆÚ£¬È·±£ÈÕÆÚµÄºÏÀíĞÔ
 	mktime(&p_tmSpecified_date);
 	return p_tmSpecified_date;
 }
@@ -710,14 +847,14 @@ unsigned long GetNextDate(unsigned long p_ulDate, unsigned int p_uiDays)
 	lDate = cBack.GetYear() * 10000 + cBack.GetMonth() * 100 + cBack.GetDay();
 
 #else
-	// è®¾ç½®åç§»åæ—¥æœŸ
+	// ÉèÖÃÆ«ÒÆºóÈÕÆÚ
 	tm tmSpecifiedDate;
 	tmSpecifiedDate.tm_year = (p_ulDate / 10000) - 1900;
 	tmSpecifiedDate.tm_mon = (p_ulDate % 10000 / 100) - 1;
 	tmSpecifiedDate.tm_mday = p_ulDate % 100;
 	tmSpecifiedDate.tm_hour = tmSpecifiedDate.tm_min = tmSpecifiedDate.tm_sec = 0;
 
-	// æ ¼å¼åŒ–æœ¬åœ°æ—¥æœŸ
+	// ¸ñÊ½»¯±¾µØÈÕÆÚ
 	time_t tmSpecifiedTime = mktime(&tmSpecifiedDate);
 	tm* ptmSpecifiedDate = localtime(&tmSpecifiedTime);
 
@@ -750,7 +887,7 @@ int GetCurDateTime(char* p_pDateTime, int p_iBufLen, int p_iType)
 
 	static char s_szDateTime[NSDK_MAX_PATH] = { 0 };
 #if defined( OS_IS_WINDOWS )
-	// æ—¶é—´
+	// Ê±¼ä
 	SYSTEMTIME stCurrTime = { 0 };
 	GetLocalTime(&stCurrTime);
 
@@ -792,7 +929,7 @@ int GetCurDateTime(char* p_pDateTime, int p_iBufLen, int p_iType)
 void GetLocalDateTime(int& p_iDate, int& p_iTime)
 {
 #if defined( OS_IS_WINDOWS )
-	// æ—¶é—´
+	// Ê±¼ä
 	SYSTEMTIME stCurrTime = { 0 };
 	GetLocalTime(&stCurrTime);
 
@@ -829,7 +966,7 @@ std::string GetTimes(const std::string& p_strFmt)
 	return strTime;
 }
 
-unsigned long GetFriday(unsigned long p_ulDate) // å¾—åˆ°æŸæ—¥çš„æ˜ŸæœŸäº”
+unsigned long GetFriday(unsigned long p_ulDate) // µÃµ½Ä³ÈÕµÄĞÇÆÚÎå
 {
 	const static char aDaysOfMon[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
@@ -843,7 +980,7 @@ unsigned long GetFriday(unsigned long p_ulDate) // å¾—åˆ°æŸæ—¥çš„æ˜ŸæœŸäº”
 	for (i = 1980; i < iYear; i++)
 	{
 		ulDays += 365;
-		if (i % 400 == 0 || (i % 4 == 0 && i % 100 != 0)) // é—°å¹´
+		if (i % 400 == 0 || (i % 4 == 0 && i % 100 != 0)) // ÈòÄê
 		{
 			ulDays++;
 		}
@@ -858,11 +995,11 @@ unsigned long GetFriday(unsigned long p_ulDate) // å¾—åˆ°æŸæ—¥çš„æ˜ŸæœŸäº”
 		}
 	}
 
-	ulDays += iDay - 1; // ä»1980å¹´è‡³å½“æ—¥å…±æœ‰å¤šå°‘å¤©
-	ulDays -= 3; // 1980å¹´1æœˆ1æ—¥ä¸ºæ˜ŸæœŸäºŒï¼Œåˆ™ç¦»æ˜ŸæœŸäº”çš„å¤©æ•°è¿˜è¦å‡å»3
+	ulDays += iDay - 1; // ´Ó1980ÄêÖÁµ±ÈÕ¹²ÓĞ¶àÉÙÌì
+	ulDays -= 3; // 1980Äê1ÔÂ1ÈÕÎªĞÇÆÚ¶ş£¬ÔòÀëĞÇÆÚÎåµÄÌìÊı»¹Òª¼õÈ¥3
 	i = ulDays % 7;
 
-	if (i > 2) // å¾—åˆ°å½“æ—¥æ‰€åœ¨æ˜ŸæœŸçš„æ˜ŸæœŸäº”ã€‚è‹¥ä¸ºæ˜ŸæœŸäº”ã€å…­ã€æ—¥ï¼Œåˆ™ä¸ºå½“æ—¥
+	if (i > 2) // µÃµ½µ±ÈÕËùÔÚĞÇÆÚµÄĞÇÆÚÎå¡£ÈôÎªĞÇÆÚÎå¡¢Áù¡¢ÈÕ£¬ÔòÎªµ±ÈÕ
 	{
 		iDay += (7 - i) % 7;
 	}
@@ -895,7 +1032,7 @@ bool IsInWeekend(int p_iDate)
 	tmDate.tm_hour = 0;
 	tmDate.tm_min = 0;
 	tmDate.tm_sec = 0;
-	// è°ƒç”¨mktimeå‡½æ•°æ¥æ ‡å‡†åŒ–æ—¥æœŸç»“æ„ï¼Œè¿™ä¸€æ­¥å¾ˆå…³é”®ï¼Œå®ƒä¼šè‡ªåŠ¨æ›´æ–°tm_wdayç­‰æˆå‘˜
+	// µ÷ÓÃmktimeº¯ÊıÀ´±ê×¼»¯ÈÕÆÚ½á¹¹£¬ÕâÒ»²½ºÜ¹Ø¼ü£¬Ëü»á×Ô¶¯¸üĞÂtm_wdayµÈ³ÉÔ±
 	std::mktime(&tmDate);
 
 	return tmDate.tm_wday == 0 || tmDate.tm_wday == 6;
@@ -913,7 +1050,7 @@ std::tm SafeLocalTime(std::time_t p_ttNow)
 }
 
 
-/******************** æ•°å­—å¤„ç† ********************/
+/******************** Êı×Ö´¦Àí ********************/
 bool IsEquals(double p_dData1, double p_dData2, int p_iXsFlag)
 {
 	if ((p_dData1 >= 0.0f && p_dData2 < 0.0f) || (p_dData1 <= 0.0f && p_dData2 > 0.0f))
@@ -946,12 +1083,12 @@ int Double2Int(double p_dData)
 	return *(int*)&p_dData;
 }
 
-/******************** æ“ä½œç³»ç»Ÿ ********************/
+/******************** ²Ù×÷ÏµÍ³ ********************/
 
 unsigned long GetSysError()
 {
 #if defined( OS_IS_WINDOWS )
-	// æ—¶é—´
+	// Ê±¼ä
 	return GetLastError();
 #else
 	return errno;
@@ -966,12 +1103,12 @@ unsigned long GetNumberOfCores(bool p_bUsable)
 	return sysInfo.dwNumberOfProcessors;
 #else
 	return p_bUsable ? sysconf(_SC_NPROCESSORS_ONLN) : sysconf(_SC_NPROCESSORS_CONF);
-	//sysconf(_SC_NPROCESSORS_CONF);//è¿”å›ç³»ç»Ÿæ‰€æœ‰çš„CPUæ ¸æ•°ï¼Œè¿™ä¸ªå€¼ä¹ŸåŒ…æ‹¬ç³»ç»Ÿä¸­ç¦æ­¢ç”¨æˆ·ä½¿ç”¨çš„CPUä¸ªæ•°
-	//sysconf(_SC_NPROCESSORS_ONLN);//è¿”å›ç³»ç»Ÿä¸­å¯ç”¨çš„CPUæ ¸æ•°
+	//sysconf(_SC_NPROCESSORS_CONF);//·µ»ØÏµÍ³ËùÓĞµÄCPUºËÊı£¬Õâ¸öÖµÒ²°üÀ¨ÏµÍ³ÖĞ½ûÖ¹ÓÃ»§Ê¹ÓÃµÄCPU¸öÊı
+	//sysconf(_SC_NPROCESSORS_ONLN);//·µ»ØÏµÍ³ÖĞ¿ÉÓÃµÄCPUºËÊı
 #endif
 }
 
-/******************** åŠ å¯†è®¤è¯å¤„ç† ********************/
+/******************** ¼ÓÃÜÈÏÖ¤´¦Àí ********************/
 static bool IsBase64(unsigned char p_ch) {
 	return (isalnum(p_ch) || (p_ch == '+') || (p_ch == '/'));
 }
@@ -1085,16 +1222,16 @@ std::string Base64Decode(std::string const& p_strEncoded)
 	return strResult;
 }
 
-std::string Aes(const std::string& p_strSrc) //AESåŠ å¯†
+std::string Aes(const std::string& p_strSrc) //AES¼ÓÃÜ
 {
 	size_t ullLength = p_strSrc.length();
 	int iBlockNum = ullLength / BLOCK_SIZE + 1;
-	//æ˜æ–‡
+	//Ã÷ÎÄ
 	char* pszDataIn = new char[iBlockNum * BLOCK_SIZE + 1];
 	memset(pszDataIn, 0x00, iBlockNum * BLOCK_SIZE + 1);
 	strcpy(pszDataIn, p_strSrc.c_str());
 
-	//è¿›è¡ŒPKCS7Paddingå¡«å……ã€‚
+	//½øĞĞPKCS7PaddingÌî³ä¡£
 	int k = ullLength % BLOCK_SIZE;
 	int j = ullLength / BLOCK_SIZE;
 	int iPadding = BLOCK_SIZE - k;
@@ -1104,11 +1241,11 @@ std::string Aes(const std::string& p_strSrc) //AESåŠ å¯†
 	}
 	pszDataIn[iBlockNum * BLOCK_SIZE] = '\0';
 
-	//åŠ å¯†åçš„å¯†æ–‡
+	//¼ÓÃÜºóµÄÃÜÎÄ
 	char* pszDataOut = new char[iBlockNum * BLOCK_SIZE + 1];
 	memset(pszDataOut, 0, iBlockNum * BLOCK_SIZE + 1);
 
-	//è¿›è¡Œè¿›è¡ŒAESçš„CBCæ¨¡å¼åŠ å¯†
+	//½øĞĞ½øĞĞAESµÄCBCÄ£Ê½¼ÓÃÜ
 	AES Aes;
 	Aes.MakeKey(g_strAuthKey.c_str(), g_strAuthIV.c_str(), 16, 16);
 	Aes.Encrypt(pszDataIn, pszDataOut, iBlockNum * BLOCK_SIZE, AES::CBC);
@@ -1120,25 +1257,25 @@ std::string Aes(const std::string& p_strSrc) //AESåŠ å¯†
 	return str;
 }
 
-std::string Deaes(const std::string& p_strSrc) //AESè§£å¯†
+std::string Deaes(const std::string& p_strSrc) //AES½âÃÜ
 {
 	string strData = Base64Decode(p_strSrc);
 	size_t ullLength = strData.length();
 
-	//å¯†æ–‡
+	//ÃÜÎÄ
 	char* pszDataIn = new char[ullLength + 1];
 	memcpy(pszDataIn, strData.c_str(), ullLength + 1);
 
-	//æ˜æ–‡
+	//Ã÷ÎÄ
 	char* pszDataOut = new char[ullLength + 1];
 	memcpy(pszDataOut, strData.c_str(), ullLength + 1);
 
-	//è¿›è¡ŒAESçš„CBCæ¨¡å¼è§£å¯†
+	//½øĞĞAESµÄCBCÄ£Ê½½âÃÜ
 	AES Aes;
 	Aes.MakeKey(g_strAuthKey.c_str(), g_strAuthIV.c_str(), 16, 16);
 	Aes.Decrypt(pszDataIn, pszDataOut, ullLength, AES::CBC);
 
-	//å»PKCS7Paddingå¡«å……
+	//È¥PKCS7PaddingÌî³ä
 	if (0x00 < pszDataOut[ullLength - 1] <= 0x16)
 	{
 		int tmp = pszDataOut[ullLength - 1];
@@ -1147,7 +1284,7 @@ std::string Deaes(const std::string& p_strSrc) //AESè§£å¯†
 			if (pszDataOut[i] != tmp)
 			{
 				memset(pszDataOut, 0, ullLength);
-				//cout << "å»å¡«å……å¤±è´¥ï¼è§£å¯†å‡ºé”™ï¼ï¼" << endl;
+				//cout << "È¥Ìî³äÊ§°Ü£¡½âÃÜ³ö´í£¡£¡" << endl;
 				break;
 			}
 			else
@@ -1164,9 +1301,9 @@ std::string Deaes(const std::string& p_strSrc) //AESè§£å¯†
 
 std::string MakeFeatrue(const std::string p_strClientInfo)
 {
-	//p_strClientInfoï¼šå®¢æˆ·ä¿¡æ¯ï¼Œä¾‹å¦‚ï¼šuserId
-	//è¿”å› å®¢æˆ·ä¿¡æ¯å¯†æ–‡ã€‚ç”Ÿæˆæ–¹å¼ï¼šå…¬é’¥+TJZT+å¼€å§‹æ—¥æœŸ --> AESåŠ å¯† --> BASE64åŠ å¯†
-	string strClientInfo = "";//æ˜æ–‡
+	//p_strClientInfo£º¿Í»§ĞÅÏ¢£¬ÀıÈç£ºuserId
+	//·µ»Ø ¿Í»§ĞÅÏ¢ÃÜÎÄ¡£Éú³É·½Ê½£º¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ --> AES¼ÓÃÜ --> BASE64¼ÓÃÜ
+	string strClientInfo = "";//Ã÷ÎÄ
 	strClientInfo.append(p_strClientInfo);
 	strClientInfo.append(g_strAuthKey);
 	strClientInfo.append(g_strSignature);
@@ -1178,57 +1315,57 @@ std::string MakeFeatrue(const std::string p_strClientInfo)
 #ifndef SERVER_AUTH_FLAG
 int BuildFeatrue(std::string p_strClientInfo, unsigned int p_uiClientInfoLen, int p_iAuthDay, std::string& p_strFeatrue)
 {
-	//p_iAuthDay æˆæƒå¤©æ•°
-	//p_usClientInfoLen å®¢æˆ·ä¿¡æ¯é•¿åº¦ï¼Œä¾‹å¦‚ï¼šuserIdï¼Œé•¿åº¦æ˜¯6
-	//p_strClientInfo å®¢æˆ·ä¿¡æ¯å¯†æ–‡ã€‚ç”Ÿæˆæ–¹å¼ï¼šå…¬é’¥+TJZT+å¼€å§‹æ—¥æœŸ --> AESåŠ å¯† --> BASE64åŠ å¯†
-	//p_strFeatrue æœåŠ¡å™¨æˆæƒå¯†æ–‡ã€‚ç”Ÿæˆæ–¹å¼ï¼šå…¬é’¥+TJZT+å¼€å§‹æ—¥æœŸ+ç»“æŸæ—¥æœŸ --> AESåŠ å¯† --> BASE64åŠ å¯†
+	//p_iAuthDay ÊÚÈ¨ÌìÊı
+	//p_usClientInfoLen ¿Í»§ĞÅÏ¢³¤¶È£¬ÀıÈç£ºuserId£¬³¤¶ÈÊÇ6
+	//p_strClientInfo ¿Í»§ĞÅÏ¢ÃÜÎÄ¡£Éú³É·½Ê½£º¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ --> AES¼ÓÃÜ --> BASE64¼ÓÃÜ
+	//p_strFeatrue ·şÎñÆ÷ÊÚÈ¨ÃÜÎÄ¡£Éú³É·½Ê½£º¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ+½áÊøÈÕÆÚ --> AES¼ÓÃÜ --> BASE64¼ÓÃÜ
 
-	//1ã€è§£å¯†ï¼šBASE64è§£å¯† --> AESè§£å¯† --> å…¬é’¥+TJZT+å¼€å§‹æ—¥æœŸ
+	//1¡¢½âÃÜ£ºBASE64½âÃÜ --> AES½âÃÜ --> ¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ
 	if (p_strClientInfo.empty())
 	{
-		//é•¿åº¦æ˜¯0
+		//³¤¶ÈÊÇ0
 		return -1;
 	}
 
 	std::string strAesData = Deaes(p_strClientInfo);
 	if (strAesData.empty())
 	{
-		//AESè§£å¯†å¤±è´¥
+		//AES½âÃÜÊ§°Ü
 		return -2;
 	}
 
-	//2ã€æ ¡éªŒï¼šå…¬é’¥+TJZT
+	//2¡¢Ğ£Ñé£º¹«Ô¿+TJZT
 	unsigned int uiClientInfoLen = p_uiClientInfoLen;
 	int iAuthKeyLength = g_strAuthKey.length();
 	int iSignatureLength = g_strSignature.length();
-	int iDateLength = 8;//å¹´æœˆæ—¥ 20241219
+	int iDateLength = 8;//ÄêÔÂÈÕ 20241219
 
 	if (strAesData.length() != uiClientInfoLen + iAuthKeyLength + iSignatureLength + iDateLength)
 	{
-		//é•¿åº¦åŒ¹é…å¤±è´¥ å…¬é’¥+TJZT+å¼€å§‹æ—¥æœŸ
+		//³¤¶ÈÆ¥ÅäÊ§°Ü ¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ
 		return -3;
 	}
 
 	std::string strAuthKey = strAesData.substr(uiClientInfoLen, iAuthKeyLength);
 	if (strAuthKey != g_strAuthKey)
 	{
-		//å…¬é’¥åŒ¹é…å¤±è´¥
+		//¹«Ô¿Æ¥ÅäÊ§°Ü
 		return -4;
 	}
 
 	std::string strSignature = strAesData.substr(uiClientInfoLen + iAuthKeyLength, iSignatureLength);
 	if (strSignature != g_strSignature)
 	{
-		//ç­¾ååŒ¹é…å¤±è´¥
+		//Ç©ÃûÆ¥ÅäÊ§°Ü
 		return -5;
 	}
 
-	//3ã€æˆæƒï¼šæœåŠ¡å™¨æˆæƒå¯†æ–‡
+	//3¡¢ÊÚÈ¨£º·şÎñÆ÷ÊÚÈ¨ÃÜÎÄ
 	std::string strDate = strAesData.substr(uiClientInfoLen +iAuthKeyLength + iSignatureLength, iDateLength);
 	int iDate = atoi(strDate.c_str());
 	int iCurDate = GetCurDate();
 	int iAuthDay = p_iAuthDay;
-	//æˆæƒå¤©æ•°åœ¨-30åˆ°30å¤©ä¹‹é—´
+	//ÊÚÈ¨ÌìÊıÔÚ-30µ½30ÌìÖ®¼ä
 	iAuthDay = nsdk_min(iAuthDay, 30);
 	iAuthDay = nsdk_max(iAuthDay, -30);
 	int iNextDate = GetNextDate(iDate, iAuthDay);
@@ -1240,56 +1377,56 @@ int BuildFeatrue(std::string p_strClientInfo, unsigned int p_uiClientInfoLen, in
 
 int AuthFeatrue(const std::string p_strClientInfo, std::string p_strFeatrue, std::string& p_strFeatrueInfo)
 {
-	//p_strFeatrue æœåŠ¡å™¨æˆæƒå¯†æ–‡ã€‚ç”Ÿæˆæ–¹å¼ï¼šå…¬é’¥+TJZT+å¼€å§‹æ—¥æœŸ+ç»“æŸæ—¥æœŸ --> AESåŠ å¯† --> BASE64åŠ å¯†
-	//p_strFeatrueInfo è§£å¯†æ˜æ–‡
+	//p_strFeatrue ·şÎñÆ÷ÊÚÈ¨ÃÜÎÄ¡£Éú³É·½Ê½£º¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ+½áÊøÈÕÆÚ --> AES¼ÓÃÜ --> BASE64¼ÓÃÜ
+	//p_strFeatrueInfo ½âÃÜÃ÷ÎÄ
 
-	//1ã€è§£å¯†ï¼šBASE64è§£å¯† --> AESè§£å¯† --> å…¬é’¥+TJZT+å¼€å§‹æ—¥æœŸ+ç»“æŸæ—¥æœŸ
+	//1¡¢½âÃÜ£ºBASE64½âÃÜ --> AES½âÃÜ --> ¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ+½áÊøÈÕÆÚ
 	if (p_strFeatrue.empty())
 	{
-		//é•¿åº¦æ˜¯0
+		//³¤¶ÈÊÇ0
 		return -1;
 	}
 	p_strFeatrueInfo = Deaes(p_strFeatrue);
 	if (p_strFeatrueInfo.empty())
 	{
-		//AESè§£å¯†å¤±è´¥
+		//AES½âÃÜÊ§°Ü
 		return -2;
 	}
 
-	//2ã€æ ¡éªŒï¼šå…¬é’¥+TJZT
+	//2¡¢Ğ£Ñé£º¹«Ô¿+TJZT
 	unsigned int uiClientInfoLen = p_strClientInfo.length();
 	int iAuthKeyLength = g_strAuthKey.length();
 	int iSignatureLength = g_strSignature.length();
-	int iDateLength = 8 + 8;//å¼€å§‹æ—¥æœŸ 20241219 ç»“æŸæ—¥æœŸ 20241220
+	int iDateLength = 8 + 8;//¿ªÊ¼ÈÕÆÚ 20241219 ½áÊøÈÕÆÚ 20241220
 
 	if (p_strFeatrueInfo.length() != uiClientInfoLen + iAuthKeyLength + iSignatureLength + iDateLength)
 	{
-		//é•¿åº¦åŒ¹é…å¤±è´¥ å…¬é’¥+TJZT+å¼€å§‹æ—¥æœŸ+ç»“æŸæ—¥æœŸ
+		//³¤¶ÈÆ¥ÅäÊ§°Ü ¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ+½áÊøÈÕÆÚ
 		return -3;
 	}
 
 	std::string strClientInfo = p_strFeatrueInfo.substr(0, uiClientInfoLen);
 	if (strClientInfo != p_strClientInfo)
 	{
-		//å®¢æˆ·ä¿¡æ¯åŒ¹é…å¤±è´¥
+		//¿Í»§ĞÅÏ¢Æ¥ÅäÊ§°Ü
 		return -4;
 	}
 
 	std::string strAuthKey = p_strFeatrueInfo.substr(uiClientInfoLen, iAuthKeyLength);
 	if (strAuthKey != g_strAuthKey)
 	{
-		//å…¬é’¥åŒ¹é…å¤±è´¥
+		//¹«Ô¿Æ¥ÅäÊ§°Ü
 		return -5;
 	}
 
 	std::string strSignature = p_strFeatrueInfo.substr(uiClientInfoLen + iAuthKeyLength, iSignatureLength);
 	if (strSignature != g_strSignature)
 	{
-		//ç­¾ååŒ¹é…å¤±è´¥
+		//Ç©ÃûÆ¥ÅäÊ§°Ü
 		return -6;
 	}
 
-	//3ã€æ£€éªŒç»“æŸæ—¥æœŸæ—¶é—´
+	//3¡¢¼ìÑé½áÊøÈÕÆÚÊ±¼ä
 	std::string strStartEndDate = p_strFeatrueInfo.substr(uiClientInfoLen + iAuthKeyLength + iSignatureLength, iDateLength);
 	int iStartDate = atoi(strStartEndDate.substr(0, 8).c_str());
 	int iEndDate = atoi(strStartEndDate.substr(8).c_str());
@@ -1297,20 +1434,20 @@ int AuthFeatrue(const std::string p_strClientInfo, std::string p_strFeatrue, std
 
 	if (iCurDate > iEndDate)
 	{
-		//ç»“æŸæ—¥æœŸå¤±æ•ˆ
+		//½áÊøÈÕÆÚÊ§Ğ§
 		return -7;
 	}
 
 	if (iStartDate > iEndDate)
 	{
-		//å¼€å§‹ç»“æŸæ—¥æœŸæ—¶åºé”™è¯¯
+		//¿ªÊ¼½áÊøÈÕÆÚÊ±Ğò´íÎó
 		return -8;
 	}
 
 	int iNextDate = GetNextDate(iStartDate, AUTH_DAY);
 	if (iNextDate != iEndDate)
 	{
-		//æˆæƒç»“æŸæ—¥æœŸé”™è¯¯ æœªæŒ‰ç…§åˆ¶å®šå¤©æ•°æˆæƒ
+		//ÊÚÈ¨½áÊøÈÕÆÚ´íÎó Î´°´ÕÕÖÆ¶¨ÌìÊıÊÚÈ¨
 		return -9;
 	}
 

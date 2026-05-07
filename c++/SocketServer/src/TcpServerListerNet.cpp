@@ -368,10 +368,10 @@ EnHandleResult CTcpServerListerNet::OnHandShake(ITcpServer* pSender, CONNID dwCo
 	return HR_OK;
 }
 
-//服务器关闭时触发
+// server shutdown event
 EnHandleResult CTcpServerListerNet::OnShutdown(ITcpServer* pSender)
 {
-	TCP_INFO("服务器关闭");
+	TCP_INFO("server shutdown");
 	return HR_OK;
 }
 

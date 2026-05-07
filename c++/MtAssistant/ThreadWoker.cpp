@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "ThreadWoker.h"
 #include <io.h>
+#include "nsdk_atomic.h"
 namespace
 {
     // wyl 2026-05-06：bat运行后实际进程通常是cmd，无法按脚本完整路径反查，只能保留旧PID兜底。
@@ -219,7 +220,7 @@ void CThreadWork::Work()
 			if (bStart && !bExist)
 			{
 				m_bStatus.store(false);
-				string strWorkPath = m_stServiceInfo.strPath.substr(0, m_stServiceInfo.strPath.find_last_of("\\"));
+				string strWorkPath = m_stServiceInfo.strPath.substr(0, m_stServiceInfo.strPath.find_last_of(NSDK_PATH_DELIMETER));
 				m_stServiceInfo.lPid = StartProcess(strWorkPath.c_str(), m_stServiceInfo.strPath.c_str());
 
 				//成功，失败都同步配置

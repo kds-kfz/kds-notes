@@ -6,6 +6,7 @@
 #include "nsdk_atomic.h"
 
 CServiceDataMng *CServiceDataMng::m_pThis = NULL;
+extern int g_iBreakpadInitRet;
 
 CServiceDataMng *CServiceDataMng::GetInstance()
 {
@@ -44,6 +45,9 @@ CServiceDataMng::~CServiceDataMng()
 void CServiceDataMng::Init()
 {
 	ReadCfg();
+
+	//≤‚ ‘±¿¿£
+	//*(int*)0 = 0;
 
 	std::map<int, ServiceInfo> mapServiceInfo;
 	m_ServiceInfoLock.lock();
@@ -158,9 +162,10 @@ void CServiceDataMng::ReadCfg()
 	CLog::GetInstance()->Resume();
 
 	MT_INFO("Log started ****************************");
+	MT_INFO("[MtAssistant] InitBreakpad ret=%d", g_iBreakpadInitRet);
 
 	m_strCfg = m_strHome;
-	m_strCfg.append("\\");
+	m_strCfg.append(NSDK_PATH_DELIMETER);
 	m_strCfg.append(SERVICE_CFG_NAME);
 
 	if (_access(m_strCfg.c_str(), 0) == -1)
@@ -249,8 +254,6 @@ void CServiceDataMng::ReadCfg()
 		m_mapServiceInfo[i] = pstServiceInfo;
 		m_ServiceInfoLock.unlock();
 	}
-	//≤‚ ‘±¿¿£
-	//*(int*)0 = 0;
 
 	MT_INFO("[MtAssistant] load config done");
 }

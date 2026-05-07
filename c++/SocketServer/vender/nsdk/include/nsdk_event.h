@@ -1,4 +1,4 @@
-ï»¿#ifndef __NSDK_EVENT_H__
+#ifndef __NSDK_EVENT_H__
 #define __NSDK_EVENT_H__
 
 #include <string>
@@ -7,6 +7,10 @@
 #include "nsdk_define.h"
 
 #if defined(OS_IS_WINDOWS)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <winsock2.h>
 #include <windows.h>
 #else
 #include <pthread.h>
@@ -38,21 +42,21 @@ protected:
 #if defined(OS_IS_WINDOWS)
 	HANDLE m_hEvent;
 #else
-	bool m_bNamed;                // æ˜¯å¦ä¸ºå‘½åäº‹ä»¶ã€‚
-	std::string m_strName;        // å‘½åäº‹ä»¶å¯¹åº”çš„å…±äº«å†…å­˜åç§°ã€‚
-	std::string m_strLockFile;    // åˆ›å»ºå’Œå…³é—­å‘½åäº‹ä»¶æ—¶ä½¿ç”¨çš„åè°ƒé”æ–‡ä»¶ã€‚
+	bool m_bNamed;                // ÊÇ·ñÎªÃüÃûÊÂ¼ş¡£
+	std::string m_strName;        // ÃüÃûÊÂ¼ş¶ÔÓ¦µÄ¹²ÏíÄÚ´æÃû³Æ¡£
+	std::string m_strLockFile;    // ´´½¨ºÍ¹Ø±ÕÃüÃûÊÂ¼şÊ±Ê¹ÓÃµÄĞ­µ÷ËøÎÄ¼ş¡£
 
-	pthread_mutex_t m_stMutex;    // æ— åäº‹ä»¶ä½¿ç”¨çš„æœ¬åœ°äº’æ–¥é‡ã€‚
-	pthread_cond_t m_stCond;      // æ— åäº‹ä»¶ä½¿ç”¨çš„æœ¬åœ°æ¡ä»¶å˜é‡ã€‚
-	pthread_mutex_t* m_pstMutex;  // å½“å‰å®é™…ä½¿ç”¨çš„äº’æ–¥é‡ï¼Œå¯èƒ½æŒ‡å‘æœ¬åœ°æˆ–å…±äº«å†…å­˜ã€‚
-	pthread_cond_t* m_pstCond;    // å½“å‰å®é™…ä½¿ç”¨çš„æ¡ä»¶å˜é‡ï¼Œå¯èƒ½æŒ‡å‘æœ¬åœ°æˆ–å…±äº«å†…å­˜ã€‚
-	bool m_bSignaled;             // æ— åäº‹ä»¶çš„ä¿¡å·çŠ¶æ€ã€‚
-	bool* m_pbSignaled;           // å½“å‰å®é™…ä½¿ç”¨çš„ä¿¡å·çŠ¶æ€ï¼Œå¯èƒ½æŒ‡å‘æœ¬åœ°æˆ–å…±äº«å†…å­˜ã€‚
-	void* m_pMappedAddr;          // å‘½åäº‹ä»¶å…±äº«å†…å­˜çš„æ˜ å°„é¦–åœ°å€ã€‚
-	int m_iShmFd;                 // å‘½åäº‹ä»¶ shm_open è¿”å›çš„å¥æŸ„ã€‚
-	int m_iLockFd;                // åè°ƒé”æ–‡ä»¶å¥æŸ„ã€‚
-	bool m_bManualReset;          // äº‹ä»¶æ˜¯å¦ä¸ºæ‰‹åŠ¨å¤ä½ã€‚
-	bool m_bInit;                 // å½“å‰äº‹ä»¶å¯¹è±¡æ˜¯å¦å·²ç»åˆå§‹åŒ–å®Œæˆã€‚
+	pthread_mutex_t m_stMutex;    // ÎŞÃûÊÂ¼şÊ¹ÓÃµÄ±¾µØ»¥³âÁ¿¡£
+	pthread_cond_t m_stCond;      // ÎŞÃûÊÂ¼şÊ¹ÓÃµÄ±¾µØÌõ¼ş±äÁ¿¡£
+	pthread_mutex_t* m_pstMutex;  // µ±Ç°Êµ¼ÊÊ¹ÓÃµÄ»¥³âÁ¿£¬¿ÉÄÜÖ¸Ïò±¾µØ»ò¹²ÏíÄÚ´æ¡£
+	pthread_cond_t* m_pstCond;    // µ±Ç°Êµ¼ÊÊ¹ÓÃµÄÌõ¼ş±äÁ¿£¬¿ÉÄÜÖ¸Ïò±¾µØ»ò¹²ÏíÄÚ´æ¡£
+	bool m_bSignaled;             // ÎŞÃûÊÂ¼şµÄĞÅºÅ×´Ì¬¡£
+	bool* m_pbSignaled;           // µ±Ç°Êµ¼ÊÊ¹ÓÃµÄĞÅºÅ×´Ì¬£¬¿ÉÄÜÖ¸Ïò±¾µØ»ò¹²ÏíÄÚ´æ¡£
+	void* m_pMappedAddr;          // ÃüÃûÊÂ¼ş¹²ÏíÄÚ´æµÄÓ³ÉäÊ×µØÖ·¡£
+	int m_iShmFd;                 // ÃüÃûÊÂ¼ş shm_open ·µ»ØµÄ¾ä±ú¡£
+	int m_iLockFd;                // Ğ­µ÷ËøÎÄ¼ş¾ä±ú¡£
+	bool m_bManualReset;          // ÊÂ¼şÊÇ·ñÎªÊÖ¶¯¸´Î»¡£
+	bool m_bInit;                 // µ±Ç°ÊÂ¼ş¶ÔÏóÊÇ·ñÒÑ¾­³õÊ¼»¯Íê³É¡£
 #endif
 
 	int m_iLastError;

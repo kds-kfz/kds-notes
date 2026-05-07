@@ -133,7 +133,7 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 		if (MA_OK == CTcpLog::GetInstance()->InitLog(p_szLogFold))
 		{
 			CTcpLog::GetInstance()->Resume();//恢复工作
-			TCP_INFO("启动LOG  ****************************");
+			TCP_INFO("log started");
 		}
 		else
 		{
@@ -216,7 +216,7 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 		return false;
 	}
 
-	TCP_INFO("启动完成");
+	TCP_INFO("server started");
 	return true;
 }
 

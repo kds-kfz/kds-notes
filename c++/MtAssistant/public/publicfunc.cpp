@@ -1,9 +1,6 @@
 #include "StdAfx.h"
 #include "publicfunc.h"
 
-#include "exception_handler.h"
-#include "nsdk.h"
-#include "nsdk_atomic.h"
 
 #include <algorithm>
 #include <ctime>
@@ -15,31 +12,19 @@
 #include <string>
 #include <tlhelp32.h>
 #include <vector>
+#include "nsdk_atomic.h"
 
 
-#define BREAKPAD_DUMP_FOLDER_NAME "CrashDumps"
 
 namespace
 {
-	google_breakpad::ExceptionHandler* g_pBreakpad = nullptr;
-
-	bool DumpCallback(const wchar_t* dump_path,
-		const wchar_t* dump_id,
-		void* context,
-		EXCEPTION_POINTERS* exinfo,
-		MDRawAssertionInfo* assertion,
-		bool succeeded)
-	{
-		return succeeded;
-	}
-
 	// wyl 2026-05-06：统一进程路径格式，避免斜杠、引号和相对路径导致匹配误判。
 	std::string NormalizeProcessPath(std::string strPath)
 	{
 		if (strPath.size() >= 2 && strPath.front() == '"' && strPath.back() == '"')
 			strPath = strPath.substr(1, strPath.size() - 2);
 
-		std::replace(strPath.begin(), strPath.end(), '/', '\\');
+		std::replace(strPath.begin(), strPath.end(), '/', NSDK_PATH_DELIMETER[0]);
 
 		char szFullPath[4096] = { 0 };
 		DWORD dwLen = GetFullPathNameA(strPath.c_str(), sizeof(szFullPath), szFullPath, NULL);
@@ -338,7 +323,7 @@ BOOL GetFileVersion(LPCTSTR strFile, CString& strVersion)
 
 	VS_FIXEDFILEINFO* pInfo = NULL;
 	UINT nInfoLen = 0;
-	if (!VerQueryValue(vecVersion.data(), _T("\\"), reinterpret_cast<void**>(&pInfo), &nInfoLen) || pInfo == NULL)
+	if (!VerQueryValue(vecVersion.data(), _T(NSDK_PATH_DELIMETER), reinterpret_cast<void**>(&pInfo), &nInfoLen) || pInfo == NULL)
 		return FALSE;
 
 	strVersion.Format(_T("%d.%d.%d.%d"),
@@ -370,50 +355,6 @@ BOOL CenterAndActivateWindow(HWND hWnd)
 }
 
 // 初始化函数（你想在哪里调用都可以）
-void InitBreakpad()
-{
-	if (g_pBreakpad != nullptr)
-		return;
-
-	std::string strDumpPath = nsdk::GetRootPath();
-	if (!strDumpPath.empty())
-	{
-		if (strDumpPath.compare(strDumpPath.length() - 1, 1, NSDK_PATH_DELIMETER) != 0)
-			strDumpPath += NSDK_PATH_DELIMETER;
-	}
-	strDumpPath += BREAKPAD_DUMP_FOLDER_NAME;
-
-	if (nsdk::FolderExists(strDumpPath.c_str()) != NSDK_OK)
-	{
-		if (nsdk::CreateFolder(strDumpPath.c_str()) != NSDK_OK)
-			return;
-	}
-
-	std::wstring strDumpPathW;
-	int iWideLen = MultiByteToWideChar(CP_ACP, 0, strDumpPath.c_str(), -1, NULL, 0);
-	if (iWideLen > 0)
-	{
-		std::vector<wchar_t> vecDumpPath(iWideLen);
-		MultiByteToWideChar(CP_ACP, 0, strDumpPath.c_str(), -1, &vecDumpPath[0], iWideLen);
-		strDumpPathW.assign(&vecDumpPath[0]);
-	}
-	else
-	{
-		return;
-	}
-
-	// 初始化崩溃捕获 参1：崩溃 dump 文件保存的目录 参2：崩溃过滤函数（回调）填 nullptr 表示 不过滤，所有崩溃都捕获。一般不用，保持 nullptr 即可
-	// 参3：崩溃发生后的回调函数，可以记录日志、弹窗提示、上传 dump、做一些收尾工作
-	// 参4：传递给回调函数的自定义参数（上下文）。不需要就填 nullptr
-	// 参5：要捕获哪些类型的崩溃。（空指针、除零、数组越界、C++ 异常、纯虚函数、堆栈溢出、非法指令）
-	g_pBreakpad = new google_breakpad::ExceptionHandler(
-		strDumpPathW,
-		nullptr,
-		DumpCallback,
-		nullptr,
-		google_breakpad::ExceptionHandler::HANDLER_ALL
-	);
-}
 int KillProcess(long p_lProcessID)
 {
 	if (p_lProcessID <= 0)

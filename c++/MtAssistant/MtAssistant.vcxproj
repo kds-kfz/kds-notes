@@ -176,7 +176,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_WINDOWS;NDEBUG;_CRT_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>.\;.\public;.\vender\nsdk\include;.\vender\thread\include;.\vender\breakpad\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;.\public;.\vender\nsdk\include;.\vender\thread\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp14</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <DisableSpecificWarnings>4190;%(DisableSpecificWarnings)</DisableSpecificWarnings>
@@ -185,8 +185,8 @@
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(SolutionDir)\vender\nsdk\lib\$(Platform)vc14;$(SolutionDir)\vender\thread\lib\$(Platform)vc14;$(SolutionDir)\vender\breakpad\lib\$(Platform)vc14</AdditionalLibraryDirectories>
-      <AdditionalDependencies>version.lib;libnsdk.lib;pthreadVC2.lib;common.lib;crash_generation_client.lib;exception_handler.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\vender\nsdk\lib\$(Platform)vc14;$(SolutionDir)\vender\thread\lib\$(Platform)vc14</AdditionalLibraryDirectories>
+      <AdditionalDependencies>version.lib;libnsdk.lib;pthreadVC2.lib</AdditionalDependencies>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>

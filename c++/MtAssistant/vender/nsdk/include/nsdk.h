@@ -1,4 +1,4 @@
-ï»¿#ifndef _NSDK_DLL_H_
+#ifndef _NSDK_DLL_H_
 #define _NSDK_DLL_H_
 
 #include "nsdk_define.h"
@@ -17,13 +17,13 @@
 
 BGN_NAMESPACE_NSDK
 
-#define F_OK	0 // æ˜¯å¦å­˜åœ¨
-#define X_OK	1 // æ‰§è¡Œæƒé™
-#define W_OK	2 // å†™å…¥æƒé™
-#define R_OK	4 // è¯»å–æƒé™
-#define RW_OK	6 // è¯»å†™æƒé™
+#define F_OK	0 // ÊÇ·ñ´æÔÚ
+#define X_OK	1 // Ö´ĞĞÈ¨ÏŞ
+#define W_OK	2 // Ğ´ÈëÈ¨ÏŞ
+#define R_OK	4 // ¶ÁÈ¡È¨ÏŞ
+#define RW_OK	6 // ¶ÁĞ´È¨ÏŞ
 
-//å…¬å…±å®
+//¹«¹²ºê
 #define NSDK_MAX_PATH 260
 #define NSDK_BUF_PATH 260
 #define NSDK_MAX_BUF 1024
@@ -32,117 +32,121 @@ BGN_NAMESPACE_NSDK
 extern "C"
 {
 #endif
-	/******************** æ–‡ä»¶å¤¹å¤„ç† ********************/
-	// åˆ¤æ–­æ–‡ä»¶å¤¹å­˜åœ¨å¦
+	/******************** ÎÄ¼ş¼Ğ´¦Àí ********************/
+	// ÅĞ¶ÏÎÄ¼ş¼Ğ´æÔÚ·ñ
 	NSDK_API int FolderExists(const char* p_szFolderPath);
-	// åˆ›å»ºæ–‡ä»¶å¤¹
+	// ´´½¨ÎÄ¼ş¼Ğ
 	NSDK_API int CreateFolder(const char* p_szFolderPath);
-	// è·¯å¾„æ–œæ è½¬æ¢
+	// Â·¾¶Ğ±¸Ü×ª»»
 	NSDK_API bool RegularPath(std::string& p_strPath);
-	// è·å–å½“å‰è·¯å¾„
+	// »ñÈ¡µ±Ç°Â·¾¶
 	NSDK_API const char* GetRootPath(void);
-	// è·å–è·¯å¾„ä¸‹æ‰€æœ‰æ–‡ä»¶
+	// »ñÈ¡Â·¾¶ÏÂËùÓĞÎÄ¼ş
 	NSDK_API int GetAllFiles(std::string p_strDir, std::vector<std::string>& p_vecFiles);
-	// è·å–è·¯å¾„ä¸‹æ‰€æœ‰æ–‡ä»¶å¤¹
+	// »ñÈ¡Â·¾¶ÏÂËùÓĞÎÄ¼ş¼Ğ
 	NSDK_API int GetSubDirs(std::string p_strDir, std::vector<std::string>& p_vecFiles);
-	// åˆ é™¤æ–‡ä»¶å¤¹ä¸‹æ‰€æœ‰å†…å®¹
+	// É¾³ıÎÄ¼ş¼ĞÏÂËùÓĞÄÚÈİ
 	NSDK_API bool DeleteDirectory(const char* p_szFilePath, const char* p_szExpath = "");
 
-	/******************** æ–‡ä»¶å¤„ç† ********************/
-	// æ–‡ä»¶æ˜¯å¦å­˜åœ¨
+	/******************** ÎÄ¼ş´¦Àí ********************/
+	// ÎÄ¼şÊÇ·ñ´æÔÚ
 	NSDK_API int FileExists(const char* p_szFilePath);
-	// è·å–æ–‡ä»¶å±æ€§
+	// »ñÈ¡ÎÄ¼şÊôĞÔ
 	NSDK_API int GetFileAttr(const char* p_szFilePath, int p_iMode);
-	// è·å–æ–‡ä»¶å¤§å°
+	// »ñÈ¡ÎÄ¼ş´óĞ¡
 	NSDK_API unsigned long FileLength(FILE* p_pFile);
-	// è·å–2è¿›åˆ¶æ–‡ä»¶å¢é‡å†™å…¥æ–‡ä»¶å¥æŸ„ ,æ‰“å¼€å¤±è´¥è¿”å›null
+	// »ñÈ¡2½øÖÆÎÄ¼şÔöÁ¿Ğ´ÈëÎÄ¼ş¾ä±ú ,´ò¿ªÊ§°Ü·µ»Ønull
 	NSDK_API FILE* CreateAppendFile(const char* p_pszFile);
 
-	/******************** å­—ç¬¦ä¸²å¤„ç† ********************/
-	// å­—ç¬¦ä¸²æŒ‰åˆ†éš”ç¬¦è·å–
+	/******************** ×Ö·û´®´¦Àí ********************/
+	// ×Ö·û´®°´·Ö¸ô·û»ñÈ¡
 	NSDK_API unsigned int StringSplit(const std::string p_strSrc, const std::string p_strSep, std::vector<std::string>& p_vecObj);
-	// UTF8è½¬ASC
+	// UTF8×ªASC
 	NSDK_API int UTF82ASC(const char* p_szSrcbuf, char* p_szOutbuf, int p_iOutlen);
-	// å­—ç¬¦ä¸²é™¤ç©ºæ ¼(ç›´æ¥æ“ä½œè‡ªèº«)
+	// ×Ö·û´®³ı¿Õ¸ñ(Ö±½Ó²Ù×÷×ÔÉí)
 	NSDK_API void TrimCharArraySelf(char* p_pzStr);
-	// å­—ç¬¦ä¸²é™¤ç©ºæ ¼(ä»¥stringè¿”å›Trimç»“æœ)
+	// ×Ö·û´®³ı¿Õ¸ñ(ÒÔstring·µ»ØTrim½á¹û)
 	NSDK_API void TrimCharArray(std::string& p_refStr, const char* p_pzStr, int p_iLen);
-	// å­—ç¬¦ä¸²é™¤ç©ºæ ¼(ç›´æ¥æ“ä½œè‡ªèº«)
+	// ×Ö·û´®³ı¿Õ¸ñ(Ö±½Ó²Ù×÷×ÔÉí)
 	NSDK_API void TrimStr(std::string& p_refStr);
-	//å»é™¤å­—ç¬¦ä¸²å‰åçš„å­—ç¬¦c
+	//È¥³ı×Ö·û´®Ç°ºóµÄ×Ö·ûc
 	NSDK_API void TrimStrByChar(std::string& p_refStr, char p_ch);
-	// å­—ç¬¦ä¸²æ ¼å¼åŒ–
+	// ×Ö·û´®¸ñÊ½»¯
 	NSDK_API std::string FormatString(const char* p_szFormat, ...);
-	// å­—ç¬¦ä¸² append int
+	// ×Ö·û´® append int
 	NSDK_API std::string Add2String(const std::string& p_strSrc, int p_iData);
-	// å­—ç¬¦ä¸²å°å†™æ ¼å¼åŒ–
+	// ×Ö·û´®Ğ¡Ğ´¸ñÊ½»¯
 	NSDK_API char* CharArrayLower(char* p_pszStr);
-	// å­—ç¬¦ä¸²å¤§å†™æ ¼å¼åŒ–
+	// ×Ö·û´®´óĞ´¸ñÊ½»¯
 	NSDK_API char* CharArrayUpper(char* p_pszStr);
-	// å­—ç¬¦ä¸²å°å†™æ ¼å¼åŒ–
+	// ×Ö·û´®Ğ¡Ğ´¸ñÊ½»¯
 	NSDK_API const char* StringLower(std::string& p_strSrc);
-	// å­—ç¬¦ä¸²å¤§å†™æ ¼å¼åŒ–
+	// ×Ö·û´®´óĞ´¸ñÊ½»¯
 	NSDK_API const char* StringUpper(std::string& p_strSrc);
-	// å®‰å…¨å¤åˆ¶ C é£æ ¼å­—ç¬¦ä¸²ï¼šç»Ÿä¸€å¤„ç†ç©ºæŒ‡é’ˆã€ç›®æ ‡é•¿åº¦ä¸º 0ã€æˆªæ–­å¤åˆ¶ï¼Œå¹¶ç¡®ä¿ç›®æ ‡ç¼“å†²åŒºå§‹ç»ˆä»¥ '\0' ç»“å°¾ã€‚
+	// °²È«¸´ÖÆ C ·ç¸ñ×Ö·û´®£ºÍ³Ò»´¦Àí¿ÕÖ¸Õë¡¢Ä¿±ê³¤¶ÈÎª 0¡¢½Ø¶Ï¸´ÖÆ£¬²¢È·±£Ä¿±ê»º³åÇøÊ¼ÖÕÒÔ '\0' ½áÎ²¡£
 	NSDK_API void SafeCopyCString(char* p_szDst, size_t p_dwDstLen, const char* p_szSrc);
 
-	/******************** æ—¥æœŸæ—¶é—´å¤„ç† ********************/
-	// è·å–å‰åæ—¥æœŸ
+	/******************** ÈÕÆÚÊ±¼ä´¦Àí ********************/
+	// »ñÈ¡Ç°ºóÈÕÆÚ
 	NSDK_API unsigned long GetNextDate(unsigned long p_ulDate, unsigned int p_uiDays);
-	// è·å–å½“å‰ç³»ç»Ÿæ—¥æœŸ
+	// »ñÈ¡µ±Ç°ÏµÍ³ÈÕÆÚ
 	NSDK_API unsigned int GetCurDate(bool p_bDate = true);
-	// è·å–å½“å‰æ—¶é—´ç²¾ç¡®åˆ°æ¯«ç§’ æ”¯æŒiTypeè¿”å›ä¸åŒæ ¼å¼: 0= 'yyyyMMdd hh:mm ss:zzz'  1= 'yyyy-MM-dd hh:mm:ss'
+	// »ñÈ¡µ±Ç°Ê±¼ä¾«È·µ½ºÁÃë Ö§³ÖiType·µ»Ø²»Í¬¸ñÊ½: 0= 'yyyyMMdd hh:mm ss:zzz'  1= 'yyyy-MM-dd hh:mm:ss'
 	NSDK_API int GetCurDateTime(char* p_pDateTime, int p_iBufLen, int p_iType = 0);
-	// è·å–å½“å‰æ—¶é—´ç²¾ç¡®åˆ°æ¯«ç§’  
+	// »ñÈ¡µ±Ç°Ê±¼ä¾«È·µ½ºÁÃë  
 	NSDK_API void GetLocalDateTime(int& p_iDate, int& p_iTime);
-	// è·å–å½“å‰æ—¶é—´ç²¾ç¡®åˆ°æ¯«ç§’
+	// »ñÈ¡µ±Ç°Ê±¼ä¾«È·µ½ºÁÃë
 	NSDK_API long long GetCurrentTimeMillis();
-	// æ”¯æŒä¼ å…¥æ ¼å¼
+	// Ö§³Ö´«Èë¸ñÊ½
 	NSDK_API std::string GetTimes(const std::string& p_strFmt);
-	// è·å–æŸå¹´æŸæœˆæŸæ—¥æ‰€åœ¨çš„å‘¨äº”æ—¥æœŸ
+	// »ñÈ¡Ä³ÄêÄ³ÔÂÄ³ÈÕËùÔÚµÄÖÜÎåÈÕÆÚ
 	NSDK_API unsigned long GetFriday(unsigned long p_ulDate);
-	// åˆ¤æ–­æ—¥æœŸæ˜¯å¦æ˜¯å‘¨æœ« p_iDate=yyyymmdd
+	// ÅĞ¶ÏÈÕÆÚÊÇ·ñÊÇÖÜÄ© p_iDate=yyyymmdd
 	NSDK_API bool IsInWeekend(int p_iDate);
-	// è·å–æ—¶é—´ å¹´æœˆæ—¥
+	// »ñÈ¡Ê±¼ä ÄêÔÂÈÕ
 	NSDK_API std::tm SafeLocalTime(std::time_t p_ttNow);
 
-	/******************** æ•°å­—å¤„ç† ********************/
-	// åˆ¤æ–­å½¼æ­¤æ˜¯å¦ç›¸ç­‰
+	/******************** Êı×Ö´¦Àí ********************/
+	// ÅĞ¶Ï±Ë´ËÊÇ·ñÏàµÈ
 	NSDK_API bool IsEquals(double p_dData1, double p_dData2, int p_iXsFlag);
-	// åˆ¤æ–­æ˜¯å¦ä¸ºé›¶
+	// ÅĞ¶ÏÊÇ·ñÎªÁã
 	NSDK_API bool IsEqualsZero(double p_dData);
-	// æµ®ç‚¹æ•°å››èˆäº”å…¥
+	// ¸¡µãÊıËÄÉáÎåÈë
 	NSDK_API double Round(double p_dData, short p_sPlaces = 2);
-	// æµ®ç‚¹æ•°è½¬æ•´å½¢
+	// ¸¡µãÊı×ªÕûĞÎ
 	NSDK_API int Double2Int(double p_dData);
 
-	/******************** æ“ä½œç³»ç»Ÿ ********************/
-	// è·å–æœ€è¿‘é”™è¯¯ä»£ç (æ“ä½œç³»ç»Ÿ)
+	/******************** ±ÀÀ£×ª´¢´¦Àí ********************/
+	// ³õÊ¼»¯±ÀÀ£²¶»ñ£»p_szDumpPathÎª¿ÕÊ±Ä¬ÈÏÊ¹ÓÃ GetRootPath() + CrashDumps¡£
+	NSDK_API int InitBreakpad(const char* p_szDumpPath = nullptr);
+
+	/******************** ²Ù×÷ÏµÍ³ ********************/
+	// »ñÈ¡×î½ü´íÎó´úÂë(²Ù×÷ÏµÍ³)
 	NSDK_API unsigned long GetSysError();
-	//è·å–cpuæ ¸å¿ƒæ•°
+	//»ñÈ¡cpuºËĞÄÊı
 	NSDK_API unsigned long GetNumberOfCores(bool p_bUsable = false);
 
-	/******************** åŠ å¯†è®¤è¯å¤„ç† ********************/
-	//AESåŠ å¯†
+	/******************** ¼ÓÃÜÈÏÖ¤´¦Àí ********************/
+	//AES¼ÓÃÜ
 	NSDK_API std::string Aes(const std::string& p_strSrc);
-	//AESè§£å¯†
+	//AES½âÃÜ
 	NSDK_API std::string Deaes(const std::string& p_strSrc);
-	//BASE64åŠ å¯†
+	//BASE64¼ÓÃÜ
 	NSDK_API std::string Base64Encode(unsigned char const* p_ucBytes, unsigned int p_uiLen);
-	//BASE64è§£å¯†
+	//BASE64½âÃÜ
 	NSDK_API std::string Base64Decode(std::string const& p_strEncoded);
-	//å®¢æˆ·ç«¯ ç”Ÿæˆä¿¡æ¯å¯†æ–‡
+	//¿Í»§¶Ë Éú³ÉĞÅÏ¢ÃÜÎÄ
 	NSDK_API std::string MakeFeatrue(const std::string p_strClientInfo);
-	//æœåŠ¡å™¨ ç”Ÿæˆæˆæƒç  p_strClientInfoï¼šå®¢æˆ·ä¿¡æ¯å¯†æ–‡ p_uiClientInfoLenï¼šå®¢æˆ·ä¿¡æ¯é•¿åº¦ p_iAuthDayï¼šæˆæƒå¤©æ•° p_strFeatrueï¼šæœåŠ¡å™¨æˆæƒå¯†æ–‡
+	//·şÎñÆ÷ Éú³ÉÊÚÈ¨Âë p_strClientInfo£º¿Í»§ĞÅÏ¢ÃÜÎÄ p_uiClientInfoLen£º¿Í»§ĞÅÏ¢³¤¶È p_iAuthDay£ºÊÚÈ¨ÌìÊı p_strFeatrue£º·şÎñÆ÷ÊÚÈ¨ÃÜÎÄ
 	NSDK_API int BuildFeatrue(std::string p_strClientInfo, unsigned int p_uiClientInfoLen, int p_iAuthDay, std::string& p_strFeatrue);
-	//æœåŠ¡å™¨ æ ¡éªŒæˆæƒç  p_strClientInfo: å®¢æˆ·ä¿¡æ¯ p_strFeatrue: æˆæƒå¯†æ–‡ p_strFeatrueInfoï¼šæˆæƒè§£å¯†æ˜æ–‡
+	//·şÎñÆ÷ Ğ£ÑéÊÚÈ¨Âë p_strClientInfo: ¿Í»§ĞÅÏ¢ p_strFeatrue: ÊÚÈ¨ÃÜÎÄ p_strFeatrueInfo£ºÊÚÈ¨½âÃÜÃ÷ÎÄ
 	NSDK_API int AuthFeatrue(const std::string p_strClientInfo, std::string p_strFeatrue, std::string& p_strFeatrueInfo);
 
 #ifdef __cplusplus
 }
 #endif
 
-//numè½¬string
+//num×ªstring
 template <class T>
 std::string NumToString(T& p_anyNum, int p_iPrecision)
 {
@@ -152,7 +156,7 @@ std::string NumToString(T& p_anyNum, int p_iPrecision)
 	return strStream.str();
 }
 
-//stringè½¬num
+//string×ªnum
 template <class T>
 T StringToNum(std::string& p_strValue, int p_iPrecision = 5)
 {

@@ -1032,10 +1032,10 @@ EnHandleResult CWebServerListerNet::OnHandShake(ITcpServer*, CONNID)
 	return HR_OK;
 }
 
-//服务器关闭时触发
+// server shutdown event
 EnHandleResult CWebServerListerNet::OnShutdown(ITcpServer*)
 {
-	WEB_INFO("服务器关闭");
+	WEB_INFO("server shutdown");
 	return HR_OK;
 }
 
