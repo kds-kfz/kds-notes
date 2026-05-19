@@ -2,6 +2,7 @@
 #include "publicGlobalvar.h"
 #include "publicfunc.h"
 #include "Log.h"
+#include <windows.h>
 
 namespace
 {
@@ -56,6 +57,86 @@ namespace
 		}
 		g_mapQueue.clear();
 		pthread_mutex_unlock(&g_mutexReq);
+	}
+
+	bool TcpSocketIsConnectedNoThrow(ITcpServer *pSender, CONNID dwConnID)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bAlive = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bAlive = pSender->HasStarted() && pSender->IsConnected(dwConnID);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			TCP_ERROR("ConnID=%llu,TcpSockIsAliveException=0x%08X", (unsigned long long)dwConnID, dwExceptionCode);
+			return false;
+		}
+		return bAlive ? true : false;
+	}
+
+	bool IsTcpSocketSendable(ITcpServer *pSender, CONNID dwConnID)
+	{
+		if (nullptr == pSender || !g_bTcpMutexInit)
+			return false;
+
+		bool bMapAlive = false;
+		pthread_mutex_lock(&g_mutexConnet);
+		std::map<CONNID, ClientData>::iterator itClient = g_mapClient.find(dwConnID);
+		// wyl 2026-05-19：发送前同时校验本地连接表和 HP-Socket 状态，避免关闭通知排队期间继续推送旧 ConnID。
+		bMapAlive = g_bServerStatus
+			&& pSender == g_CTcpPackServer
+			&& itClient != g_mapClient.end()
+			&& itClient->second.bConnected
+			&& g_setTcpLocalClosing.find(dwConnID) == g_setTcpLocalClosing.end();
+		pthread_mutex_unlock(&g_mutexConnet);
+
+		return bMapAlive && TcpSocketIsConnectedNoThrow(pSender, dwConnID);
+	}
+
+	bool SendTcpDataNoThrow(ITcpServer *pSender, CONNID dwConnID, const BYTE *pData, int iLength, const char *p_szAction)
+	{
+		if (nullptr == pSender || nullptr == pData || iLength <= 0)
+			return false;
+
+		BOOL bSendOK = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bSendOK = pSender->Send(dwConnID, pData, iLength);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			// wyl 2026-05-19：TCP 底层发送异常不能让进程无日志退出，至少落下 ConnID、动作和异常码。
+			TCP_ERROR("ConnID=%llu,%sException=0x%08X,SendDataLen=%d",
+				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "TcpSend",
+				dwExceptionCode, iLength);
+			return false;
+		}
+		return bSendOK ? true : false;
+	}
+
+	bool DisconnectTcpNoThrow(ITcpServer *pSender, CONNID dwConnID, BOOL bForce, const char *p_szAction)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bOK = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bOK = pSender->Disconnect(dwConnID, bForce);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			TCP_ERROR("ConnID=%llu,%sException=0x%08X",
+				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "TcpDisconnect", dwExceptionCode);
+			return false;
+		}
+		return bOK ? true : false;
 	}
 }
 
@@ -225,15 +306,22 @@ void CTcpSockServerObj::StopTcpSock()
 	DeleteObj();
 }
 
-void CTcpSockServerObj::TcpSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen)
+bool CTcpSockServerObj::TcpSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen)
 {
 	if (nullptr == p_refServer || nullptr == p_refClient || nullptr == p_szData || 0 >= p_iDataLen)
-		return;
+		return false;
 
 	ITcpServer *pSender = (ITcpServer *)p_refServer;
 	CONNID dwConnID = (CONNID)p_refClient;
 
-	if(pSender->Send(dwConnID, (BYTE *)p_szData, p_iDataLen))
+	if (!IsTcpSocketSendable(pSender, dwConnID))
+	{
+		TCP_WARN("ConnID=%llu,SkipSendTcpClosed,SendDataLen=%d", (unsigned long long)dwConnID, p_iDataLen);
+		return false;
+	}
+
+	bool bSendOK = SendTcpDataNoThrow(pSender, dwConnID, (const BYTE *)p_szData, p_iDataLen, "TcpSend");
+	if (bSendOK)
 	{
 		TCP_INFO("ConnID=%llu,SendDataLen=%d", (unsigned long long)dwConnID, p_iDataLen);
 	}
@@ -241,6 +329,7 @@ void CTcpSockServerObj::TcpSockSend(void *p_refServer, void *p_refClient, const 
 	{
 		TCP_ERROR("ConnID=%llu,SendDataLen=%d,err=%d", (unsigned long long)dwConnID, p_iDataLen, SYS_GetLastError());
 	}
+	return bSendOK;
 }
 
 void CTcpSockServerObj::TcpSockClose(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen)
@@ -250,25 +339,39 @@ void CTcpSockServerObj::TcpSockClose(void *p_refServer, void *p_refClient, const
 
 	ITcpServer *pSender = (ITcpServer *)p_refServer;
 	CONNID dwConnID = (CONNID)p_refClient;
-	// wyl 2026-03-30：允许无数据直接断连，发送应答和关闭连接不再强耦合。
-	if (nullptr != p_szData && p_iDataLen > 0)
-	{
-		if (!pSender->Send(dwConnID, (BYTE *)p_szData, p_iDataLen))
-		{
-			TCP_WARN("ConnID=%llu,SendCloseDataFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
-		}
-	}
 
-	if (g_bTcpMutexInit)
+	bool bCanClose = IsTcpSocketSendable(pSender, dwConnID);
+	if (g_bTcpMutexInit && bCanClose)
 	{
 		pthread_mutex_lock(&g_mutexConnet);
+		std::map<CONNID, ClientData>::iterator itClient = g_mapClient.find(dwConnID);
+		if (itClient != g_mapClient.end())
+		{
+			// wyl 2026-05-19：本端主动关闭开始时立即撤销可发送状态，阻止其它业务线程继续推送同一连接。
+			itClient->second.bConnected = false;
+		}
 		// wyl 2026-03-30：显式标记“本端主动断开”，不要再依赖 OnClose 里的系统错误码猜测关闭来源。
 		g_setTcpLocalClosing.insert(dwConnID);
 		pthread_mutex_unlock(&g_mutexConnet);
 	}
 
+	if (!bCanClose)
+	{
+		TCP_WARN("ConnID=%llu,SkipCloseTcpClosed", (unsigned long long)dwConnID);
+		return;
+	}
+
+	// wyl 2026-03-30：允许无数据直接断连，发送应答和关闭连接不再强耦合。
+	if (nullptr != p_szData && p_iDataLen > 0)
+	{
+		if (!SendTcpDataNoThrow(pSender, dwConnID, (const BYTE *)p_szData, p_iDataLen, "TcpCloseSend"))
+		{
+			TCP_WARN("ConnID=%llu,SendCloseDataFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
+		}
+	}
+
 	// wyl 2026-03-30：改为优雅断开，让关闭前已经排队的最后一包数据有机会真正发出。
-	if (!pSender->Disconnect(dwConnID, false) && g_bTcpMutexInit)
+	if (!DisconnectTcpNoThrow(pSender, dwConnID, false, "TcpDisconnect") && g_bTcpMutexInit)
 	{
 		// wyl 2026-03-30：如果断开调用失败，主动回收本次标记和缓存，避免状态残留。
 		pthread_mutex_lock(&g_mutexConnet);
@@ -284,5 +387,15 @@ void CTcpSockServerObj::TcpSockClose(void *p_refServer, void *p_refClient, const
 		}
 		pthread_mutex_unlock(&g_mutexReq);
 	}
+}
+
+bool CTcpSockServerObj::TcpSockIsAlive(void *p_refServer, void *p_refClient)
+{
+	if (nullptr == p_refServer || nullptr == p_refClient)
+		return false;
+
+	ITcpServer *pSender = (ITcpServer *)p_refServer;
+	CONNID dwConnID = (CONNID)p_refClient;
+	return IsTcpSocketSendable(pSender, dwConnID);
 }
 

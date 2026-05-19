@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <new>
+#include <windows.h>
 
 #include "HPSocket.h"
 #include "Log.h"
@@ -29,6 +30,97 @@ namespace
 			g_mapHttpConnActiveReq.erase(itActive);
 		}
 		pthread_mutex_unlock(&g_mutexHttpReq);
+	}
+
+	bool HttpSocketIsConnectedNoThrow(IHttpServer* pSender, CONNID dwConnID, unsigned long long ullReqID)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bAlive = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bAlive = pSender->HasStarted() && pSender->IsConnected(dwConnID);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			HTTP_ERROR("ReqID=%llu,ConnID=%llu,HttpIsAliveException=0x%08X",
+				ullReqID, (unsigned long long)dwConnID, dwExceptionCode);
+			return false;
+		}
+		return bAlive ? true : false;
+	}
+
+	bool IsHttpTransportSendable(IHttpServer* pSender, CONNID dwConnID, unsigned long long ullReqID)
+	{
+		// wyl 2026-05-19：异步回包前同时校验全局服务状态和 HP-Socket 连接状态，避免回包到已关闭连接。
+		return nullptr != pSender
+			&& g_bHttpServerStatus
+			&& pSender == g_CHttpPackServer
+			&& HttpSocketIsConnectedNoThrow(pSender, dwConnID, ullReqID);
+	}
+
+	bool SendHttpResponseNoThrow(IHttpServer* pSender, CONNID dwConnID, unsigned long long ullReqID, HttpStatusType enStatus,
+		const THeader* pHeaders, int iHeaderCount, const BYTE* pBody, int iBodyLen)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bOK = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bOK = pSender->SendResponse(dwConnID, (USHORT)enStatus, nullptr, pHeaders, iHeaderCount, pBody, iBodyLen);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			// wyl 2026-05-19：HTTP 回包底层异常不能让进程无日志退出，至少记录请求号、连接号和异常码。
+			HTTP_ERROR("ReqID=%llu,ConnID=%llu,SendResponseException=0x%08X,Status=%d,BodyLen=%d",
+				ullReqID, (unsigned long long)dwConnID, dwExceptionCode, (int)enStatus, iBodyLen);
+			return false;
+		}
+		return bOK ? true : false;
+	}
+
+	bool PauseHttpReceiveNoThrow(IHttpServer* pSender, CONNID dwConnID, unsigned long long ullReqID, BOOL bPause)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bOK = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bOK = pSender->PauseReceive(dwConnID, bPause);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			HTTP_ERROR("ReqID=%llu,ConnID=%llu,PauseReceiveException=0x%08X,Pause=%d",
+				ullReqID, (unsigned long long)dwConnID, dwExceptionCode, (int)bPause);
+			return false;
+		}
+		return bOK ? true : false;
+	}
+
+	bool ReleaseHttpConnNoThrow(IHttpServer* pSender, CONNID dwConnID, unsigned long long ullReqID, const char* p_szAction)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bOK = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bOK = pSender->Release(dwConnID);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			HTTP_ERROR("ReqID=%llu,ConnID=%llu,%sException=0x%08X",
+				ullReqID, (unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "ReleaseConn", dwExceptionCode);
+			return false;
+		}
+		return bOK ? true : false;
 	}
 }
 
@@ -119,17 +211,21 @@ void CHttpAsynReqObj::AddResponseHead(const char* p_szName, const char* p_szValu
 
 bool CHttpAsynReqObj::SendResponse(const void* p_szData, int p_iLen)
 {
-	if (nullptr == m_pSender || 0 == m_dwConnID)
+	IHttpServer* pSender = m_pSender;
+	const CONNID dwConnID = m_dwConnID;
+	const unsigned long long ullReqID = m_ullReqID;
+
+	if (nullptr == pSender || 0 == dwConnID)
 	{
 		HTTP_WARN("ReqID=%llu,ConnID=%llu,SendResponseWithoutTransport",
-			m_ullReqID, (unsigned long long)m_dwConnID);
+			ullReqID, (unsigned long long)dwConnID);
 		return false;
 	}
 
 	if (m_bResponseSent)
 	{
 		HTTP_WARN("ReqID=%llu,ConnID=%llu,DuplicateSendResponse",
-			m_ullReqID, (unsigned long long)m_dwConnID);
+			ullReqID, (unsigned long long)dwConnID);
 		return false;
 	}
 
@@ -150,43 +246,54 @@ bool CHttpAsynReqObj::SendResponse(const void* p_szData, int p_iLen)
 	}
 	catch (...)
 	{
-		HTTP_ERROR("ReqID=%llu,ConnID=%llu,BuildResponseHeaderAllocFail", m_ullReqID, (unsigned long long)m_dwConnID);
+		HTTP_ERROR("ReqID=%llu,ConnID=%llu,BuildResponseHeaderAllocFail", ullReqID, (unsigned long long)dwConnID);
 		return false;
 	}
 
-	if (!m_pSender->SendResponse(m_dwConnID, (USHORT)m_enHttpStatus, nullptr,
+	if (!IsHttpTransportSendable(pSender, dwConnID, ullReqID))
+	{
+		HTTP_WARN("ReqID=%llu,ConnID=%llu,SkipSendResponseClosed,Status=%d,BodyLen=%d",
+			ullReqID, (unsigned long long)dwConnID, (int)m_enHttpStatus, iBodyLen);
+		ClearHttpActiveReq(dwConnID, ullReqID);
+		DetachTransport();
+		return false;
+	}
+
+	if (!SendHttpResponseNoThrow(pSender, dwConnID, ullReqID, m_enHttpStatus,
 		vecHeaders.empty() ? nullptr : &vecHeaders[0], (int)vecHeaders.size(),
 		(nullptr != p_szData && iBodyLen > 0) ? reinterpret_cast<const BYTE*>(p_szData) : nullptr, iBodyLen))
 	{
 		HTTP_ERROR("ReqID=%llu,ConnID=%llu,SendResponseFail,err=%d",
-			m_ullReqID, (unsigned long long)m_dwConnID, SYS_GetLastError());
+			ullReqID, (unsigned long long)dwConnID, SYS_GetLastError());
+		ClearHttpActiveReq(dwConnID, ullReqID);
+		DetachTransport();
 		return false;
 	}
 
 	m_bResponseSent = true;
 	// wyl 2026-04-25：只有当本次响应已经被底层网络层接受后，才清理当前连接的活动请求限制。
-	ClearHttpActiveReq(m_dwConnID, m_ullReqID);
+	ClearHttpActiveReq(dwConnID, ullReqID);
 
 	if (m_bKeepAlive)
 	{
 		// wyl 2026-04-25：请求派发给上层后该连接的接收已被暂停；只有响应成功进入发送队列后才恢复读取。
-		if (!m_pSender->PauseReceive(m_dwConnID, false))
+		if (!PauseHttpReceiveNoThrow(pSender, dwConnID, ullReqID, false))
 		{
 			HTTP_WARN("ReqID=%llu,ConnID=%llu,ResumeReceiveFail,err=%d",
-				m_ullReqID, (unsigned long long)m_dwConnID, SYS_GetLastError());
+				ullReqID, (unsigned long long)dwConnID, SYS_GetLastError());
 		}
 	}
 	else
 	{
-		if (!m_pSender->Release(m_dwConnID))
+		if (!ReleaseHttpConnNoThrow(pSender, dwConnID, ullReqID, "ReleaseConn"))
 		{
 			HTTP_WARN("ReqID=%llu,ConnID=%llu,ReleaseConnFail,err=%d",
-				m_ullReqID, (unsigned long long)m_dwConnID, SYS_GetLastError());
+				ullReqID, (unsigned long long)dwConnID, SYS_GetLastError());
 		}
 	}
 
 	HTTP_INFO("ReqID=%llu,ConnID=%llu,Status=%d,BodyLen=%d,KeepAlive=%d",
-		m_ullReqID, (unsigned long long)m_dwConnID, (int)m_enHttpStatus, iBodyLen, m_bKeepAlive);
+		ullReqID, (unsigned long long)dwConnID, (int)m_enHttpStatus, iBodyLen, m_bKeepAlive);
 	return true;
 }
 
@@ -309,13 +416,16 @@ void CHttpAsynReqObj::AbortRequest()
 {
 	ClearHttpActiveReq(m_dwConnID, m_ullReqID);
 
-	if (nullptr != m_pSender && 0 != m_dwConnID)
+	IHttpServer* pSender = m_pSender;
+	const CONNID dwConnID = m_dwConnID;
+	const unsigned long long ullReqID = m_ullReqID;
+	if (nullptr != pSender && 0 != dwConnID)
 	{
 		// wyl 2026-04-25：如果上层直接放弃请求且没有回包，最稳妥的兜底方式就是主动关闭当前连接。
-		if (!m_pSender->Release(m_dwConnID))
+		if (!ReleaseHttpConnNoThrow(pSender, dwConnID, ullReqID, "AbortReleaseConn"))
 		{
 			HTTP_WARN("ReqID=%llu,ConnID=%llu,AbortReleaseConnFail,err=%d",
-				m_ullReqID, (unsigned long long)m_dwConnID, SYS_GetLastError());
+				ullReqID, (unsigned long long)dwConnID, SYS_GetLastError());
 		}
 	}
 

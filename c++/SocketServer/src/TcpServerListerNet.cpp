@@ -257,6 +257,7 @@ EnHandleResult CTcpServerListerNet::OnClose(ITcpServer* pSender, CONNID dwConnID
 
 	bool bHasClient = false;
 	bool bLocalClosing = false;
+	bool bConnected = false;
 	pthread_mutex_lock(&g_mutexConnet);
 	// wyl 2026-03-30：主动断连由本端标记判断，不再依赖 SO_RECEIVE + 1223 这类平台相关错误码猜测。
 	if (g_setTcpLocalClosing.find(dwConnID) != g_setTcpLocalClosing.end())
@@ -269,14 +270,17 @@ EnHandleResult CTcpServerListerNet::OnClose(ITcpServer* pSender, CONNID dwConnID
 	if (itClient != g_mapClient.end())
 	{
 		bHasClient = true;
-		if (bLocalClosing)
+		bConnected = itClient->second.bConnected;
+		// wyl 2026-05-19：OnClose 一进入就先撤销可发送状态，避免关闭通知排队期间业务线程继续对旧 ConnID 推送。
+		itClient->second.bConnected = false;
+		if (bLocalClosing || !bConnected)
 		{
 			g_mapClient.erase(itClient);
 		}
 	}
 	pthread_mutex_unlock(&g_mutexConnet);
 
-	if (bLocalClosing)
+	if (bLocalClosing || !bConnected)
 	{
 		pthread_mutex_lock(&g_mutexReq);
 		if (g_mapQueue.find(dwConnID) != g_mapQueue.end())

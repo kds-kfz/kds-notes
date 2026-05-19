@@ -16,11 +16,13 @@ public:
 	// 关闭服务
 	virtual void StopTcpSock();
 	// 发送应答
-	virtual void TcpSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen);
+	virtual bool TcpSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen);
 	// 关闭客户连接
 	virtual void TcpSockClose(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen);
 	// 比较彼此客户端是否一致;
 	virtual int TcpSockCompare(void *p_refSrcClient, void *p_refObjClient);
+	// 查询客户端连接是否仍可发送;
+	virtual bool TcpSockIsAlive(void *p_refServer, void *p_refClient);
 
 	/********** HTTP服务模块 **********/
 	virtual bool CreateHttpSock(const char *p_szIp, unsigned short p_unPort, unsigned int p_uiRBufLen, unsigned int p_uiMaxConnectNum, unsigned int p_uiMaxAcceptNum,
@@ -50,11 +52,13 @@ public:
 	// 关闭服务;
 	virtual void StopWebSock() { return; }
 	// 发送应答;
-	virtual void WebSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) { return; }
+	virtual bool WebSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) { return false; }
 	// 关闭客户连接;
 	virtual void WebSockClose(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) { return; }
 	// 比较彼此客户端是否一致;
 	virtual int WebSockCompare(void* p_refSrcClient, void* p_refObjClient) { return -1; }
+	// 查询客户端连接是否仍可发送;
+	virtual bool WebSockIsAlive(void*, void*) { return false; }
 };
 
 #endif

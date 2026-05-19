@@ -2,6 +2,7 @@
 #include "publicfunc.h"
 #include "Log.h"
 #include <new>
+#include <windows.h>
 
 namespace
 {
@@ -9,6 +10,90 @@ namespace
 	const size_t HTTP_MAX_REQ_HEADER_COUNT = 128;			// wyl 2026-04-25：单个 HTTP 请求允许的最大请求头数量
 	const size_t HTTP_MAX_REQ_HEADER_BYTES = 32 * 1024;	// wyl 2026-04-25：单个 HTTP 请求允许的请求头累计字节数
 	const size_t HTTP_MAX_REQ_BODY_BYTES = 8 * 1024 * 1024;	// wyl 2026-04-25：单个 HTTP 请求允许的 BODY 最大字节数
+
+	bool HttpSocketIsConnectedNoThrow(IHttpServer* pSender, CONNID dwConnID, const char* p_szAction)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bAlive = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bAlive = pSender->HasStarted() && pSender->IsConnected(dwConnID);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			HTTP_ERROR("ConnID=%llu,%sIsAliveException=0x%08X",
+				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "Http", dwExceptionCode);
+			return false;
+		}
+		return bAlive ? true : false;
+	}
+
+	bool SendHttpResponseNoThrow(IHttpServer* pSender, CONNID dwConnID, HttpStatusType enStatus,
+		const THeader* pHeaders, int iHeaderCount, const BYTE* pBody, int iBodyLen, const char* p_szAction)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bOK = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bOK = pSender->SendResponse(dwConnID, (USHORT)enStatus, nullptr, pHeaders, iHeaderCount, pBody, iBodyLen);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			// wyl 2026-05-19：HTTP 解析阶段错误回包也保护第三方库 native 异常，避免无 dump 时缺少现场。
+			HTTP_ERROR("ConnID=%llu,%sException=0x%08X,Status=%d,BodyLen=%d",
+				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "SendResponse",
+				dwExceptionCode, (int)enStatus, iBodyLen);
+			return false;
+		}
+		return bOK ? true : false;
+	}
+
+	bool PauseHttpReceiveNoThrow(IHttpServer* pSender, CONNID dwConnID, BOOL bPause, const char* p_szAction)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bOK = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bOK = pSender->PauseReceive(dwConnID, bPause);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			HTTP_ERROR("ConnID=%llu,%sException=0x%08X,Pause=%d",
+				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "PauseReceive",
+				dwExceptionCode, (int)bPause);
+			return false;
+		}
+		return bOK ? true : false;
+	}
+
+	bool ReleaseHttpConnNoThrow(IHttpServer* pSender, CONNID dwConnID, const char* p_szAction)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bOK = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bOK = pSender->Release(dwConnID);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			HTTP_ERROR("ConnID=%llu,%sException=0x%08X",
+				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "ReleaseConn", dwExceptionCode);
+			return false;
+		}
+		return bOK ? true : false;
+	}
 
 	char ToLowerAscii(char ch)
 	{
@@ -117,9 +202,18 @@ namespace
 			{ "Connection", "close" }
 		};
 
-		const bool bSendOk = !!pSender->SendResponse(dwConnID, (USHORT)enStatus, nullptr, stHeaders,
-			sizeof(stHeaders) / sizeof(stHeaders[0]), reinterpret_cast<const BYTE*>(p_szBody), (int)strlen(p_szBody));
-		if (!pSender->Release(dwConnID))
+		bool bSendOk = false;
+		if (g_bHttpServerStatus && pSender == g_CHttpPackServer && HttpSocketIsConnectedNoThrow(pSender, dwConnID, "RejectRequest"))
+		{
+			bSendOk = SendHttpResponseNoThrow(pSender, dwConnID, enStatus, stHeaders,
+				sizeof(stHeaders) / sizeof(stHeaders[0]), reinterpret_cast<const BYTE*>(p_szBody), (int)strlen(p_szBody), "RejectSendResponse");
+		}
+		else
+		{
+			HTTP_WARN("ConnID=%llu,SkipRejectResponseClosed,Status=%d", (unsigned long long)dwConnID, (int)enStatus);
+		}
+
+		if (!ReleaseHttpConnNoThrow(pSender, dwConnID, "RejectReleaseConn"))
 		{
 			HTTP_WARN("ConnID=%llu,RejectReleaseFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
 		}
@@ -403,7 +497,7 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 		return HPR_ERROR;
 
 	// wyl 2026-04-25：先暂停该连接继续接收，避免 keep-alive 下第二个请求先于第一个请求完成回包而产生乱序。
-	if (!pSender->PauseReceive(dwConnID, true))
+	if (!PauseHttpReceiveNoThrow(pSender, dwConnID, true, "PauseActiveRequest"))
 	{
 		pthread_mutex_lock(&g_mutexHttpReq);
 		g_mapHttpConnActiveReq.erase(dwConnID);

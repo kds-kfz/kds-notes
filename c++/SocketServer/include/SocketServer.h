@@ -173,12 +173,14 @@ extern "C"
 			TCP_NOTIFY_PROC p_tcpHandle, unsigned int p_uiThreadNum, unsigned int p_uiQueueNum, char *p_szErr, const char *p_szLogFold = nullptr) = 0;
 		// 关闭服务;
 		virtual void StopTcpSock() = 0;
-		// 发送应答;
-		virtual void TcpSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) = 0;
+		// 发送应答，返回 false 表示连接不可发送或底层发送失败;
+		virtual bool TcpSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) = 0;
 		// 关闭客户连接;
 		virtual void TcpSockClose(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) = 0;
 		// 比较彼此客户端是否一致;
 		virtual int TcpSockCompare(void *p_refSrcClient, void *p_refObjClient) = 0;
+		// 查询客户端连接是否仍可发送;
+		virtual bool TcpSockIsAlive(void *p_refServer, void *p_refClient) = 0;
 
 		/********** HTTP服务模块 **********/
 		/********** 创建服务 **********
@@ -237,12 +239,14 @@ extern "C"
 			const char *p_szLogFold = nullptr) = 0;
 		// 关闭服务;
 		virtual void StopWebSock() = 0;
-		// 发送应答;
-		virtual void WebSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) = 0;
+		// 发送应答，返回 false 表示连接不可发送或底层发送失败;
+		virtual bool WebSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) = 0;
 		// 关闭客户连接;
 		virtual void WebSockClose(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) = 0;
 		// 比较彼此客户端是否一致;
 		virtual int WebSockCompare(void* p_refSrcClient, void* p_refObjClient) = 0;
+		// 查询客户端连接是否仍可发送;
+		virtual bool WebSockIsAlive(void *p_refServer, void *p_refClient) = 0;
 	};
 	/***************************************************************************
 	接口说明: 用于获取实例, 内部单例;

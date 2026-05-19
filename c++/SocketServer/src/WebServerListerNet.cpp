@@ -4,6 +4,7 @@
 #include "Base64.h"
 #include "USER_SHA1.h"
 #include <new>
+#include <windows.h>
 
 namespace
 {
@@ -17,6 +18,29 @@ namespace
 	const unsigned long g_ulWebCacheKeepLen = 64 * 1024;
 	// wyl 2026-03-30：WebSocket 控制帧载荷长度上限，ping/pong/close 都必须满足该限制。
 	const unsigned long g_ulWebControlFrameMaxLen = 125;
+
+	bool SendWSMessageNoThrow(IHttpServer *pSender, CONNID dwConnID, BYTE iOperationCode,
+		const BYTE *pData, int iLength, ULONGLONG ullBodyLen, const char *p_szAction)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bSendOK = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bSendOK = pSender->SendWSMessage(dwConnID, true, 0, iOperationCode, pData, iLength, ullBodyLen);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			// wyl 2026-05-19：控制帧发送同样保护第三方库 native 异常，生产无 dump 时至少保留异常码和连接号。
+			WEB_ERROR("ConnID=%llu,%sException=0x%08X,Opcode=%u,SendDataLen=%d",
+				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "SendWSMessage",
+				dwExceptionCode, (unsigned int)iOperationCode, iLength);
+			return false;
+		}
+		return bSendOK ? true : false;
+	}
 
 	// wyl 2026-03-30：按 WebSocket 标准生成握手应答值，避免并发握手时使用静态缓冲产生串包。
 	bool BuildWebSocketAcceptKey(const char* pSrcKey, char* pDstKey, size_t dwDstLen)
@@ -539,7 +563,7 @@ EnHandleResult CWebServerListerNet::OnWSMessageHeader(IHttpServer* pSender, CONN
 	if (iOperationCode == 8) //断开连接
 	{
 		// wyl 2026-03-30：收到对端 Close 帧时回发 Close 帧并优雅断开，让关闭过程更符合 WebSocket 标准。
-		if (!pSender->SendWSMessage(dwConnID, true, 0, 8, nullptr, 0, 0))
+		if (!SendWSMessageNoThrow(pSender, dwConnID, 8, nullptr, 0, 0, "ReplyCloseFrame"))
 		{
 			WEB_WARN("ConnID=%llu,ReplyCloseFrameFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
 		}
@@ -871,8 +895,8 @@ EnHandleResult CWebServerListerNet::OnWSMessageComplete(IHttpServer* pSender, CO
 	if (bNeedPong)
 	{
 		// wyl 2026-03-30：pong 先于业务通知发送，避免上层处理较慢时影响心跳往返时延。
-		if (!pSender->SendWSMessage(dwConnID, true, 0, 10,
-			iPongLen > 0 ? (const BYTE*)szPongBuf : nullptr, iPongLen, iPongLen))
+		if (!SendWSMessageNoThrow(pSender, dwConnID, 10,
+			iPongLen > 0 ? (const BYTE*)szPongBuf : nullptr, iPongLen, iPongLen, "SendPong"))
 		{
 			WEB_WARN("ConnID=%llu,SendPongFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
 			return HR_ERROR;
@@ -966,6 +990,8 @@ EnHandleResult CWebServerListerNet::OnClose(ITcpServer* pSender, CONNID dwConnID
 	{
 		bHasClient = true;
 		bConnected = itClient->second.bConnected;
+		// wyl 2026-05-19：OnClose 一进入就先撤销可发送状态，避免关闭通知排队期间业务线程继续对旧 ConnID 推送。
+		itClient->second.bConnected = false;
 		if (bLocalClosing || !bConnected)
 		{
 			g_mapWebClient.erase(itClient);

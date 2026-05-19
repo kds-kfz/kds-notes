@@ -16,11 +16,13 @@ public:
 	// 关闭服务
 	virtual void StopTcpSock() { return; }
 	// 发送应答
-	virtual void TcpSockSend(void*, void*, const char*, int) { return; }
+	virtual bool TcpSockSend(void*, void*, const char*, int) { return false; }
 	// 关闭客户连接
 	virtual void TcpSockClose(void*, void*, const char*, int) { return; }
 	// 比较彼此客户端是否一致;
 	virtual int TcpSockCompare(void*, void*) { return -1; }
+	// 查询客户端连接是否仍可发送;
+	virtual bool TcpSockIsAlive(void*, void*) { return false; }
 
 	/********** HTTP服务模块 **********/
 	virtual bool CreateHttpSock(const char*, unsigned short, unsigned int, unsigned int, unsigned int,
@@ -50,11 +52,13 @@ public:
 	// 关闭服务;
 	virtual void StopWebSock();
 	// 发送应答;
-	virtual void WebSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen);
+	virtual bool WebSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen);
 	// 关闭客户连接;
 	virtual void WebSockClose(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen);
 	// 比较彼此客户端是否一致;
 	virtual int WebSockCompare(void* p_refSrcClient, void* p_refObjClient);
+	// 查询客户端连接是否仍可发送;
+	virtual bool WebSockIsAlive(void *p_refServer, void *p_refClient);
 
 };
 

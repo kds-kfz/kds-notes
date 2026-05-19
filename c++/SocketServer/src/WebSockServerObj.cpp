@@ -2,6 +2,7 @@
 #include "publicGlobalvar.h"
 #include "publicfunc.h"
 #include "Log.h"
+#include <windows.h>
 
 namespace
 {
@@ -56,6 +57,67 @@ namespace
 		}
 		g_mapWebQueue.clear();
 		pthread_mutex_unlock(&g_mutexWebReq);
+	}
+
+	bool HpSocketIsConnectedNoThrow(IHttpServer *pSender, CONNID dwConnID)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bAlive = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bAlive = pSender->HasStarted() && pSender->IsConnected(dwConnID);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			WEB_ERROR("ConnID=%llu,WebSockIsAliveException=0x%08X", (unsigned long long)dwConnID, dwExceptionCode);
+			return false;
+		}
+		return bAlive ? true : false;
+	}
+
+	bool IsWebSocketSendable(IHttpServer *pSender, CONNID dwConnID)
+	{
+		if (nullptr == pSender || !g_bWebMutexInit)
+			return false;
+
+		bool bMapAlive = false;
+		pthread_mutex_lock(&g_mutexWebConnet);
+		std::map<CONNID, ClientData>::iterator itClient = g_mapWebClient.find(dwConnID);
+		// wyl 2026-05-19：发送前同时校验本地连接表和 HP-Socket 状态，避免关闭通知排队期间继续推送旧 ConnID。
+		bMapAlive = g_bWebServerStatus
+			&& pSender == g_CWebPackServer
+			&& itClient != g_mapWebClient.end()
+			&& itClient->second.bConnected
+			&& g_setWebLocalClosing.find(dwConnID) == g_setWebLocalClosing.end();
+		pthread_mutex_unlock(&g_mutexWebConnet);
+
+		return bMapAlive && HpSocketIsConnectedNoThrow(pSender, dwConnID);
+	}
+
+	bool SendWSMessageNoThrow(IHttpServer *pSender, CONNID dwConnID, BYTE iOperationCode,
+		const BYTE *pData, int iLength, ULONGLONG ullBodyLen, const char *p_szAction)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bSendOK = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bSendOK = pSender->SendWSMessage(dwConnID, true, 0, iOperationCode, pData, iLength, ullBodyLen);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			// wyl 2026-05-19：第三方网络库发送异常不能让进程无日志退出，至少落下 ConnID、动作和异常码。
+			WEB_ERROR("ConnID=%llu,%sException=0x%08X,Opcode=%u,SendDataLen=%d",
+				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "SendWSMessage",
+				dwExceptionCode, (unsigned int)iOperationCode, iLength);
+			return false;
+		}
+		return bSendOK ? true : false;
 	}
 }
 
@@ -265,27 +327,40 @@ void CWebSockServerObj::WebSockClose(void *p_refServer, void *p_refClient, const
 	IHttpServer *pSender = (IHttpServer *)p_refServer;
 	CONNID dwConnID = (CONNID)p_refClient;
 
+	bool bCanClose = IsWebSocketSendable(pSender, dwConnID);
+	if (g_bWebMutexInit && bCanClose)
+	{
+		pthread_mutex_lock(&g_mutexWebConnet);
+		std::map<CONNID, ClientData>::iterator itClient = g_mapWebClient.find(dwConnID);
+		if (itClient != g_mapWebClient.end())
+		{
+			// wyl 2026-05-19：本端主动关闭开始时立即撤销可发送状态，阻止其它业务线程继续推送同一连接。
+			itClient->second.bConnected = false;
+		}
+		// wyl 2026-03-30：显式标记“本端主动断开”，不要再依赖 OnClose 里的操作类型猜测关闭来源。
+		g_setWebLocalClosing.insert(dwConnID);
+		pthread_mutex_unlock(&g_mutexWebConnet);
+	}
+
+	if (!bCanClose)
+	{
+		WEB_WARN("ConnID=%llu,SkipCloseWebSocketClosed", (unsigned long long)dwConnID);
+		return;
+	}
+
 	// wyl 2026-03-30：WebSocket 关闭前如果有业务数据，按二进制消息帧发送，不再错误地回 HTTP 响应。
 	if (nullptr != p_szData && p_iDataLen > 0)
 	{
-		if (!pSender->SendWSMessage(dwConnID, true, 0, 2, (const BYTE *)p_szData, p_iDataLen, p_iDataLen))
+		if (!SendWSMessageNoThrow(pSender, dwConnID, 2, (const BYTE *)p_szData, p_iDataLen, p_iDataLen, "SendCloseData"))
 		{
 			WEB_ERROR("ConnID=%llu,SendCloseDataFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
 		}
 	}
 
 	// wyl 2026-03-30：主动关闭时补发 WebSocket Close 帧，避免客户端把关闭过程识别成协议错误。
-	if (!pSender->SendWSMessage(dwConnID, true, 0, 8, nullptr, 0, 0))
+	if (!SendWSMessageNoThrow(pSender, dwConnID, 8, nullptr, 0, 0, "SendCloseFrame"))
 	{
 		WEB_WARN("ConnID=%llu,SendCloseFrameFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
-	}
-
-	if (g_bWebMutexInit)
-	{
-		pthread_mutex_lock(&g_mutexWebConnet);
-		// wyl 2026-03-30：显式标记“本端主动断开”，不要再依赖 OnClose 里的操作类型猜测关闭来源。
-		g_setWebLocalClosing.insert(dwConnID);
-		pthread_mutex_unlock(&g_mutexWebConnet);
 	}
 
 	// wyl 2026-03-30：改为优雅断开，让前面已经排队的 WebSocket 数据帧和 Close 帧有机会发出。
@@ -307,16 +382,24 @@ void CWebSockServerObj::WebSockClose(void *p_refServer, void *p_refClient, const
 	}
 }
 
-void CWebSockServerObj::WebSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen)
+bool CWebSockServerObj::WebSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen)
 {
 	if (nullptr == p_refServer || nullptr == p_refClient || nullptr == p_szData || 0 >= p_iDataLen)
-		return;
+		return false;
 
 	IHttpServer *pSender = (IHttpServer *)p_refServer;
 	CONNID dwConnID = (CONNID)p_refClient;
 
+	if (!IsWebSocketSendable(pSender, dwConnID))
+	{
+		WEB_WARN("ConnID=%llu,SkipSendWebSocketClosed,SendDataLen=%d", (unsigned long long)dwConnID, p_iDataLen);
+		return false;
+	}
+
 	// wyl 2026-03-30：WebSocket 对外发送统一走消息帧接口，当前按二进制帧发送以匹配上层“原始字节块”语义。
-	if (pSender->SendWSMessage(dwConnID, true, 0, 2, (const BYTE *)p_szData, p_iDataLen, p_iDataLen))
+	bool bSendOK = SendWSMessageNoThrow(pSender, dwConnID, 2, (const BYTE *)p_szData, p_iDataLen, p_iDataLen, "SendWSMessage");
+
+	if (bSendOK)
 	{
 		WEB_INFO("ConnID=%llu,SendDataLen=%d", (unsigned long long)dwConnID, p_iDataLen);
 	}
@@ -324,5 +407,16 @@ void CWebSockServerObj::WebSockSend(void *p_refServer, void *p_refClient, const 
 	{
 		WEB_ERROR("ConnID=%llu,SendDataLen=%d,err=%d", (unsigned long long)dwConnID, p_iDataLen, SYS_GetLastError());
 	}
+	return bSendOK;
+}
+
+bool CWebSockServerObj::WebSockIsAlive(void *p_refServer, void *p_refClient)
+{
+	if (nullptr == p_refServer || nullptr == p_refClient)
+		return false;
+
+	IHttpServer *pSender = (IHttpServer *)p_refServer;
+	CONNID dwConnID = (CONNID)p_refClient;
+	return IsWebSocketSendable(pSender, dwConnID);
 }
 
