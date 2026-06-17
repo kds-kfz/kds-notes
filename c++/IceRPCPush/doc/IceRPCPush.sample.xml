@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	IceRPCPush XML 配置示例。
+	旧版 cfg/properties 文件仍可继续使用；文件扩展名为 .xml 时使用本格式。
+-->
+<IceRPCPush>
+	<!-- Ice 节等价于旧 .properties 文件中的 key=value。 -->
+	<Ice>
+		<!-- 本进程在 Ice 日志和运行时中的程序名。 -->
+		<Property name="Ice.ProgramName" value="IceRPCPush" />
+		<!-- 服务端 servant 的 Ice Identity，旧代码读取 Identity 后 add 到 adapter。 -->
+		<Property name="Identity" value="JsonBinRPCSZSH" />
+		<!-- 服务端 endpoint；CreateJsonICEServer 第二个参数传 JsonBinRPCSZSH。 -->
+		<Property name="JsonBinRPCSZSH.Endpoints" value="tcp -z -h * -p 30001:udp -z -h * -p 30001" />
+		<!-- 客户端代理配置；CreateJsonICEClient 的 proxyProperty 传 JsonBinRPCSZSH。 -->
+		<Property name="JsonBinRPCSZSH" value="JsonBinRPCSZSH:tcp -z -h 127.0.0.1 -p 30001:udp -z -h 127.0.0.1 -p 30001" />
+		<!-- 双向回调用 client adapter；RegisterJsonICEClient 需要。 -->
+		<Property name="JsonBinRPCSZSH.Client.Endpoints" value="default -z -h localhost" />
+		<!-- 使用 IceGrid/Locator 时填写；不用 Locator 可删除或留空。 -->
+		<Property name="Ice.Default.Locator" value="" />
+	</Ice>
+
+	<!-- ICEPUSH 节等价于旧 INI 的 [ICEPUSH]。 -->
+	<ICEPUSH>
+		<!-- 服务端 TCP 推送绑定端口；0 表示不开启。 -->
+		<RPCPushBindport>0</RPCPushBindport>
+		<!-- 服务端 TCP 推送绑定 IP。 -->
+		<RPCPushBindip>127.0.0.1</RPCPushBindip>
+		<!-- 服务端 UDP 点对点推送绑定端口；0 表示不开启。 -->
+		<RPCXPushBindport>0</RPCXPushBindport>
+		<!-- 服务端 UDP 点对点推送绑定 IP。 -->
+		<RPCXPushBindip>127.0.0.1</RPCXPushBindip>
+		<!-- UDP 接收线程数，非法值回退 3。 -->
+		<RPCXThreadNum>3</RPCXThreadNum>
+		<!-- 服务端允许的 TCP 推送最大连接数，非法值回退 1000。 -->
+		<RPCPushmax>1000</RPCPushmax>
+
+		<!-- 客户端 TCP 推送目标端口；0 表示不开启。 -->
+		<RPCPushport>0</RPCPushport>
+		<!-- 客户端 TCP 推送目标 IP。 -->
+		<RPCPuship></RPCPuship>
+		<!-- 客户端 UDP 点对点推送目标端口；0 表示不开启。 -->
+		<RPCXPushport>0</RPCXPushport>
+		<!-- 客户端 UDP 点对点推送目标 IP。 -->
+		<RPCXPuship></RPCXPuship>
+		<!-- 服务端/客户端组播推送端口；0 表示不开启。 -->
+		<RPCMPushport>0</RPCMPushport>
+		<!-- 服务端/客户端组播推送 IP。 -->
+		<RPCMPuship>127.0.0.1</RPCMPuship>
+	</ICEPUSH>
+</IceRPCPush>

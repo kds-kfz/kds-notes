@@ -1,0 +1,34 @@
+; IceRPCPush.def : Declares the module parameters for the DLL.
+
+LIBRARY
+
+EXPORTS
+    ; Explicit exports can go here
+	CreateJsonICEServer
+	CreateJsonICEClient
+	CreateJsonICEClient2
+	RegisterJsonICEClient
+	JsonBinSrvPopfront
+	JsonBinSrvComplete
+	PushJsonICEServerData
+
+	JsonBinClientRPC
+	JsonBinClientRPC_async
+	PreJsonBinClientRPC
+	EndPreJsonBinClientRPC
+
+	JsonBinClientPUT
+	JsonBinClientPUT_async
+	PreJsonBinClientPUT
+	EndPreJsonBinClientPUT
+
+	IJsonMutiResultFree
+	DeleteJsonICERPC
+	PreJsonBinClientRPC
+	EndPreJsonBinClientRPC
+
+	JsonGetEndPoint
+	RegisterJsonICEClient2
+
+	RegServerCallBackFunc
+	JsonICEResponseData
