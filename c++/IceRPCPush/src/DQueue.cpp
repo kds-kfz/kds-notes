@@ -24,7 +24,7 @@ void ST_CHUNK::Init(size_t p_uBlockSize,unsigned char p_chBlocks)
 }
 void * ST_CHUNK:: Allocate(size_t p_uBlockSize)
 {
-	CAutoCriticalRegion ac(&csLock);
+	CAutoCS clAutoLock(&clMutex);
     if(!chBlocksAvailable)
 	{
         return 0;
@@ -36,7 +36,7 @@ void * ST_CHUNK:: Allocate(size_t p_uBlockSize)
 }
 void ST_CHUNK::Deallocate(void* p_pBlock,size_t p_uBlockSize)
 {
-	CAutoCriticalRegion ac(&csLock);
+	CAutoCS clAutoLock(&clMutex);
     ASSERT(p_pBlock >= pData);
     unsigned  char * toRelease = static_cast<unsigned char *>(p_pBlock);
     ASSERT((toRelease - pData) % p_uBlockSize == 0);

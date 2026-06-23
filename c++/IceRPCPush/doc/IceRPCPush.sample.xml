@@ -1,27 +1,36 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!--
 	IceRPCPush XML 配置示例。
 	旧版 cfg/properties 文件仍可继续使用；文件扩展名为 .xml 时使用本格式。
+	本示例只演示底层通用网络库配置，业务插件数量由 CloudNetDataApi 的 CloudNet 节决定。
 -->
 <IceRPCPush>
 	<!-- Ice 节等价于旧 .properties 文件中的 key=value。 -->
 	<Ice>
 		<!-- 本进程在 Ice 日志和运行时中的程序名。 -->
 		<Property name="Ice.ProgramName" value="IceRPCPush" />
-		<!-- 服务端 servant 的 Ice Identity，旧代码读取 Identity 后 add 到 adapter。 -->
-		<Property name="Identity" value="JsonBinRPCSZSH" />
-		<!-- 服务端 endpoint；CreateJsonICEServer 第二个参数传 JsonBinRPCSZSH。 -->
-		<Property name="JsonBinRPCSZSH.Endpoints" value="tcp -z -h * -p 30001:udp -z -h * -p 30001" />
-		<!-- 客户端代理配置；CreateJsonICEClient 的 proxyProperty 传 JsonBinRPCSZSH。 -->
-		<Property name="JsonBinRPCSZSH" value="JsonBinRPCSZSH:tcp -z -h 127.0.0.1 -p 30001:udp -z -h 127.0.0.1 -p 30001" />
-		<!-- 双向回调用 client adapter；RegisterJsonICEClient 需要。 -->
-		<Property name="JsonBinRPCSZSH.Client.Endpoints" value="default -z -h localhost" />
-		<!-- 使用 IceGrid/Locator 时填写；不用 Locator 可删除或留空。 -->
-		<Property name="Ice.Default.Locator" value="" />
+		<!-- 服务端 servant 的 Ice Identity，旧代码读取 Identity 后 add 到 adapter；CloudNetDataApi 组网模式会按 Local.service 生成运行时 Identity。 -->
+		<Property name="Identity" value="GatewayRPC" />
+		<!-- 服务端 endpoint；CreateJsonICEServer 第二个参数传 GatewayRPC。 -->
+		<Property name="GatewayRPC.Endpoints" value="tcp -z -h * -p 30001" />
+		<!-- 客户端代理配置；CreateJsonICEClient 的 proxyProperty 传 GatewayRPC。使用 Locator 时可直接写服务名。 -->
+		<Property name="GatewayRPC" value="GatewayRPC" />
+		<!-- 双向回调使用 client adapter；RegisterJsonICEClient 需要。 -->
+		<Property name="GatewayRPC.Client.Endpoints" value="default -z -h localhost" />
+		<!-- IceGrid/Locator 地址；默认对齐新版 MtIceGrid 注册中心，不用 Locator 可删除或留空。 -->
+		<Property name="Ice.Default.Locator" value="MtIceGrid/Locator:default -h 127.0.0.1 -p 18000" />
 	</Ice>
 
 	<!-- ICEPUSH 节等价于旧 INI 的 [ICEPUSH]。 -->
 	<ICEPUSH>
+		<!-- 异步 RPC 是否等待完成：1 保持旧版阻塞行为，0 立即返回以提升吞吐。 -->
+		<AsyncWaitCompleted>1</AsyncWaitCompleted>
+
+		<!-- LogLevel：日志级别，可选 debug/info/warn/error/off。 -->
+		<LogLevel>info</LogLevel>
+		<!-- DebugLog：兼容旧版调试日志开关；LogLevel 缺失时生效。 -->
+		<DebugLog>0</DebugLog>
+
 		<!-- 服务端 TCP 推送绑定端口；0 表示不开启。 -->
 		<RPCPushBindport>0</RPCPushBindport>
 		<!-- 服务端 TCP 推送绑定 IP。 -->

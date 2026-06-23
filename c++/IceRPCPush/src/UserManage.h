@@ -63,8 +63,8 @@ public:
 	void ReleaseIt(ST_USER_DATA * p_pData);
 	
 // 暴露锁入口兼容旧调用，新增逻辑优先使用 CAutoCriticalRegion。
-	void Lock(){	EnterCriticalSection(&m_csLock);}
-	void Unlock(){	LeaveCriticalSection(&m_csLock);}
+	void Lock(){	m_clMutex.Lock();}
+	void Unlock(){	m_clMutex.Unlock();}
 
 	//统计
 	//取总的在线人数
@@ -86,7 +86,7 @@ public:
 // 在线用户数和允许的最大连接数。
 	int m_iUserCount,m_iMaxUserCount;
 // 保护槽位数组、查找表和内存池的全局锁。
-  	CRITICAL_SECTION				m_csLock;
+  	xsdk::CMutex				 m_clMutex;
 
 	// 连接查找表和订阅用户表，value 是 m_aUser 中的槽位索引。
 	std::map<ST_HDATA_HCLIENT,int>		m_mapFind,m_mapSubUser;	// 记录句柄对应的I位置，空间提前安排好

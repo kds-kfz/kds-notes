@@ -1,4 +1,4 @@
-; IceRPCPush.def : Declares the module parameters for the DLL.
+﻿; IceRPCPush.def : Declares the module parameters for the DLL.
 
 LIBRARY
 
@@ -32,3 +32,7 @@ EXPORTS
 
 	RegServerCallBackFunc
 	JsonICEResponseData
+
+	IceRPCPushGetLastErrorCode
+	IceRPCPushGetLastError
+	IceRPCPushGetErrorMsg

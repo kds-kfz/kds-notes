@@ -47,20 +47,47 @@ void WINAPI ServerCallBack(HS p_hHandle,HCLIENT p_hClient,EN_S_NOTIFY_TYPE p_enT
 // 将旧代码的 char 缓冲区压缩成 Ice AByte，集中处理 Ice 3.8 字节类型差异。
 int	CompressAByte(::JSONBINRPC::AByte & p_refOutByte,const char * p_pSrc,long p_lSrcLen)
 {
-	std::string dest;
-	size_t size = snappy::Compress(p_pSrc,p_lSrcLen,&dest);
-	p_refOutByte.resize(size);
-	memcpy(&*p_refOutByte.begin(),&dest[0],size);
-	return SafeSizeToLength<int>(size);
+	if (p_pSrc == NULL || p_lSrcLen <= 0)
+	{
+		p_refOutByte.clear();
+		return 0;
+	}
+
+	// snappy::Compress 要求输入缓冲不能和输出对象别名，先复制原始输入再改写输出。
+	std::string strSrc(p_pSrc, static_cast<size_t>(p_lSrcLen));
+	p_refOutByte.clear();
+	std::string strDest;
+	snappy::Compress(strSrc.data(), strSrc.size(), &strDest);
+	if (strDest.empty())
+	{
+		return 0;
+	}
+
+	p_refOutByte.resize(strDest.size());
+	memcpy(p_refOutByte.data(), strDest.data(), strDest.size());
+	return SafeSizeToLength<int>(strDest.size());
 }
 // 将 Ice AByte 中的 snappy 数据解压回原始字节，返回解压长度。
 int	UnCompressAByte(::JSONBINRPC::AByte & p_refOutByte,const char * p_pSrc,long p_lSrcLen)
 {
-	std::string dest;
-	bool bOK = snappy::Uncompress(p_pSrc,p_lSrcLen,&dest);
-	p_refOutByte.resize(dest.size());
-	memcpy(&*p_refOutByte.begin(),&dest[0],dest.size());
-	return SafeSizeToLength<int>(dest.size());
+	if (p_pSrc == NULL || p_lSrcLen <= 0)
+	{
+		p_refOutByte.clear();
+		return 0;
+	}
+
+	// 支持输入来自 p_refOutByte.data() 的历史写法，避免 clear 后输入指针失效。
+	std::string strSrc(p_pSrc, static_cast<size_t>(p_lSrcLen));
+	p_refOutByte.clear();
+	std::string strDest;
+	if (!snappy::Uncompress(strSrc.data(), strSrc.size(), &strDest) || strDest.empty())
+	{
+		return 0;
+	}
+
+	p_refOutByte.resize(strDest.size());
+	memcpy(p_refOutByte.data(), strDest.data(), strDest.size());
+	return SafeSizeToLength<int>(strDest.size());
 }
 // 后台销毁 Ice m_refCommunicator，避免在回调线程中同步 destroy 卡住上层。
 DWORD	WINAPI	s_DetroyIceCommunicator(void * p_pParam)
@@ -223,19 +250,25 @@ CPushMng::~CPushMng()
 	DeleteCriticalSection(&m_csHandle);
 	DeleteCriticalSection(&m_csClientPushLock);
 }
-// 把最终推送数据分发给所有已注册回调，回调集合受锁保护。
+// 把最终推送数据分发给所有已注册回调，先复制回调表再锁外调用，避免回调里注册/注销造成死锁。
 void CPushMng::ProcessPackage(long long p_lReqNo,const char * p_pBuf,long p_lBufLen)
 {
 	if ( m_pThis )
 	{
+		std::map<func_JsonICEPushClientPack,void*> mapCallback;
 		EnterCriticalSection(&m_pThis->m_csPush);
-		std::map<func_JsonICEPushClientPack,void*>::iterator	it = m_pThis->m_mapPackCallback.begin();
-		while ( it != m_pThis->m_mapPackCallback.end() )
+		mapCallback = m_pThis->m_mapPackCallback;
+		LeaveCriticalSection(&m_pThis->m_csPush);
+
+		std::map<func_JsonICEPushClientPack,void*>::iterator it = mapCallback.begin();
+		while ( it != mapCallback.end() )
 		{
-			it->first(p_lReqNo,p_pBuf,p_lBufLen,it->second);
+			if ( it->first != NULL )
+			{
+				it->first(p_lReqNo,p_pBuf,p_lBufLen,it->second);
+			}
 			++it;
 		}
-		LeaveCriticalSection(&m_pThis->m_csPush);	
 	}
 }
 // 区分推送的通道类型
@@ -945,29 +978,36 @@ DWORD CPushMng::PushThread()
 		ST_PACK_QUEUE * pack = m_clPackQueue.PopFront();
 		while ( pack )
 		{
+			std::map<func_JsonICEPushClientPack,void*> mapCallback;
+			EnterCriticalSection(&m_csPush);
+			mapCallback = m_mapPackCallback;
+			LeaveCriticalSection(&m_csPush);
+
 			if ( pack->bSnappy )
 			{
 				std::string dest;
-				size_t size = snappy::Uncompress((const char*)pack->pBuf,pack->lBufLen,&dest);
-				EnterCriticalSection(&m_csPush);
-				std::map<func_JsonICEPushClientPack,void*>::iterator	it = m_mapPackCallback.begin();
-				while ( it != m_mapPackCallback.end() )
+				snappy::Uncompress((const char*)pack->pBuf,pack->lBufLen,&dest);
+				std::map<func_JsonICEPushClientPack,void*>::iterator it = mapCallback.begin();
+				while ( it != mapCallback.end() )
 				{
-					it->first(pack->lReqNo,dest.data(),SafeSizeToLength<int>(dest.size()),it->second);
+					if ( it->first != NULL )
+					{
+						it->first(pack->lReqNo,dest.data(),SafeSizeToLength<int>(dest.size()),it->second);
+					}
 					++it;
 				}
-				LeaveCriticalSection(&m_csPush);
 			}
 			else
 			{
-				EnterCriticalSection(&m_csPush);
-				std::map<func_JsonICEPushClientPack,void*>::iterator	it = m_mapPackCallback.begin();
-				while ( it != m_mapPackCallback.end() )
+				std::map<func_JsonICEPushClientPack,void*>::iterator it = mapCallback.begin();
+				while ( it != mapCallback.end() )
 				{
-					it->first(pack->lReqNo,pack->pBuf,pack->lBufLen,it->second);
+					if ( it->first != NULL )
+					{
+						it->first(pack->lReqNo,pack->pBuf,pack->lBufLen,it->second);
+					}
 					++it;
 				}
-				LeaveCriticalSection(&m_csPush);
 			}
 			delete [] pack->pBuf;
 			delete	pack;
@@ -1130,6 +1170,7 @@ CJsonBinRPCImp::CJsonBinRPCImp(void):m_clMemMng(MAX_CACHE_BUFLEN+1024*1024)
 	m_bOpenUdpOk=false;
 	m_bOpenMul = false;
 	m_bOpenMulOk = false;
+	m_bAsyncWaitCompleted = true;
 	m_hSocketServer	= nullptr;
 	InitializeCriticalSection(&m_csLock);
 	//InitializeCriticalSection(&m_csPush);
@@ -1321,6 +1362,7 @@ bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEnd
 			initData.properties = Ice::createProperties();
 			ST_XML_CONFIG_DATA clConfig;
 			LoadIcePropertiesFromConfig(p_szCfgFile, initData.properties, &clConfig);
+			m_bAsyncWaitCompleted = GetConfigInt(&clConfig, p_szCfgFile, "ICEPUSH", "AsyncWaitCompleted", 1) != 0;
 			CIceRPCPushLog::Instance().ApplyConfig(p_szCfgFile, &clConfig);
 			//log = new LogI;
 			//initData.logger = log;
@@ -1617,114 +1659,135 @@ void CJsonBinRPCImp::UnInit()
 // 服务端 AMD RPC 入口，把请求复制到队列或直回调，尽快释放 Ice 派发线程。
 void CJsonBinRPCImp::JsonBinRPC_async(const ::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr& p_pCallback, long long p_lSynId, long long p_lFuncId,long long p_lSetCode,const ::JSONBINRPC::AByte& p_stJsonReq, const ::Ice::Current& /*= ::Ice::Current()*/)
 {
-	::JSONBINRPC::AByte	 myjsonReq;
-	size_t ulength=	 UnCompressAByte(myjsonReq,(const char*)&*p_stJsonReq.begin(),SafeSizeToLength<long>(p_stJsonReq.size()));// p_stJsonReq.size();
-	//char	uncompressbuffer[1024*128];
-	//char *	uncompressbuffer = new char[p_stJsonReq.size()*1.5+1024];
-	//snappy::GetUncompressedLength((const char*)p_stJsonReq.data(), p_stJsonReq.size(), &ulength);
-	//bool bok = snappy::RawUncompress((const char*)p_stJsonReq.data(), p_stJsonReq.size(),uncompressbuffer);
+	::JSONBINRPC::AByte myjsonReq;
+	UnCompressAByte(myjsonReq, p_stJsonReq.empty() ? NULL : (const char*)p_stJsonReq.data(), SafeSizeToLength<long>(p_stJsonReq.size()));
 
 	if ( m_pfnServerCallback )
-	{	// 1. 减少内存拷贝，尽量直接用；
-		// 2. 减少队列来回折腾,前提是服务端速度足够快，不能积压，否则对方异步会积压内存
-		ST_JSON_MULTI_RESULT_DIRECT_CALLBACK	* result = new ST_JSON_MULTI_RESULT_DIRECT_CALLBACK;	// 改用指针，因为上层可能先放到队列，处理完成再删除
-		result->lFuncId	= p_lFuncId;
-		result->lSynId	= p_lSynId;
-		result->stJsonReq.lLen	= SafeSizeToLength<int>(ulength);//p_stJsonReq.size();
-		result->stJsonReq.pBuffer=(unsigned char*)myjsonReq.data();//p_stJsonReq.data();
-		result->pRpcCallback	= p_pCallback;
+	{
+		ST_JSON_MULTI_RESULT_DIRECT_CALLBACK * result = new ST_JSON_MULTI_RESULT_DIRECT_CALLBACK;
+		result->lFuncId = p_lFuncId;
+		result->lSynId = p_lSynId;
+		result->aJsonReq = myjsonReq;
+		result->stJsonReq.lLen = SafeSizeToLength<int>(result->aJsonReq.size());
+		result->stJsonReq.pBuffer = result->aJsonReq.empty() ? NULL : (unsigned char*)result->aJsonReq.data();
+		result->pRpcCallback = p_pCallback;
 		result->chMode = EN_JSON_INPUT_RPC;
 
-		m_pfnServerCallback(m_pServerParam,EN_JSON_INPUT_RPC,p_lSetCode,result);
-
-		// JsonICEResponseData 返回数据,并且删除
-		
+		m_pfnServerCallback(m_pServerParam, EN_JSON_INPUT_RPC, p_lSetCode, result);
 		return;
 	}
-	ST_JSON_INPUT_EX * req = new ST_JSON_INPUT_EX;
-	//::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr* cbptr	= new ::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr;
-	//*cbptr = p_pCallback;
-	req->chMode	= EN_JSON_INPUT_RPC;
-	req->pRpcCallback	= p_pCallback;//(HANDLE)cb.get(); //cbptr;
-	req->lSetCode= p_lSetCode;
-	req->hSelf = this;
 
-	req->lSynId		= p_lSynId;
-	req->lFuncId	= p_lFuncId;
-	req->stJsonReq.lLen= SafeSizeToLength<int>(myjsonReq.size());
+	ST_JSON_INPUT_EX * req = new ST_JSON_INPUT_EX;
+	req->chMode = EN_JSON_INPUT_RPC;
+	req->pRpcCallback = p_pCallback;
+	req->lSetCode = p_lSetCode;
+	req->hSelf = this;
+	req->lSynId = p_lSynId;
+	req->lFuncId = p_lFuncId;
+	req->stJsonReq.lLen = SafeSizeToLength<int>(myjsonReq.size());
 	if ( myjsonReq.size() > 0 )
 	{
-		req->stJsonReq.pBuffer	= new unsigned char[myjsonReq.size()+1];	// 不加1崩溃
-		//strcpy(req->stJsonReq,p_stJsonReq.c_str());
-		memcpy(req->stJsonReq.pBuffer,&*myjsonReq.begin(),myjsonReq.size());
+		req->stJsonReq.pBuffer = new unsigned char[myjsonReq.size() + 1];
+		memcpy(req->stJsonReq.pBuffer, myjsonReq.data(), myjsonReq.size());
 	}
 #ifdef _DEBUG
 	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "进服务队列: %d %m_hSocket \r\n",req->lFuncId,req->stJsonReq);
 #endif
 
-	// 是注册的回调接口，作为服务收到的数据，在保存的m_pStockPushIo内部队列
-	if ( m_pParentImp )	// 如果是注册的客户端的回调作为服务，信号灯直接传递给父类，统一处理，以免多次引出信号灯
-	{	// 方便 JsonBinSrvPopfront 调用
+	if ( m_pParentImp )
+	{
 		m_pParentImp->m_aReqMsg.PushBack(req);
-		ReleaseSemaphore(m_pParentImp->m_semMiddle,1,NULL);
+		ReleaseSemaphore(m_pParentImp->m_semMiddle, 1, NULL);
 	}
 	else
 	{
-		m_aReqMsg.PushBack(req);		// JsonBinSrvPopfront弹出，JsonBinSrvComplete删除节点
-		ReleaseSemaphore(m_semMiddle,1,NULL);
+		m_aReqMsg.PushBack(req);
+		ReleaseSemaphore(m_semMiddle, 1, NULL);
 	}
 }
 // ICE Slice 接口的实现
 // 服务端 AMD PUT 入口，除请求 JSON 外还复制上传参数供业务线程处理。
 void CJsonBinRPCImp::JsonBinPUT_async(const ::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr& p_pCallback, long long p_lSynId, long long p_lFuncId,long long p_lSetCode,const ::JSONBINRPC::AByte& p_stJsonReq, long long p_lParam, const ::JSONBINRPC::AByte& p_stLParam, long long p_lWParam, const ::JSONBINRPC::AByte& p_stWParam, const ::Ice::Current& /* = ::Ice::Current() */)
 {
-	::JSONBINRPC::AByte	 myjsonReq,tmpbyte;
-	size_t ulength=	 UnCompressAByte(myjsonReq,(const char*)&*p_stJsonReq.begin(),SafeSizeToLength<long>(p_stJsonReq.size()));// p_stJsonReq.size();
+	::JSONBINRPC::AByte myjsonReq,tmpbyte;
+	UnCompressAByte(myjsonReq, p_stJsonReq.empty() ? NULL : (const char*)p_stJsonReq.data(), SafeSizeToLength<long>(p_stJsonReq.size()));
+
+	if ( m_pfnServerCallback )
+	{
+		ST_JSON_MULTI_RESULT_DIRECT_CALLBACK * result = new ST_JSON_MULTI_RESULT_DIRECT_CALLBACK;
+		result->lSetCode = p_lSetCode;
+		result->chMode = EN_JSON_INPUT_PUT;
+		result->pPutCallback = p_pCallback;
+		result->hSelf = this;
+		result->lSynId = p_lSynId;
+		result->lFuncId = p_lFuncId;
+		result->lParam = p_lParam;
+		result->wParam = p_lWParam;
+		result->aJsonReq = myjsonReq;
+		result->stJsonReq.lLen = SafeSizeToLength<int>(result->aJsonReq.size());
+		result->stJsonReq.pBuffer = result->aJsonReq.empty() ? NULL : (unsigned char*)result->aJsonReq.data();
+		if ( p_stLParam.size() > 0 )
+		{
+			UnCompressAByte(result->aLParam, (const char*)p_stLParam.data(), SafeSizeToLength<long>(p_stLParam.size()));
+			result->stLParam.lLen = SafeSizeToLength<int>(result->aLParam.size());
+			result->stLParam.pBuffer = result->aLParam.empty() ? NULL : (unsigned char*)result->aLParam.data();
+		}
+		if ( p_stWParam.size() > 0 )
+		{
+			UnCompressAByte(result->aWParam, (const char*)p_stWParam.data(), SafeSizeToLength<long>(p_stWParam.size()));
+			result->stWParam.lLen = SafeSizeToLength<int>(result->aWParam.size());
+			result->stWParam.pBuffer = result->aWParam.empty() ? NULL : (unsigned char*)result->aWParam.data();
+		}
+
+		m_pfnServerCallback(m_pServerParam, EN_JSON_INPUT_PUT, p_lSetCode, result);
+		return;
+	}
 
 	ST_JSON_INPUT_EX * req = new ST_JSON_INPUT_EX;
-	//::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr* cbptr	= new ::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr;
-	//*cbptr = p_pCallback;
-	req->lSetCode= p_lSetCode;
-	req->chMode	= EN_JSON_INPUT_PUT;
-	req->pPutCallback	= p_pCallback;//.get(); //cbptr;
-	req->lSetCode= p_lSetCode;
+	req->lSetCode = p_lSetCode;
+	req->chMode = EN_JSON_INPUT_PUT;
+	req->pPutCallback = p_pCallback;
 	req->hSelf = this;
-
-	req->lSynId		= p_lSynId;
-	req->lFuncId	= p_lFuncId;
-	req->stJsonReq.lLen= SafeSizeToLength<int>(myjsonReq.size());
+	req->lSynId = p_lSynId;
+	req->lFuncId = p_lFuncId;
+	req->stJsonReq.lLen = SafeSizeToLength<int>(myjsonReq.size());
 	if ( myjsonReq.size() > 0 )
 	{
-		req->stJsonReq.pBuffer	= new unsigned char[myjsonReq.size()+1];	// 不加1崩溃
-		//strcpy(req->stJsonReq,p_stJsonReq.c_str());
-		memcpy(req->stJsonReq.pBuffer,&*myjsonReq.begin(),myjsonReq.size());
+		req->stJsonReq.pBuffer = new unsigned char[myjsonReq.size() + 1];
+		memcpy(req->stJsonReq.pBuffer, myjsonReq.data(), myjsonReq.size());
 	}
 	req->lParam = p_lParam;
 	req->wParam = p_lWParam;
-	if ( p_stLParam.size()> 0 )
+	if ( p_stLParam.size() > 0 )
 	{
-		UnCompressAByte(tmpbyte,(const char*)&*p_stLParam.begin(),SafeSizeToLength<long>(p_stLParam.size()));
-		req->stLParam.lLen		= SafeSizeToLength<int>(tmpbyte.size());
-		req->stLParam.pBuffer	= new unsigned char[req->stLParam.lLen];
-		memcpy(req->stLParam.pBuffer,&*tmpbyte.begin(),req->stLParam.lLen);
+		UnCompressAByte(tmpbyte, (const char*)p_stLParam.data(), SafeSizeToLength<long>(p_stLParam.size()));
+		req->stLParam.lLen = SafeSizeToLength<int>(tmpbyte.size());
+		if (req->stLParam.lLen > 0)
+		{
+			req->stLParam.pBuffer = new unsigned char[req->stLParam.lLen];
+			memcpy(req->stLParam.pBuffer, tmpbyte.data(), req->stLParam.lLen);
+		}
 	}
-	if ( p_stWParam.size()> 0 )
+	if ( p_stWParam.size() > 0 )
 	{
-		UnCompressAByte(tmpbyte,(const char*)&*p_stLParam.begin(),SafeSizeToLength<long>(p_stLParam.size()));
-		req->stWParam.lLen		= SafeSizeToLength<int>(tmpbyte.size());
-		req->stWParam.pBuffer	= new unsigned char[req->stWParam.lLen];
-		memcpy(req->stWParam.pBuffer,&*tmpbyte.begin(),req->stWParam.lLen);
+		UnCompressAByte(tmpbyte, (const char*)p_stWParam.data(), SafeSizeToLength<long>(p_stWParam.size()));
+		req->stWParam.lLen = SafeSizeToLength<int>(tmpbyte.size());
+		if (req->stWParam.lLen > 0)
+		{
+			req->stWParam.pBuffer = new unsigned char[req->stWParam.lLen];
+			memcpy(req->stWParam.pBuffer, tmpbyte.data(), req->stWParam.lLen);
+		}
 	}
-	// 是注册的回调接口，作为服务收到的数据，在保存的m_pStockPushIo内部队列
-	if ( m_pParentImp )	// 如果是注册的客户端的回调作为服务，信号灯直接传递给父类，统一处理，以免多次引出信号灯
-	{	// 方便 JsonBinSrvPopfront 调用
+
+	if ( m_pParentImp )
+	{
 		m_pParentImp->m_aReqMsg.PushBack(req);
-		ReleaseSemaphore(m_pParentImp->m_semMiddle,1,NULL);
+		ReleaseSemaphore(m_pParentImp->m_semMiddle, 1, NULL);
 	}
 	else
 	{
-		m_aReqMsg.PushBack(req);		// JsonBinSrvPopfront弹出，JsonBinSrvComplete删除节点
-		ReleaseSemaphore(m_semMiddle,1,NULL);
+		m_aReqMsg.PushBack(req);
+		ReleaseSemaphore(m_semMiddle, 1, NULL);
 	}
 }
 // 旧版推送注册入口，保存客户端代理并通知上层新增客户端。
@@ -2037,6 +2100,7 @@ bool CJsonBinRPCImp::AddConnectLoctor()
 		initData.properties = Ice::createProperties();
 		ST_XML_CONFIG_DATA clConfig;
 		LoadIcePropertiesFromConfig(m_strCfgFile.c_str(), initData.properties, &clConfig);
+		m_bAsyncWaitCompleted = GetConfigInt(&clConfig, m_strCfgFile.c_str(), "ICEPUSH", "AsyncWaitCompleted", 1) != 0;
 		CIceRPCPushLog::Instance().ApplyConfig(m_strCfgFile.c_str(), &clConfig);
 		//log = new LogI;
 		//initData.logger = log;
@@ -2378,12 +2442,18 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 		std::string dest;
 		size_t size = snappy::Compress((const char*)p_pBuf,p_lBufLen,&dest);
 		p_stAByte.resize(dest.size());
-		memcpy(&*p_stAByte.begin(),dest.data(),p_stAByte.size());
+		if ( !p_stAByte.empty() )
+		{
+			memcpy(p_stAByte.data(),dest.data(),p_stAByte.size());
+		}
 	}
 	else
 	{
 		p_stAByte.resize(p_lBufLen);
-		memcpy(&*p_stAByte.begin(),p_pBuf,p_lBufLen);
+		if ( !p_stAByte.empty() )
+		{
+			memcpy(p_stAByte.data(),p_pBuf,p_lBufLen);
+		}
 	}
 
 	std::map<unsigned long long,ST_JSON_BIN_HANDLE*>	copyclients;
@@ -2494,6 +2564,7 @@ bool CJsonBinRPCImp::StartByClientWithLocator(const char * p_szCfgFile,const cha
 			initData.properties = Ice::createProperties();
 			ST_XML_CONFIG_DATA clConfig;
 			LoadIcePropertiesFromConfig(p_szCfgFile, initData.properties, &clConfig);
+			m_bAsyncWaitCompleted = GetConfigInt(&clConfig, p_szCfgFile, "ICEPUSH", "AsyncWaitCompleted", 1) != 0;
 			CIceRPCPushLog::Instance().ApplyConfig(p_szCfgFile, &clConfig);
 			m_refCommunicatorClient = Ice::initialize(std::move(initData));
 			// Push.iPort 要单独指定	: "0" tcp ； “1” udp
@@ -2598,6 +2669,10 @@ bool CJsonBinRPCImp::StartByClientWithProperty(int p_iNum,const char * p_aProper
 				else if ( stricmp(p_aPropertyKey[i],"RPCPuship")==0 )
 				{
 					m_strPushIp		= p_aProperty[i];
+				}
+				else if ( stricmp(p_aPropertyKey[i],"AsyncWaitCompleted")==0 )
+				{
+					m_bAsyncWaitCompleted = atoi(p_aProperty[i]) != 0;
 				}
 				//////////////////////////////////////////////////////////////////////////
 				else if ( stricmp(p_aPropertyKey[i],"RPCXPuship")==0 )
@@ -2861,8 +2936,11 @@ void CJsonBinRPCImp::ProcessPackage_async(const ::JSONBINRPC::AMD_IJsonBinRPC_Pr
 	p->bSnappy=m_bSnappy;	// 成员变量，每个链接的服务可能不一样，是否压缩也不一样，推送是集中全局函数
 	p->lReqNo = p_lReqNo;
 	p->lBufLen= SafeSizeToLength<long>(p_stAByte.size());
-	p->pBuf	 = new char[p->lBufLen];
-	memcpy(p->pBuf,&*p_stAByte.begin(),p->lBufLen);
+	if ( p->lBufLen > 0 )
+	{
+		p->pBuf	 = new char[p->lBufLen];
+		memcpy(p->pBuf,p_stAByte.data(),p->lBufLen);
+	}
 	CPushMng::PushPack(p);
 	
 	// 提前返回 

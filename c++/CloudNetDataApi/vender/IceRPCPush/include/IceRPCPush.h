@@ -15,6 +15,7 @@ typedef unsigned long (*LPTHREAD_START_ROUTINE)(void*);
 #endif
 
 #include <cstring>
+#include <string>
 
 #if defined(OS_IS_WINDOWS) || defined(WIN32) || defined(WIN64) || defined(_WIN32) || defined(_WIN64) || defined(_INC_WINDOWS)
 #if defined(ICERPCPUSH_EXPORTS)
@@ -192,5 +193,11 @@ ICERPCPUSH_API long long EndPreJsonBinClientPUT(HANDLE p_hHandle, ST_JSON_M_RESU
 ICERPCPUSH_API void DeleteJsonICERPC(HANDLE p_hHandle);
 // 服务端完成异步请求时主动回包，p_pResultCallback 内部缓冲区仍由调用方维护生命周期。
 ICERPCPUSH_API void JsonICEResponseData(HANDLE p_hHandle, ST_JSON_M_RESULT_TOP* p_pResultCallback);
+// 获取指定句柄最后一次错误码；句柄为空时读取当前线程错误。
+ICERPCPUSH_API int IceRPCPushGetLastErrorCode(HANDLE p_hHandle);
+// 获取指定句柄最后一次详细英文错误描述；句柄为空时读取当前线程错误。
+ICERPCPUSH_API const char* IceRPCPushGetLastError(HANDLE p_hHandle);
+// 根据错误码获取默认英文错误描述；不依赖句柄。
+ICERPCPUSH_API const char* IceRPCPushGetErrorMsg(int p_iErrorCode);
 
 #endif // H_INTERFACE_ICE_RPC_PUSH

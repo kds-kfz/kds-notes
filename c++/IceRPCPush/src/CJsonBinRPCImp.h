@@ -55,63 +55,97 @@ union	ST_UNI_KEY
 // 异步PUT的信息; ST_JSON_INPUT 是上层异步PUT的数据,调用时候已经把数据发送出去，可以不用长期保存
 struct ST_JSON_INPUT_EX : ST_JSON_INPUT 
 {
-	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr		pRpcCallback;
-	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr		pPutCallback;
+	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr		pRpcCallback;	// RPC 异步回包对象，RPC 请求处理完成后调用。
+	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr		pPutCallback;	// PUT 异步回包对象，PUT 请求处理完成后调用。
+	::JSONBINRPC::AByte								 aJsonReq;		// 深拷贝后的请求 JSON 数据，避免引用 Ice 局部缓冲。
+	::JSONBINRPC::AByte								 aLParam;		// PUT 第一组二进制参数深拷贝。
+	::JSONBINRPC::AByte								 aWParam;		// PUT 第二组二进制参数深拷贝。
 	ST_JSON_INPUT_EX():ST_JSON_INPUT()
 	{
 		pRpcCallback = nullptr;
 		pPutCallback = nullptr;
+		lSetCode = 0;
+		hSelf = NULL;
+		aJsonReq.clear();
+		aLParam.clear();
+		aWParam.clear();
 	}
 	~ST_JSON_INPUT_EX()
 	{
 		pRpcCallback = nullptr;
 		pPutCallback = nullptr;
+		lSetCode = 0;
+		hSelf = NULL;
+		aJsonReq.clear();
+		aLParam.clear();
+		aWParam.clear();
 	}
 };
-// 远程调用后的返回信息,Ex是内部扩展后的信息
+// 远程调用后的返回信息，Ex 是内部扩展后的信息。
 struct ST_JSON_MULTI_RESULT_EX : ST_JSON_M_RESULT_LEVEL
 {
-	HANDLE										hHandle;
-	::JSONBINRPC::AByte							aReqJson;
-	::Ice::AsyncResultPtr						pResult;
-	::JSONBINRPC::AByte							aLParam,aWParam;
+	HANDLE										hHandle;	// 发起调用的客户端 HANDLE，用于 EndPre 和异常上报。
+	::JSONBINRPC::AByte							aReqJson;	// 请求 JSON 深拷贝，保证结果对象中 stJsonReq 指针有效。
+	::Ice::AsyncResultPtr						pResult;	// Ice 兼容异步结果对象，Pre/End 模式等待它完成。
+	::JSONBINRPC::AByte							aLParam;	// 第一组二进制返回数据持有者。
+	::JSONBINRPC::AByte							aWParam;	// 第二组二进制返回数据持有者。
 	ST_JSON_MULTI_RESULT_EX() :ST_JSON_M_RESULT_LEVEL()
 	{
+		hHandle = NULL;
 		pResult = nullptr;
+		aReqJson.clear();
+		aLParam.clear();
+		aWParam.clear();
 	}
 };
 // 直回调模式的内部结果节点，保存 Ice AMD 回包对象。
 struct	ST_JSON_MULTI_RESULT_DIRECT_CALLBACK : ST_JSON_M_RESULT_LEVEL
 {
-	char											chMode;
-	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr		pRpcCallback;
-	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr		pPutCallback;
+	char											chMode;		// 请求模式，区分 RPC 和 PUT。
+	long long									lSetCode;	// 业务集合或市场编码，回调给上层时保持原值。
+	HANDLE										hSelf;		// 服务端保存的客户端句柄，用于回包或反向推送。
+	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr		pRpcCallback;	// RPC 直回调模式的 Ice 回包对象。
+	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr		pPutCallback;	// PUT 直回调模式的 Ice 回包对象。
+	::JSONBINRPC::AByte								 aJsonReq;		// 请求 JSON 深拷贝，保证回调期间指针有效。
+	::JSONBINRPC::AByte								 aLParam;		// PUT 第一组二进制参数深拷贝。
+	::JSONBINRPC::AByte								 aWParam;		// PUT 第二组二进制参数深拷贝。
 	ST_JSON_MULTI_RESULT_DIRECT_CALLBACK():ST_JSON_M_RESULT_LEVEL()
 	{
 		chMode= 0;
 		pRpcCallback = nullptr;
 		pPutCallback = nullptr;
+		lSetCode = 0;
+		hSelf = NULL;
+		aJsonReq.clear();
+		aLParam.clear();
+		aWParam.clear();
 	}
 	~ST_JSON_MULTI_RESULT_DIRECT_CALLBACK()
 	{
 		pRpcCallback = nullptr;
 		pPutCallback = nullptr;
+		lSetCode = 0;
+		hSelf = NULL;
+		aJsonReq.clear();
+		aLParam.clear();
+		aWParam.clear();
 	}
 };
 
 // 客户端主动连接推送通道的状态，支持 TCP/UDP/组播三种模式。
 struct ST_TCP_PUSH_CONN 
 {
-	std::string			strIp;
-	int					iPort;
+	std::string			strIp;			// 远程推送通道 IP。
+	int					iPort;			// 远程推送通道端口。
 
-	SOCKET				hSocket;
-	int					iNetType;
-	HANDLE				hHandle;
-	bool				bOpenTcpOk;
-	bool				bOpenUdpOk;
+	SOCKET				hSocket;		// TCP/UDP socket 句柄。
+	int					iNetType;		// 网络类型，取 SOCK_STREAM 或 SOCK_DGRAM。
+	HANDLE				hHandle;		// 拉取线程句柄，由推送管理器负责关闭。
+	bool				bOpenTcpOk;	// TCP 通道是否已经打开成功。
+	bool				bOpenUdpOk;	// UDP 通道是否已经打开成功。
 	ST_TCP_PUSH_CONN()
 	{
+		strIp.clear();
 		iPort = 0;
 		hHandle	 = NULL;
 		iNetType = SOCK_STREAM;
@@ -123,18 +157,25 @@ struct ST_TCP_PUSH_CONN
 // UDP 推送端口和客户端映射信息，推送线程用它维护快速通道。
 struct	ST_UDP_INFO
 {
-	long					lRef;
-	int						iPort;	
-	SOCKET					iFd;
-	struct sockaddr_in		stAddr;
+	long					lRef;		// 活跃引用计数，降到 0 后允许清理该 UDP 客户端。
+	int						iPort;		// 本地绑定或远程发送端口。
+	SOCKET					iFd;		// UDP socket 句柄。
+	struct sockaddr_in		stAddr;		// 远程地址，发送 UDP 包时使用。
 	//unsigned long long		dwCount;
-	HANDLE					hHandle;	// 作为服务端需要
-	SOCKET					iServerFd;
-	class CPushMng	*		pParent;
-	bool					bDeleted;
+	HANDLE					hHandle;	// 关联的 SocketServer 客户端句柄，作为服务端推送时使用。
+	SOCKET					iServerFd;	// 服务端 UDP socket 句柄。
+	class CPushMng	*		pParent;	// 所属推送管理器，不拥有其生命周期。
+	bool					bDeleted;	// 是否已经进入删除流程，避免重复释放。
 	ST_UDP_INFO()
 	{
-		memset(this,0,sizeof(ST_UDP_INFO));
+		lRef = 0;
+		iPort = 0;
+		iFd = INVALID_SOCKET;
+		memset(&stAddr, 0, sizeof(stAddr));
+		hHandle = NULL;
+		iServerFd = INVALID_SOCKET;
+		pParent = NULL;
+		bDeleted = false;
 	}
 };
 // 统一管理 TCP/UDP/Ice 推送队列，不区分推送来源，集中处理限流和回调。
@@ -226,6 +267,8 @@ namespace JSONBINRPC
 		// 客户端注册标识，用于续约、注销和生成服务端保存 key。
 		std::string					strGuid;
 		std::string					strRet;		// 用于返回的临时变量
+		int						iLastErrorCode;	// 最近一次接口错误码，供上层查询。
+		std::string					strLastError;	// 最近一次接口详细英文错误描述。
 		time_t						tmLive;		// 存活包
 		DWORD						dwCount;
 // 返回可调用的远端代理；服务端具体客户端句柄会走自身 refProxy。
@@ -271,9 +314,14 @@ namespace JSONBINRPC
 // 重连 locator 时保存新增 m_refCommunicator/m_refAdapter，避免旧连接通信中被关闭。
 	struct ST_ADDED_CONN_INFO 
 	{
-		Ice::CommunicatorPtr							refCommunicator;
-		Ice::ObjectAdapterPtr							refAdapter;
+		Ice::CommunicatorPtr												refCommunicator;	// 新建连接使用的 Communicator，老连接释放前保持存活。
+		Ice::ObjectAdapterPtr											refAdapter;		// 新建连接使用的 Adapter，避免回调通道提前关闭。
 
+		ST_ADDED_CONN_INFO()
+		{
+			refCommunicator = nullptr;
+			refAdapter = nullptr;
+		}
 	};
 
 // ICE Slice 接口的实现，负责把导出 API、Ice RPC 和推送通道串起来。
@@ -354,6 +402,10 @@ public:	// 互动接口
 	void	PushFinish(unsigned long long p_ulKey);
 	void	RegisterCallBack(long long p_lRetVal);
 	bool	AddConnectLoctor();
+	bool	IsAsyncWaitCompleted() const
+	{
+		return m_bAsyncWaitCompleted;
+	}
 protected:
 // 当前连接是否按 snappy 压缩推送包，由注册返回值或配置决定。
 	bool											m_bSnappy;
@@ -399,6 +451,8 @@ protected:
 	int												m_iUdpThread;
 	std::string										m_strPushUdpBindPort,m_strPushUdpBindIp,m_strPushUdpPort,m_strPushUdpIp,m_strPushUdpMulPort,m_strPushUdpMulIp;
 	bool											m_bOpenUdp,m_bOpenUdpOk,m_bOpenMul,m_bOpenMulOk;
+// 是否等待异步 RPC 完成，默认保留旧版阻塞行为，XML 可配置为 0 提升吞吐。
+	bool											m_bAsyncWaitCompleted;
 // TCP 推送服务句柄，只有开启旧 TCP 推送时有效。
 	HS												m_hSocketServer;
 	SOCKET											m_hMulSocket;		// 分组推送，30~50微妙

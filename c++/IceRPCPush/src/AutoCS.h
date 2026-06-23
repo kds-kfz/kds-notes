@@ -9,6 +9,31 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
+#include "xsdk_mutex.h"
+
+// xsdk 互斥锁 RAII 包装，供新代码替代直接 Lock/Unlock。
+class CAutoCS
+{
+public:
+	CAutoCS(xsdk::CMutex* p_pMutex)
+	{
+		m_pMutex = p_pMutex;
+		if (m_pMutex != NULL)
+		{
+			m_pMutex->Lock();
+		}
+	}
+	virtual ~CAutoCS()
+	{
+		if (m_pMutex != NULL)
+		{
+			m_pMutex->Unlock();
+		}
+	}
+
+// 只保存外部锁地址，不拥有 xsdk::CMutex 生命周期。
+	xsdk::CMutex* m_pMutex;
+};
 
 // 临界区 RAII 包装，保证异常或提前返回时也能释放锁。
 class CAutoCriticalRegion  

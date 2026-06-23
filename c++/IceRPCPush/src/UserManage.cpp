@@ -52,18 +52,18 @@ void ST_USER_DATA::ResetIt()
 
 CUserManage::CUserManage():m_clMemMng(MAX_REQ_BUFLEN+1024*1024)
 {
-	InitializeCriticalSection(&m_csLock);
+	m_clMutex.Create();
 }
 
 CUserManage::~CUserManage()
 {
-	DeleteCriticalSection(&m_csLock);
+	m_clMutex.Close();
 }
 
 // 初始化连接槽位数组，调用前应确保没有活跃连接。
 void CUserManage::Init(int p_iMaxUser)
 {
-	CAutoCriticalRegion ac(&m_csLock);
+	CAutoCS clAutoLock(&m_clMutex);
 	ST_USER_DATA ud;
 	m_aUser.resize(p_iMaxUser,ud);
 	m_iUserCount=0;
@@ -75,7 +75,7 @@ void CUserManage::Init(int p_iMaxUser)
 // 把新连接复制到空闲槽位，并建立句柄到槽位索引的查找表。
 bool CUserManage::Add(ST_USER_DATA* p_pData)
 {
-    CAutoCriticalRegion ac(&m_csLock);
+    CAutoCS clAutoLock(&m_clMutex);
 	if(m_iUserCount>=m_iMaxUserCount)
 	{
 		return false;
@@ -105,7 +105,7 @@ int  CUserManage::DelAll()
 	std::vector<HCLIENT> aHc;
 	//避免死锁
 	{
-		CAutoCriticalRegion ac(&m_csLock);
+		CAutoCS clAutoLock(&m_clMutex);
 		int i;
 		for(i=0;i<m_aUser.size();i++)
 		{
@@ -143,7 +143,7 @@ void CUserManage::ForceDelRes()
 {
 	//避免死锁
 	{
-		CAutoCriticalRegion ac(&m_csLock);
+		CAutoCS clAutoLock(&m_clMutex);
 		int i;
 		for(i=0;i<m_aUser.size();i++)
 		{
@@ -164,7 +164,7 @@ void CUserManage::ForceDelRes()
 // 查询连接并增加引用计数，调用方处理结束必须 ReleaseIt。
 ST_USER_DATA * CUserManage::Query(HS p_hServer,HCLIENT p_hHandle)
 {
-	CAutoCriticalRegion ac(&m_csLock);
+	CAutoCS clAutoLock(&m_clMutex);
 	ST_USER_DATA *p_pData=NULL;
  	int i;
 	ST_HDATA_HCLIENT stKey = {p_hServer,p_hHandle};
@@ -190,7 +190,7 @@ void CUserManage::ReleaseIt(ST_USER_DATA * p_pData)
 	bool bNeedRelease=false;
 	//避免死锁
 	{
-		CAutoCriticalRegion ac(&m_csLock);
+		CAutoCS clAutoLock(&m_clMutex);
  		p_pData->lRef--;
 		if(p_pData->lRef==0)
 		{
@@ -222,7 +222,7 @@ void CUserManage::Del(HS p_hServer,HCLIENT p_hHandle)
 	ST_HDATA_HCLIENT stKey = {p_hServer,p_hHandle};
 	//避免死锁
 	{
-		CAutoCriticalRegion ac(&m_csLock);
+		CAutoCS clAutoLock(&m_clMutex);
 		int i = 0;
 		if ( m_mapFind.find(stKey) != m_mapFind.end() )
 		{
@@ -251,13 +251,13 @@ void CUserManage::Del(HS p_hServer,HCLIENT p_hHandle)
 
 int CUserManage::GetCount()
 {
-	CAutoCriticalRegion ac(&m_csLock);
+	CAutoCS clAutoLock(&m_clMutex);
  	return m_iUserCount;
 }
 
 int CUserManage::GetFindIn()
 {
-	CAutoCriticalRegion ac(&m_csLock);
+	CAutoCS clAutoLock(&m_clMutex);
 	return SafeSizeToLength<int>(m_mapFind.size());
 }
 
@@ -265,14 +265,14 @@ int CUserManage::GetFindIn()
 // 从统一池申请接收缓存，减少高并发连接时的堆碎片。
 char * CUserManage::AllocRcvBuf()
 {
-	CAutoCriticalRegion ac(&m_csLock);
+	CAutoCS clAutoLock(&m_clMutex);
 	char * p_pBuf = (char*)m_clMemMng.Malloc();
 	return p_pBuf;
 }
 
 void CUserManage::FreeRcvBuf(char * p_pBuf)
 {
-	CAutoCriticalRegion ac(&m_csLock);
+	CAutoCS clAutoLock(&m_clMutex);
 	m_clMemMng.Free(p_pBuf);
 }
 
@@ -281,7 +281,7 @@ void CUserManage::FreeRcvBuf(char * p_pBuf)
 // 拷贝当前订阅用户表，推送线程拿快照后可在锁外遍历。
 void CUserManage::GetAllSubUser(std::map<ST_HDATA_HCLIENT,int> & p_refUsers)
 {
-	CAutoCriticalRegion ac(&m_csLock);
+	CAutoCS clAutoLock(&m_clMutex);
 
 	p_refUsers = m_mapSubUser;
 }
@@ -289,7 +289,7 @@ void CUserManage::GetAllSubUser(std::map<ST_HDATA_HCLIENT,int> & p_refUsers)
 // 更新单连接订阅集合，调用方已完成协议解析。
 void CUserManage::UpdateSubKey(ST_USER_DATA* p_pData,const std::map<DWORD,int> & p_refSubId)
 {
-	CAutoCriticalRegion ac(&m_csLock);
+	CAutoCS clAutoLock(&m_clMutex);
 	if ( p_pData )
 	{
 		*p_pData->pMapKey = p_refSubId;
@@ -298,7 +298,7 @@ void CUserManage::UpdateSubKey(ST_USER_DATA* p_pData,const std::map<DWORD,int> &
 
 void CUserManage::GetSubKey(ST_USER_DATA* p_pData,std::map<DWORD,int> & p_refSubId)
 {
-	CAutoCriticalRegion ac(&m_csLock);
+	CAutoCS clAutoLock(&m_clMutex);
 	if ( p_pData )
 	{
 		p_refSubId = *p_pData->pMapKey;

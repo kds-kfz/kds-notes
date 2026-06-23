@@ -41,15 +41,20 @@ enum	EN_COMPRESS_TALK	// 压缩协商	unsigned char
 // 单个品种的订阅计数，保留旧行情协议的二进制布局。
 struct	ST_SUB_INFO_BY_STOCK
 {
-	unsigned	short		unType;		// 订阅的类型
-	unsigned	short		unSubCount;		// 订阅次数
+	unsigned	short		unType;		// 订阅类型，具体值由行情协议定义。
+	unsigned	short		unSubCount;		// 当前品种的订阅次数，用于重复订阅计数。
+	ST_SUB_INFO_BY_STOCK()
+	{
+		unType = 0;
+		unSubCount = 0;
+	}
 };
 
 // 推送包在队列中的轻量描述，缓冲区由生产方/消费方按约定释放。
 struct ST_PUSH_DATA_INFO 
 {
-	long long		lReqNo;
-	char		pBuf[0];
+	long long		lReqNo;		// 推送请求号或功能号，接收端按它分发业务。
+	char		pBuf[0];	// 变长推送数据起始地址，实际空间跟随结构体分配。
 };
 
 // 不允许保存对象，map，vector等，因为有 memcpy ，memset等基础操作
@@ -70,15 +75,15 @@ struct ST_USER_DATA
 	int		iRecvLen;	// 总是记录现在缓冲区的数据内容的长度
 // 最近活动时间，用于未来清理空闲连接。
 	time_t	tmLastActive;	// 最后活动时间
-	char	strIp[256];
-	int		iPort;
+	char	strIp[256];	// 客户端 IP 文本，固定缓冲区并以 0 结尾。
+	int		iPort;		// 客户端端口号。
 	////////////////////
 // 内部引用计数，为 0 表示槽位空闲，Query 后必须 ReleaseIt。
 	int		lRef;//内部引用计数,为0表示未使用
 	int		iHandleRef;		// 处理引用计数,防止在处理的过程中,同一个连接,通过另外一个线程再次来到数据,破坏缓冲区的处理情况,通常在完成端口的处理接收的时候是等上层处理完才处理下一个
 	DWORD	dwReqGnid;		// 当前处理的功能ID,方便查错的
-	DWORD	dwAnsGnid;		
-	char	szError[128];
+	DWORD	dwAnsGnid;		// 当前应答功能 ID，便于日志排查。
+	char	szError[128];	// 单连接错误信息缓存，固定长度并以 0 结尾。
 	// 支持TCP订阅 : const short COMBHQ2_10MMP_NREQ 			= 1728; // 请求指定若干品种行情（支持10档买卖盘）
 	// std::map<unsigned long long,ST_SUB_INFO_BY_STOCK>	*	pMapKey;
 	std::map<DWORD,int>	*		pMapKey;		// 订阅信息 1=订阅  0=不订阅
@@ -164,8 +169,12 @@ typedef struct ST_UDP_HEADER
 {
 //	unsigned short	dwPacketLen;
 //	unsigned short	dwRawLen;
-	unsigned char	chCompressed;//:1;		// 1 : zlib ; 2 : snappy
-	unsigned short	req;
+	unsigned char	chCompressed;//:1;		// 压缩标记，1 表示 zlib，2 表示 snappy。
+	unsigned short	req;				// 推送请求号，UDP 头中使用 16 位保存。
+	ST_UDP_HEADER()
+	{
+		memset(this, 0, sizeof(ST_UDP_HEADER));
+	}
 } ST_UDP_HEADER;
 
 // 固定数组形式的行情订阅请求，旧协议仍可能发送。
@@ -178,9 +187,9 @@ struct ST_SUB_UNSUB_HQ_REQ	// 订阅行情请求
 // 字符串形式订阅请求，多个功能号用分隔符传输。
 struct ST_SUB_UNSUB_STRING 
 {
-	short				req;
-	long				lLen;
-	char				pBuf[0];
+	short				req;		// 订阅或取消订阅请求号。
+	long				lLen;		// pBuf 的有效字节数，单位为字节。
+	char				pBuf[0];	// 变长订阅字符串起始地址，实际空间跟随结构体分配。
 };
 //pop时，无需带参数
 #pragma  pack(pop)

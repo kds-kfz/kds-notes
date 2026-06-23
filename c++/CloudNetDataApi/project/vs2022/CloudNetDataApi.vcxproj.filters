@@ -28,4 +28,9 @@
       <Filter>源文件</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\IceRPCPush.xml">
+      <Filter>资源文件</Filter>
+    </None>
+  </ItemGroup>
 </Project>
