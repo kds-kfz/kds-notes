@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	CloudNetDataApi 统一配置文件。
+	文件名固定为 IceRPCPush.xml；调用 LoadConfig 时如果配置路径为空，将默认读取进程当前目录下的 IceRPCPush.xml。
+	第一版默认按 6 个插件部署：Gateway、MtQuoteService、MtTradeService、MtQueryService、IceEventService、DeriveService。
+	同一份配置可以给多个服务插件共用，LoadConfig 的 p_szPluginId 决定当前进程使用哪个 Local 节。
+-->
+<CloudNetDataApi>
+	<!-- IceRPCPush 节：底层 Ice 通信配置，由 IceRPCPush 动态库读取；CloudNetDataApi 只负责把同一个 XML 路径传给底层。 -->
+	<IceRPCPush>
+		<!-- Ice 节：Ice 运行时属性，等价于旧 properties/ini 中的 key=value。 -->
+		<Ice>
+			<!-- Ice.Default.Locator：IceGrid/Locator 地址，用于按服务名发现远端插件。 -->
+			<Property name="Ice.Default.Locator" value="MtIceGrid/Locator:default -h 127.0.0.1 -p 18000" />
+			<!-- Ice.ProgramName：Ice 运行时程序名，主要用于日志和诊断。 -->
+			<Property name="Ice.ProgramName" value="CloudNetDataApi" />
+			<!-- Identity：底层 IceRPCPush 旧接口需要的对象标识默认值；CloudNetDataApi 启动服务时会在内部临时配置中自动改成当前 Local.service。 -->
+			<Property name="Identity" value="GatewayRPC" />
+
+			<!-- GatewayRPC：HTTP 入口、接口分发和 WebSocket 推送入口，不初始化 MT 连接。 -->
+			<Property name="GatewayRPC.Endpoints" value="tcp -z -h * -p 30001" />
+			<Property name="GatewayRPC" value="GatewayRPC" />
+			<Property name="GatewayRPC.Client.Endpoints" value="default -z -h localhost" />
+
+			<!-- MtQuoteServiceRPC：MT 行情连接服务，接收 tick 并发布到 IceEventServiceRPC。 -->
+			<Property name="MtQuoteServiceRPC.Endpoints" value="tcp -z -h * -p 30002" />
+			<Property name="MtQuoteServiceRPC" value="MtQuoteServiceRPC" />
+			<Property name="MtQuoteServiceRPC.Client.Endpoints" value="default -z -h localhost" />
+
+			<!-- MtTradeServiceRPC：MT 交易服务，合并交易事件、下单交易和配置事件能力。 -->
+			<Property name="MtTradeServiceRPC.Endpoints" value="tcp -z -h * -p 30003" />
+			<Property name="MtTradeServiceRPC" value="MtTradeServiceRPC" />
+			<Property name="MtTradeServiceRPC.Client.Endpoints" value="default -z -h localhost" />
+
+			<!-- MtQueryServiceRPC：MT 查询服务，合并普通查询、历史订单、成交、K线和 bars 查询。 -->
+			<Property name="MtQueryServiceRPC.Endpoints" value="tcp -z -h * -p 30004" />
+			<Property name="MtQueryServiceRPC" value="MtQueryServiceRPC" />
+			<Property name="MtQueryServiceRPC.Client.Endpoints" value="default -z -h localhost" />
+
+			<!-- IceEventServiceRPC：统一事件中心，内部区分行情 best-effort 事件和可靠事件预留通道。 -->
+			<Property name="IceEventServiceRPC.Endpoints" value="tcp -z -h * -p 30005" />
+			<Property name="IceEventServiceRPC" value="IceEventServiceRPC" />
+			<Property name="IceEventServiceRPC.Client.Endpoints" value="default -z -h localhost" />
+
+			<!-- DeriveServiceRPC：派生计算服务，合并收益计算和 K线生成。 -->
+			<Property name="DeriveServiceRPC.Endpoints" value="tcp -z -h * -p 30006" />
+			<Property name="DeriveServiceRPC" value="DeriveServiceRPC" />
+			<Property name="DeriveServiceRPC.Client.Endpoints" value="default -z -h localhost" />
+		</Ice>
+
+		<!-- ICEPUSH 节：底层推送、异步和日志配置。 -->
+		<ICEPUSH>
+			<!-- AsyncWaitCompleted：异步调用是否等待完成；0 表示立即返回，1 表示保持旧版等待行为。 -->
+			<AsyncWaitCompleted>0</AsyncWaitCompleted>
+			<!-- LogLevel：日志级别，可选 debug/info/warn/error/off。 -->
+			<LogLevel>info</LogLevel>
+			<!-- DebugLog：兼容旧版调试日志开关；LogLevel 缺失时生效，1 表示 debug，0 表示 info。 -->
+			<DebugLog>0</DebugLog>
+
+			<!-- RPCPushBindport：服务端 TCP 快速推送绑定端口，0 表示不开启。 -->
+			<RPCPushBindport>0</RPCPushBindport>
+			<!-- RPCPushBindip：服务端 TCP 快速推送绑定地址，0.0.0.0 表示监听所有网卡。 -->
+			<RPCPushBindip>0.0.0.0</RPCPushBindip>
+			<!-- RPCXPushBindport：服务端 UDP 点对点推送绑定端口，0 表示不开启。 -->
+			<RPCXPushBindport>0</RPCXPushBindport>
+			<!-- RPCXPushBindip：服务端 UDP 点对点推送绑定地址。 -->
+			<RPCXPushBindip>0.0.0.0</RPCXPushBindip>
+			<!-- RPCXThreadNum：UDP 推送接收线程数。 -->
+			<RPCXThreadNum>1</RPCXThreadNum>
+			<!-- RPCPushmax：服务端允许的 TCP 推送最大连接数。 -->
+			<RPCPushmax>1024</RPCPushmax>
+
+			<!-- RPCPushport：客户端 TCP 快速推送目标端口，0 表示不开启。 -->
+			<RPCPushport>0</RPCPushport>
+			<!-- RPCPuship：客户端 TCP 快速推送目标 IP。 -->
+			<RPCPuship>127.0.0.1</RPCPuship>
+			<!-- RPCXPushport：客户端 UDP 点对点推送目标端口，0 表示不开启。 -->
+			<RPCXPushport>0</RPCXPushport>
+			<!-- RPCXPuship：客户端 UDP 点对点推送目标 IP。 -->
+			<RPCXPuship>127.0.0.1</RPCXPuship>
+			<!-- RPCMPushport：组播推送端口，0 表示不开启。 -->
+			<RPCMPushport>0</RPCMPushport>
+			<!-- RPCMPuship：组播推送地址。 -->
+			<RPCMPuship>239.0.0.1</RPCMPuship>
+		</ICEPUSH>
+	</IceRPCPush>
+
+	<!-- CloudNet 节：CloudNetDataApi 业务网络管理层配置，不暴露给上层插件实现。 -->
+	<CloudNet>
+		<!-- Local：当前进程代表的服务插件；id 是唯一名，service 是本插件 Ice 服务名，startService=1 表示启动本地服务，snappy=1 表示启用压缩。 -->
+		<Local id="Gateway" service="GatewayRPC" startService="1" snappy="1" />
+		<Local id="MtQuoteService" service="MtQuoteServiceRPC" startService="1" snappy="1" />
+		<Local id="MtTradeService" service="MtTradeServiceRPC" startService="1" snappy="1" />
+		<Local id="MtQueryService" service="MtQueryServiceRPC" startService="1" snappy="1" />
+		<Local id="IceEventService" service="IceEventServiceRPC" startService="1" snappy="1" />
+		<Local id="DeriveService" service="DeriveServiceRPC" startService="1" snappy="1" />
+
+		<!-- Runtime：后台维护线程参数。reconnectIntervalMs 是重连间隔毫秒；renewIntervalSec 是推送注册续约秒数；threadPool 是客户端线程池大小，0 表示使用底层默认值。 -->
+		<Runtime reconnectIntervalMs="5000" renewIntervalSec="240" threadPool="0" />
+
+		<!-- Services：可连接的远端服务表；owner 为空表示所有插件生效，owner 写服务 id 时只给指定插件加载，多个 owner 可用逗号分隔。 -->
+		<Services>
+			<!-- Gateway：HTTP 请求分发和 WebSocket 推送入口，主动调用查询、交易、行情和事件中心。 -->
+			<Service owner="Gateway" id="MtQueryService" proxy="MtQueryServiceRPC" autoConnect="1" />
+			<Service owner="Gateway" id="MtTradeService" proxy="MtTradeServiceRPC" autoConnect="1" />
+			<Service owner="Gateway" id="MtQuoteService" proxy="MtQuoteServiceRPC" autoConnect="1" />
+			<Service owner="Gateway" id="IceEventService" proxy="IceEventServiceRPC" autoConnect="1" />
+
+			<!-- MtQuoteService：行情生产者，向统一事件中心发布 tick。 -->
+			<Service owner="MtQuoteService" id="IceEventService" proxy="IceEventServiceRPC" autoConnect="1" />
+
+			<!-- MtTradeService：交易和配置事件生产者，向统一事件中心发布可靠事件。 -->
+			<Service owner="MtTradeService" id="IceEventService" proxy="IceEventServiceRPC" autoConnect="1" />
+
+			<!-- DeriveService：派生计算服务，消费事件并按需查询基础数据。 -->
+			<Service owner="DeriveService" id="IceEventService" proxy="IceEventServiceRPC" autoConnect="1" />
+			<Service owner="DeriveService" id="MtQueryService" proxy="MtQueryServiceRPC" autoConnect="1" />
+		</Services>
+
+		<!-- Subscriptions：当前插件需要向哪些远端服务注册推送；owner 指定订阅属于哪个插件。 -->
+		<Subscriptions>
+			<!-- Gateway 订阅行情和可靠事件，随后转发给前端 WebSocket 客户端。 -->
+			<Subscribe owner="Gateway" target="IceEventService" pluginId="${PluginId}" subInfo="market.tick.*;order.changed.*;deal.changed.*;position.changed.*;account.profit.changed.*" enable="1" />
+
+			<!-- DeriveService 订阅 tick、持仓和账户事件，用于收益计算和 K线生成。 -->
+			<Subscribe owner="DeriveService" target="IceEventService" pluginId="${PluginId}" subInfo="market.tick.*;position.changed.*;account.margin.changed.*" enable="1" />
+		</Subscriptions>
+	</CloudNet>
+</CloudNetDataApi>
