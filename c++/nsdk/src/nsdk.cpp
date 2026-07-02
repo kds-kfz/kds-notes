@@ -61,6 +61,19 @@ BGN_NAMESPACE_NSDK
 
 namespace
 {
+	// 按固定8位日期字段解析授权日期，避免substr产生临时字符串。
+	int ParseAuthDate8(const char* p_szDate)
+	{
+		if (p_szDate == nullptr)
+		{
+			return 0;
+		}
+
+		char szDate[9] = { 0 };
+		memcpy(szDate, p_szDate, 8);
+		return atoi(szDate);
+	}
+
 #if defined(OS_IS_WINDOWS) && defined(NSDK_ENABLE_BREAKPAD)
 	google_breakpad::ExceptionHandler* g_pBreakpad = nullptr;
 
@@ -1313,6 +1326,95 @@ std::string MakeFeatrue(const std::string p_strClientInfo)
 }
 
 #ifndef SERVER_AUTH_FLAG
+int BuildFeatrueByPlainClientInfo(const std::string& p_strClientInfo, int p_iAuthDay, std::string& p_strFeatrue)
+{
+	// 服务端已经拿到明文客户信息时，直接构造最终授权明文，减少一次AES加密和一次AES解密。
+	p_strFeatrue.clear();
+	if (p_strClientInfo.empty())
+	{
+		return -1;
+	}
+
+	const int iDate = GetCurDate();
+	int iAuthDay = p_iAuthDay;
+	iAuthDay = nsdk_min(iAuthDay, 30);
+	iAuthDay = nsdk_max(iAuthDay, -30);
+	const int iNextDate = GetNextDate(iDate, iAuthDay);
+
+	std::string strNewFeatrue = p_strClientInfo;
+	strNewFeatrue.append(g_strAuthKey);
+	strNewFeatrue.append(g_strSignature);
+	strNewFeatrue.append(std::to_string(iDate));
+	strNewFeatrue.append(std::to_string(iNextDate));
+	p_strFeatrue = Aes(strNewFeatrue);
+	return p_strFeatrue.empty() ? -2 : 0;
+}
+
+int AuthFeatrueByPlainClientInfo(const std::string& p_strClientInfo, const std::string& p_strFeatrue, std::string& p_strFeatrueInfo)
+{
+	// 返回码保持与AuthFeatrue一致，仅减少校验过程中的临时字符串。
+	if (p_strFeatrue.empty())
+	{
+		return -1;
+	}
+	p_strFeatrueInfo = Deaes(p_strFeatrue);
+	if (p_strFeatrueInfo.empty())
+	{
+		return -2;
+	}
+
+	const size_t szClientInfoLen = p_strClientInfo.length();
+	const size_t szAuthKeyLength = g_strAuthKey.length();
+	const size_t szSignatureLength = g_strSignature.length();
+	const size_t szDateLength = 8 + 8;
+
+	if (p_strFeatrueInfo.length() != szClientInfoLen + szAuthKeyLength + szSignatureLength + szDateLength)
+	{
+		return -3;
+	}
+
+	if (p_strFeatrueInfo.compare(0, szClientInfoLen, p_strClientInfo) != 0)
+	{
+		return -4;
+	}
+
+	const size_t szAuthKeyOffset = szClientInfoLen;
+	if (p_strFeatrueInfo.compare(szAuthKeyOffset, szAuthKeyLength, g_strAuthKey) != 0)
+	{
+		return -5;
+	}
+
+	const size_t szSignatureOffset = szAuthKeyOffset + szAuthKeyLength;
+	if (p_strFeatrueInfo.compare(szSignatureOffset, szSignatureLength, g_strSignature) != 0)
+	{
+		return -6;
+	}
+
+	const size_t szDateOffset = szSignatureOffset + szSignatureLength;
+	const char* p_szDate = p_strFeatrueInfo.c_str() + szDateOffset;
+	const int iStartDate = ParseAuthDate8(p_szDate);
+	const int iEndDate = ParseAuthDate8(p_szDate + 8);
+	const int iCurDate = GetCurDate();
+
+	if (iCurDate > iEndDate)
+	{
+		return -7;
+	}
+
+	if (iStartDate > iEndDate)
+	{
+		return -8;
+	}
+
+	const int iNextDate = GetNextDate(iStartDate, AUTH_DAY);
+	if (iNextDate != iEndDate)
+	{
+		return -9;
+	}
+
+	return 0;
+}
+
 int BuildFeatrue(std::string p_strClientInfo, unsigned int p_uiClientInfoLen, int p_iAuthDay, std::string& p_strFeatrue)
 {
 	//p_iAuthDay 授权天数
@@ -1454,6 +1556,14 @@ int AuthFeatrue(const std::string p_strClientInfo, std::string p_strFeatrue, std
 	return 0;
 }
 #else
+int BuildFeatrueByPlainClientInfo(const std::string& p_strClientInfo, int p_iAuthDay, std::string& p_strFeatrue)
+{
+	return -99;
+}
+int AuthFeatrueByPlainClientInfo(const std::string& p_strClientInfo, const std::string& p_strFeatrue, std::string& p_strFeatrueInfo)
+{
+	return -99;
+}
 int BuildFeatrue(std::string p_strClientInfo, unsigned int p_uiClientInfoLen, int p_iAuthDay, std::string& p_strFeatrue)
 {
 	return -99;

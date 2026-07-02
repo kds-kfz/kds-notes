@@ -139,6 +139,10 @@ extern "C"
 	NSDK_API std::string MakeFeatrue(const std::string p_strClientInfo);
 	//服务器 生成授权码 p_strClientInfo：客户信息密文 p_uiClientInfoLen：客户信息长度 p_iAuthDay：授权天数 p_strFeatrue：服务器授权密文
 	NSDK_API int BuildFeatrue(std::string p_strClientInfo, unsigned int p_uiClientInfoLen, int p_iAuthDay, std::string& p_strFeatrue);
+	//服务器 根据明文客户信息直接生成授权码，避免先加密再解密的重复开销
+	NSDK_API int BuildFeatrueByPlainClientInfo(const std::string& p_strClientInfo, int p_iAuthDay, std::string& p_strFeatrue);
+	//服务器 快速校验授权码，返回码与AuthFeatrue保持一致
+	NSDK_API int AuthFeatrueByPlainClientInfo(const std::string& p_strClientInfo, const std::string& p_strFeatrue, std::string& p_strFeatrueInfo);
 	//服务器 校验授权码 p_strClientInfo: 客户信息 p_strFeatrue: 授权密文 p_strFeatrueInfo：授权解密明文
 	NSDK_API int AuthFeatrue(const std::string p_strClientInfo, std::string p_strFeatrue, std::string& p_strFeatrueInfo);
 
