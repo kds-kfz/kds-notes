@@ -12,7 +12,9 @@
 #endif
 
 #include "ServiceDataMng.h"
+#include "ServiceConfigXml.h"
 #include <algorithm>
+#include <thread>
 
 #include "nsdk.h"
 #include "nsdk_atomic.h"
@@ -26,6 +28,7 @@ string g_strNewName = "";// wyl 2026-05-06：文件选择后缓存待添加服务名。
 string g_strNewPath = "";// wyl 2026-05-06：文件选择后缓存待添加服务完整路径。
 string g_strCfg = "";
 static const UINT_PTR SERVICE_STATUS_TIMER_ID = 1;// wyl 2026-05-06：服务状态刷新定时器ID，只在UI线程更新列表。
+static const UINT WM_STOP_SERVICE_DONE = WM_APP + 101;// wyl 2026-07-03：后台Stop完成后通知UI线程刷新状态。
 namespace
 {
 	struct LocalPickItem
@@ -50,6 +53,35 @@ namespace
 
 		string strExt = p_refName.substr(p_refName.length() - 4);
 		return _stricmp(strExt.c_str(), ".exe") == 0 || _stricmp(strExt.c_str(), ".bat") == 0;
+	}
+
+	WeekInfo WeekFromComboIndex(int p_iIndex)
+	{
+		if (p_iIndex == 0) return MON;
+		if (p_iIndex == 1) return TUE;
+		if (p_iIndex == 2) return WED;
+		if (p_iIndex == 3) return THU;
+		if (p_iIndex == 4) return FRI;
+		if (p_iIndex == 5) return SAT;
+		if (p_iIndex == 6) return SUN;
+		return MON;
+	}
+
+	WeekInfo GetSelectedWeekInfo(CComboBox& p_refWeekCombo)
+	{
+		int iSel = p_refWeekCombo.GetCurSel();
+		if (iSel >= 0)
+			return WeekFromComboIndex(iSel);
+
+		CString strWeekText;
+		p_refWeekCombo.GetWindowText(strWeekText);
+		if (strWeekText.CompareNoCase(_T("Tue")) == 0) return TUE;
+		if (strWeekText.CompareNoCase(_T("Wed")) == 0) return WED;
+		if (strWeekText.CompareNoCase(_T("Thu")) == 0) return THU;
+		if (strWeekText.CompareNoCase(_T("Fri")) == 0) return FRI;
+		if (strWeekText.CompareNoCase(_T("Sat")) == 0) return SAT;
+		if (strWeekText.CompareNoCase(_T("Sun")) == 0) return SUN;
+		return MON;
 	}
 
 	bool IsLocalPathDelimiter(char p_chValue)
@@ -307,6 +339,7 @@ CServiceDlg::CServiceDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SERVICE_DIALOG, pParent)
 {
 	m_bStatus = false;
+	m_bStopPending = false;
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
 
@@ -339,30 +372,11 @@ BEGIN_MESSAGE_MAP(CServiceDlg, CDialogEx)
 	ON_CBN_SELCHANGE(IDC_WEEK_COMBO, &CServiceDlg::OnCbnSelchangeWeekCombo)
 	ON_WM_CLOSE()
 	ON_WM_TIMER()
+	ON_WM_HELPINFO()
+	ON_COMMAND(ID_HELP, &CServiceDlg::OnHelp)
+	ON_BN_CLICKED(IDC_STOP_BUTTON, &CServiceDlg::OnBnClickedStopButton)
+	ON_MESSAGE(WM_STOP_SERVICE_DONE, &CServiceDlg::OnStopServiceDone)
 END_MESSAGE_MAP()
-
-DWORD WINAPI InitLogDlg(LPVOID Parameter)
-{
-	//new  一个窗口类对象
-	//Create函数创建一个窗口
-	//ShowWindow展示窗口
-	g_pLogDlg = new CLogDlg();
-	g_pLogDlg->Create(IDD_LOG_DIALOG);
-	//g_pLogDlg->ShowWindow(SW_SHOW);
-	g_pLogDlg->ShowWindow(SW_HIDE);
-	g_pLogDlg->SetWindowPos(&g_pLogDlg->wndTop, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
-	g_pLogDlg->SetActiveWindow();
-	//MT_INFO("*************提示信息:*************");
-	//MT_INFO("%s", GetCommandLine());
-	//在这三步之后： 自己添加消息循环
-	MSG msg = { 0 };
-	while (GetMessage(&msg, 0, 0, 0))    //得到消息
-	{
-		TranslateMessage(&msg);      //转换消息
-		DispatchMessage(&msg);       //分发消息
-	}
-	return 0;
-}
 
 // CServiceDlg 消息处理程序
 
@@ -420,9 +434,20 @@ BOOL CServiceDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
-	//初始化日志窗口
-	CreateThread(NULL, 0, InitLogDlg, this, 0, 0);
-	//Sleep(1000);
+	// wyl 2026-07-03：日志窗口必须在主UI线程创建，避免跨线程创建MFC窗口导致随机弹错或假死。
+	if (g_pLogDlg == NULL)
+	{
+		g_pLogDlg = new CLogDlg(this);
+		if (!g_pLogDlg->Create(IDD_LOG_DIALOG, this))
+		{
+			delete g_pLogDlg;
+			g_pLogDlg = NULL;
+		}
+		else
+		{
+			g_pLogDlg->ShowWindow(SW_HIDE);
+		}
+	}
 
 	m_Font.CreatePointFont(90, _T("Segoe UI"));
 
@@ -449,7 +474,6 @@ BOOL CServiceDlg::OnInitDialog()
 	m_TimeList.SetColumnWidth(1, 130);
 
 	m_WeekCombo.SetFont(&m_Font);
-	m_WeekCombo.SetWindowText(_T("Mon"));// wyl 2026-05-06：默认星期显示英文缩写，兼容无中文语言包环境。
 	m_WeekCombo.AddString(_T("Mon"));
 	m_WeekCombo.AddString(_T("Tue"));
 	m_WeekCombo.AddString(_T("Wed"));
@@ -457,6 +481,7 @@ BOOL CServiceDlg::OnInitDialog()
 	m_WeekCombo.AddString(_T("Fri"));
 	m_WeekCombo.AddString(_T("Sat"));
 	m_WeekCombo.AddString(_T("Sun"));
+	m_WeekCombo.SetCurSel(0);// wyl 2026-07-03：设置真实选中项，避免只显示文本导致新增时间保存到错误星期。
 
 	m_ServiceList.ModifyStyle(0, LVS_REPORT);
 	m_ServiceList.SetExtendedStyle(LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT | LVS_EX_CHECKBOXES);
@@ -470,24 +495,8 @@ BOOL CServiceDlg::OnInitDialog()
 	//获取配置
 	g_strCfg = CServiceDataMng::GetInstance()->GetCfgPath();
 
-	//初始化全局变量
-	m_ServiceList.DeleteAllItems();
-	g_iServiceCount = CServiceDataMng::GetInstance()->GetAllServiceInfo(g_mapServiceInfo);
-
-	//数据填充展示
-	for (int i = 0; i < g_iServiceCount; i++)
-	{
-
-		m_ServiceList.InsertItem(i, "", 1);
-		m_ServiceList.SetItemText(i, 0, g_mapServiceInfo[i].strName.c_str());
-		m_ServiceList.SetItemText(i, 1, g_mapServiceInfo[i].strPath.c_str());
-		m_ServiceList.SetItemText(i, 2, "Stopped");
-
-		if (1 == g_mapServiceInfo[i].iEnable)
-		{
-			m_ServiceList.SetCheck(i, true);
-		}
-	}
+	//初始化全局变量并填充展示
+	ReloadServiceList();
 
 	//初始化完成
 	m_bStatus = true;
@@ -586,14 +595,12 @@ void CServiceDlg::OnNMClickServiceList(NMHDR *pNMHDR, LRESULT *pResult)
 	ServiceInfo refServiceInfo = g_mapServiceInfo[g_iServiceRow];
 
 	//填充路径，参数
-	string strFullAppPath = refServiceInfo.strPath + refServiceInfo.strName;
-	m_AppPathEdit.SetWindowText(strFullAppPath.c_str());
+	m_AppPathEdit.SetWindowText(refServiceInfo.strPath.c_str());
 	//m_AppParamEdit.SetWindowText(refServiceInfo.strCmdParam.c_str());
 
 	//填充右边时间数据
 	m_TimeList.DeleteAllItems();
-	int j = m_WeekCombo.GetCurSel();
-	WeekInfo enWeek = j == 0 ? MON : j == 1 ? TUE : j == 2 ? WED : j == 3 ? THU : j == 4 ? FRI : j == 5 ? SAT : j == 6 ? SUN : MON;
+	WeekInfo enWeek = GetSelectedWeekInfo(m_WeekCombo);
 
 	vector<TimeInfo> vecTimeInfo = refServiceInfo.mapTimeConf[enWeek];
 	int iTimeCount = vecTimeInfo.size();
@@ -654,17 +661,44 @@ void CServiceDlg::OnItemchangedList(NMHDR* pNMHDR, LRESULT* pResult)
 }
 int CServiceDlg::GetSelectedItemIndex(CListCtrl& p_listCtrl)
 {
-	int nSelectedItem = -1;
-	int nItemCount = p_listCtrl.GetItemCount();
-	for (int i = 0; i < nItemCount; ++i)
+	return p_listCtrl.GetNextItem(-1, LVNI_SELECTED);
+}
+
+void CServiceDlg::ClearServiceDetail()
+{
+	g_iServiceRow = -1;
+	m_AppPathEdit.SetWindowText("");
+	m_AppParamEdit.SetWindowText("");
+	m_TimeList.DeleteAllItems();
+}
+
+void CServiceDlg::ReloadServiceList()
+{
+	bool bOldStatus = m_bStatus;
+	m_bStatus = false;
+
+	m_ServiceList.DeleteAllItems();
+	g_iServiceCount = CServiceDataMng::GetInstance()->GetAllServiceInfo(g_mapServiceInfo);
+	CServiceDataMng::GetInstance()->GetAllServiceStatus(g_mapServiceStatus);
+
+	for (int i = 0; i < g_iServiceCount; i++)
 	{
-		if (p_listCtrl.GetItemState(i, LVNI_SELECTED) == LVNI_SELECTED)
-		{
-			nSelectedItem = i;
-			break;
-		}
+		auto itService = g_mapServiceInfo.find(i);
+		if (itService == g_mapServiceInfo.end())
+			continue;
+
+		ServiceInfo& refServiceInfo = itService->second;
+		m_ServiceList.InsertItem(i, "", 1);
+		m_ServiceList.SetItemText(i, 0, refServiceInfo.strName.c_str());
+		m_ServiceList.SetItemText(i, 1, refServiceInfo.strPath.c_str());
+
+		auto itStatus = g_mapServiceStatus.find(i);
+		bool bRunning = itStatus != g_mapServiceStatus.end() && itStatus->second;
+		m_ServiceList.SetItemText(i, 2, bRunning ? "Running" : "Stopped");
+		m_ServiceList.SetCheck(i, 1 == refServiceInfo.iEnable);
 	}
-	return nSelectedItem;
+
+	m_bStatus = bOldStatus;
 }
 
 void CServiceDlg::OnBnClickedTimeAddButton()
@@ -677,8 +711,7 @@ void CServiceDlg::OnBnClickedTimeAddButton()
 		return;
 
 	//获取周所在行
-	int j = m_WeekCombo.GetCurSel();
-	WeekInfo enWeek = j == 0 ? MON : j == 1 ? TUE : j == 2 ? WED : j == 3 ? THU : j == 4 ? FRI : j == 5 ? SAT : j == 6 ? SUN : MON;
+	WeekInfo enWeek = GetSelectedWeekInfo(m_WeekCombo);
 
 	//获取起止时间
 	CTime stStartTime, stEndTime;
@@ -715,8 +748,7 @@ void CServiceDlg::OnBnClickedTimeDelButton()
 		return;
 
 	//获取周所在行
-	int j = m_WeekCombo.GetCurSel();
-	WeekInfo enWeek = j == 0 ? MON : j == 1 ? TUE : j == 2 ? WED : j == 3 ? THU : j == 4 ? FRI : j == 5 ? SAT : j == 6 ? SUN : MON;
+	WeekInfo enWeek = GetSelectedWeekInfo(m_WeekCombo);
 
 	//获取起止时间
 	TimeInfo stTimeInfo;
@@ -724,6 +756,8 @@ void CServiceDlg::OnBnClickedTimeDelButton()
 	//删除选中的时间
 	//所在行
 	int iTimeRow = GetSelectedItemIndex(m_TimeList);
+	if (-1 == iTimeRow)
+		return;
 
 	m_TimeList.DeleteItem(iTimeRow);
 
@@ -752,8 +786,17 @@ void CServiceDlg::OnBnClickedLookButton()
 	if (!ShowLocalProgramPicker(GetSafeHwnd(), strAppPath))
 		return;
 
-	g_strNewName = strAppPath.substr(FindLastLocalPathDelimiter(strAppPath) + 1);
-	g_strNewPath = strAppPath;
+	std::string strFullPath;
+	if (!NormalizeFullProgramPath(strAppPath, strFullPath))
+	{
+		MT_WARN("[MtAssistant] invalid selected app path=%s", strAppPath.c_str());
+		g_strNewName.clear();
+		g_strNewPath.clear();
+		return;
+	}
+
+	g_strNewName = GetProgramFileName(strFullPath);
+	g_strNewPath = strFullPath;
 
 	// wyl 2026-05-06：复用统一后缀校验，避免短文件名触发越界判断。
 	if (!IsSupportedProgramFile(g_strNewName))
@@ -763,7 +806,7 @@ void CServiceDlg::OnBnClickedLookButton()
 		g_strNewPath.clear();
 	}
 
-	m_AppPathEdit.SetWindowText(strAppPath.c_str());
+	m_AppPathEdit.SetWindowText(g_strNewPath.c_str());
 }
 
 
@@ -772,6 +815,15 @@ void CServiceDlg::OnBnClickedAddButton()
 	// TODO: 在此添加控件通知处理程序代码
 	if (g_strNewName.empty() || g_strNewPath.empty())
 		return;
+
+	std::string strFullPath;
+	if (!NormalizeFullProgramPath(g_strNewPath, strFullPath))
+	{
+		MT_WARN("[MtAssistant] invalid app path=%s", g_strNewPath.c_str());
+		return;
+	}
+	g_strNewPath = strFullPath;
+	g_strNewName = GetProgramFileName(g_strNewPath);
 
 	int iServiceTotal = m_ServiceList.GetItemCount();
 
@@ -783,6 +835,7 @@ void CServiceDlg::OnBnClickedAddButton()
 	refServiceInfo.strPath = g_strNewPath;
 	refServiceInfo.strCfg = g_strCfg;
 	refServiceInfo.strLabel = strLabel;
+	refServiceInfo.iRow = iServiceTotal;
 	// wyl 2026-05-06：添加服务时先按完整路径查找旧进程，命中则写入旧PID，后续直接接管。
 	refServiceInfo.lPid = FindProcessIdByPath(refServiceInfo.strName.c_str(), refServiceInfo.strPath.c_str());
 	if (refServiceInfo.lPid > 0)
@@ -812,35 +865,34 @@ void CServiceDlg::OnBnClickedAddButton()
 
 void CServiceDlg::OnBnClickedDelButton()
 {
-	// TODO: 在此添加控件通知处理程序代码
-	if (-1 == g_iServiceRow)
+	int iServiceRow = GetSelectedItemIndex(m_ServiceList);
+	if (-1 == iServiceRow)
+		iServiceRow = g_iServiceRow;
+
+	if (-1 == iServiceRow)
 		return;
 
-	if (g_mapServiceInfo.find(g_iServiceRow) == g_mapServiceInfo.end())
+	if (g_mapServiceInfo.find(iServiceRow) == g_mapServiceInfo.end())
 	{
-		g_iServiceRow = -1;
+		ClearServiceDetail();
 		return;
 	}
 
-	//删除服务信息
-	m_ServiceList.DeleteItem(g_iServiceRow);
-	ServiceInfo &refServiceInfo = g_mapServiceInfo[g_iServiceRow];
-	MT_INFO("[MtAssistant] delete service, name=%s,path=%s", refServiceInfo.strName.c_str(), refServiceInfo.strPath.c_str());
-	g_mapServiceInfo.erase(g_iServiceRow);
+	ServiceInfo stDeletedServiceInfo = g_mapServiceInfo[iServiceRow];
+	MT_INFO("[MtAssistant] delete service start, row=%d,name=%s,path=%s",
+		iServiceRow, stDeletedServiceInfo.strName.c_str(), stDeletedServiceInfo.strPath.c_str());
 
-	//清空路径
-	m_AppPathEdit.SetWindowText("");
+	bool bOldStatus = m_bStatus;
+	m_bStatus = false;
+	g_mapServiceInfo.erase(iServiceRow);
 
-	//清空命令行
-	m_AppParamEdit.SetWindowText("");
+	CServiceDataMng::GetInstance()->UpdateAllServiceInfo(g_mapServiceInfo, stDeletedServiceInfo, DEL);
+	ReloadServiceList();
+	ClearServiceDetail();
+	m_bStatus = bOldStatus;
 
-	//清空时间显示
-	m_TimeList.DeleteAllItems();
-
-	//删除服务数据
-	CServiceDataMng::GetInstance()->UpdateAllServiceInfo(g_mapServiceInfo, refServiceInfo, DEL);
-
-	g_iServiceRow = -1;
+	MT_INFO("[MtAssistant] delete service done, row=%d,name=%s,path=%s",
+		iServiceRow, stDeletedServiceInfo.strName.c_str(), stDeletedServiceInfo.strPath.c_str());
 }
 
 void CServiceDlg::OnDestroy()
@@ -852,7 +904,11 @@ void CServiceDlg::OnDestroy()
 	// TODO: 在此处添加消息处理程序代码
 	if (g_pLogDlg)
 	{
-		g_pLogDlg->Show(false);
+		CLogDlg* pLogDlg = g_pLogDlg;
+		g_pLogDlg = NULL;
+		pLogDlg->Show(false);
+		pLogDlg->DestroyWindow();
+		delete pLogDlg;
 	}
 
 	CServiceDataMng::Release();
@@ -890,19 +946,23 @@ void CServiceDlg::OnTimer(UINT_PTR nIDEvent)
 
 void CServiceDlg::OnBnClickedLogButton()
 {
-	// TODO: 在此添加控件通知处理程序代码
-	if (g_pLogDlg)
+	if (g_pLogDlg == NULL)
 	{
-		if (g_pLogDlg->IsIconic())
+		g_pLogDlg = new CLogDlg(this);
+		if (!g_pLogDlg->Create(IDD_LOG_DIALOG, this))
 		{
-			g_pLogDlg->ShowWindow(SW_SHOWNOACTIVATE);
+			delete g_pLogDlg;
+			g_pLogDlg = NULL;
+			return;
 		}
-		else
-		{
-			g_pLogDlg->ShowWindow(SW_SHOW);
-		}
-		g_pLogDlg->SetWindowPos(&g_pLogDlg->wndTop, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
+		g_pLogDlg->Show(true);
 	}
+
+	if (g_pLogDlg->IsIconic())
+		g_pLogDlg->ShowWindow(SW_RESTORE);
+	else
+		g_pLogDlg->ShowWindow(SW_SHOW);
+	g_pLogDlg->SetWindowPos(&g_pLogDlg->wndTop, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE);
 }
 
 
@@ -925,8 +985,7 @@ void CServiceDlg::OnCbnSelchangeWeekCombo()
 
 	//填充右边时间数据
 	m_TimeList.DeleteAllItems();
-	int j = m_WeekCombo.GetCurSel();
-	WeekInfo enWeek = j == 0 ? MON : j == 1 ? TUE : j == 2 ? WED : j == 3 ? THU : j == 4 ? FRI : j == 5 ? SAT : j == 6 ? SUN : MON;
+	WeekInfo enWeek = GetSelectedWeekInfo(m_WeekCombo);
 
 	vector<TimeInfo> vecTimeInfo = refServiceInfo.mapTimeConf[enWeek];
 	int iTimeCount = vecTimeInfo.size();
@@ -948,4 +1007,96 @@ void CServiceDlg::OnClose()
 	TerminateProcess(hself, 0);
 
 	CDialogEx::OnClose();
+}
+
+void CServiceDlg::OnBnClickedStopButton()
+{
+	if (m_bStopPending)
+		return;
+
+	int iServiceRow = GetSelectedItemIndex(m_ServiceList);
+	if (-1 == iServiceRow)
+		iServiceRow = g_iServiceRow;
+
+	if (-1 == iServiceRow)
+		return;
+
+	if (g_mapServiceInfo.find(iServiceRow) == g_mapServiceInfo.end())
+	{
+		g_iServiceRow = -1;
+		return;
+	}
+
+	m_bStopPending = true;
+	CWnd* pStopButton = GetDlgItem(IDC_STOP_BUTTON);
+	if (pStopButton != NULL)
+		pStopButton->EnableWindow(FALSE);
+
+	bool bOldStatus = m_bStatus;
+	m_bStatus = false;
+	m_ServiceList.SetCheck(iServiceRow, FALSE);
+	m_bStatus = bOldStatus;
+
+	if (g_mapServiceInfo.find(iServiceRow) != g_mapServiceInfo.end())
+		g_mapServiceInfo[iServiceRow].iEnable = 0;
+	g_mapServiceStatus[iServiceRow] = true;
+	m_ServiceList.SetItemText(iServiceRow, 2, "Stopping");
+
+	HWND hWnd = GetSafeHwnd();
+	std::thread([hWnd, iServiceRow]() {
+		int iStopRet = CServiceDataMng::GetInstance()->StopService(iServiceRow);
+		if (::IsWindow(hWnd))
+			::PostMessage(hWnd, WM_STOP_SERVICE_DONE, (WPARAM)iServiceRow, (LPARAM)iStopRet);
+	}).detach();
+}
+
+LRESULT CServiceDlg::OnStopServiceDone(WPARAM wParam, LPARAM lParam)
+{
+	int iServiceRow = (int)wParam;
+	int iStopRet = (int)lParam;
+
+	m_bStopPending = false;
+	CWnd* pStopButton = GetDlgItem(IDC_STOP_BUTTON);
+	if (pStopButton != NULL)
+		pStopButton->EnableWindow(TRUE);
+
+	g_iServiceCount = CServiceDataMng::GetInstance()->GetAllServiceInfo(g_mapServiceInfo);
+	CServiceDataMng::GetInstance()->GetAllServiceStatus(g_mapServiceStatus);
+
+	if (iServiceRow >= 0 && iServiceRow < m_ServiceList.GetItemCount())
+	{
+		bool bOldStatus = m_bStatus;
+		m_bStatus = false;
+		m_ServiceList.SetCheck(iServiceRow, FALSE);
+		m_bStatus = bOldStatus;
+	}
+
+	if (g_mapServiceInfo.find(iServiceRow) != g_mapServiceInfo.end())
+		g_mapServiceInfo[iServiceRow].iEnable = 0;
+
+	auto itStatus = g_mapServiceStatus.find(iServiceRow);
+	bool bRunning = itStatus != g_mapServiceStatus.end() && itStatus->second;
+	if (iServiceRow >= 0 && iServiceRow < m_ServiceList.GetItemCount())
+		m_ServiceList.SetItemText(iServiceRow, 2, bRunning ? "Running" : "Stopped");
+	if (0 == iStopRet && !bRunning)
+		g_mapServiceStatus[iServiceRow] = false;
+
+	return 0;
+}
+
+BOOL CServiceDlg::OnHelpInfo(HELPINFO* pHelpInfo)
+{
+	return TRUE;
+}
+
+void CServiceDlg::OnHelp()
+{
+}
+
+BOOL CServiceDlg::PreTranslateMessage(MSG* pMsg)
+{
+	if (pMsg != NULL && pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_F1)
+		return TRUE;
+
+	return CDialogEx::PreTranslateMessage(pMsg);
 }

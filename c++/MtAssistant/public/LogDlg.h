@@ -4,7 +4,6 @@
 #include "afxdialogex.h"
 #include <afxmt.h>
 #include <map>
-#include <atomic>
 // CLogDlg ¶Ô»°¿ò
 
 class CLogDlg : public CDialogEx
@@ -29,21 +28,19 @@ private:
 	CListCtrl m_LogList;
 	vector<pair<string,string>> m_vecBuf;
 	CMutex Mutex;
-	HANDLE m_hPrintThread;
-	std::atomic<bool> m_bPrintThreadExit;
 
 	void Print();
-	DWORD PrintThread();
 public:
 	afx_msg void OnBnClickedOk();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnClose();
+	afx_msg void OnDestroy();
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnNMCustomdrawList(NMHDR *pNMHDR, LRESULT *pResult);
 	virtual BOOL OnInitDialog();
 
 	void OutInfo(const string& p_strTime, const string& p_strInfo);
 	void Show(BOOL p_bShow);
-	static DWORD WINAPI s_PrintThread(void * pv);
 };
 
 extern CLogDlg* g_pLogDlg;

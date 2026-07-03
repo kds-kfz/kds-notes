@@ -11,6 +11,10 @@
 CLogDlg* g_pLogDlg = NULL;
 
 #define MAXINFO 1000
+namespace
+{
+	const UINT_PTR LOG_PRINT_TIMER_ID = 2;
+}
 // CLogDlg 对话框
 
 IMPLEMENT_DYNAMIC(CLogDlg, CDialogEx)
@@ -19,19 +23,10 @@ CLogDlg::CLogDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CLogDlg::IDD, pParent)
 {
 	m_bMainShow = false;
-	m_hPrintThread = NULL;
-	m_bPrintThreadExit.store(false);
 }
 
 CLogDlg::~CLogDlg()
 {
-	m_bPrintThreadExit.store(true);
-	if (m_hPrintThread != NULL)
-	{
-		WaitForSingleObject(m_hPrintThread, 1000);
-		CloseHandle(m_hPrintThread);
-		m_hPrintThread = NULL;
-	}
 }
 
 void CLogDlg::DoDataExchange(CDataExchange* pDX)
@@ -45,6 +40,8 @@ BEGIN_MESSAGE_MAP(CLogDlg, CDialogEx)
 	ON_BN_CLICKED(IDOK, &CLogDlg::OnBnClickedOk)
 	ON_WM_SIZE()
 	ON_WM_CLOSE()
+	ON_WM_DESTROY()
+	ON_WM_TIMER()
 	ON_NOTIFY(NM_CUSTOMDRAW, IDC_LIST_LOG, &CLogDlg::OnNMCustomdrawList)
 END_MESSAGE_MAP()
 
@@ -77,6 +74,9 @@ void CLogDlg::OutInfo(const string& p_strTime, const string& p_strInfo)
 
 void CLogDlg::Print() 
 {
+	if (!::IsWindow(m_LogList.GetSafeHwnd()))
+		return;
+
 	vector<pair<string, string>> vecTmp;
 	Mutex.Lock();
 	if (m_vecBuf.empty()) 
@@ -98,18 +98,26 @@ void CLogDlg::Print()
 		strTime = vecTmp[i].first;
 		strMsg = vecTmp[i].second;
 
-		int iLeft = strMsg.find('[') + 1;
-		int iRight = strMsg.find(']');
+		size_t nLeft = strMsg.find('[');
+		size_t nRight = strMsg.find(']', nLeft == string::npos ? 0 : nLeft + 1);
+		string strTag = "INFO";
+		string strDisplayMsg = strMsg;
+		if (nLeft != string::npos && nRight != string::npos && nRight > nLeft)
+		{
+			strTag = strMsg.substr(nLeft + 1, nRight - nLeft - 1);
+			strDisplayMsg = strMsg.substr(nRight + 1);
+		}
 
 		int iNum = m_LogList.GetItemCount();
 		if (iNum > MAXINFO)
 		{
 			m_LogList.DeleteAllItems();
+			iNum = 0;
 		}
 		m_LogList.InsertItem(iNum, "");
 		m_LogList.SetItemText(iNum, 0, strTime.c_str());
-		m_LogList.SetItemText(iNum, 1, strMsg.substr(iLeft, iRight - iLeft).c_str());
-		m_LogList.SetItemText(iNum, 2, strMsg.substr(iRight + 1).c_str());
+		m_LogList.SetItemText(iNum, 1, strTag.c_str());
+		m_LogList.SetItemText(iNum, 2, strDisplayMsg.c_str());
 
 		if (m_LogList.GetTopIndex() + m_LogList.GetCountPerPage() + 3 >= iNum)
 		{ //如果 滚动到最后  自动滚动到最后					3条为容错空间
@@ -122,7 +130,7 @@ BOOL CLogDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
 
-	m_hPrintThread = CreateThread(NULL, 0, s_PrintThread, this, 0, NULL);
+	SetTimer(LOG_PRINT_TIMER_ID, 100, NULL);
 
 	m_oFont.CreatePointFont(90, _T("Segoe UI"));
 	m_LogList.SetFont(&m_oFont);
@@ -214,6 +222,23 @@ void CLogDlg::OnClose()
 	//CDialogEx::OnClose();
 }
 
+void CLogDlg::OnDestroy()
+{
+	KillTimer(LOG_PRINT_TIMER_ID);
+	CDialogEx::OnDestroy();
+}
+
+void CLogDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	if (nIDEvent == LOG_PRINT_TIMER_ID)
+	{
+		Print();
+		return;
+	}
+
+	CDialogEx::OnTimer(nIDEvent);
+}
+
 void CLogDlg::Show(BOOL p_bShow)
 {
 	if (p_bShow)
@@ -271,21 +296,4 @@ void CLogDlg::OnNMCustomdrawList(NMHDR *pNMHDR, LRESULT *pResult)
 		}
 		*pResult = CDRF_DODEFAULT;
 	}
-}
-
-
-DWORD WINAPI CLogDlg::s_PrintThread(void * pv)
-{
-	CLogDlg * pThis = (CLogDlg*)pv;
-	return pThis->PrintThread();
-}
-
-DWORD CLogDlg::PrintThread()
-{
-	while (!m_bPrintThreadExit.load())
-	{
-		Print();
-		Sleep(10);
-	}
-	return 0;
 }

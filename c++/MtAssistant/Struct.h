@@ -196,9 +196,10 @@ struct ServiceInfo
 	bool bStatus;		// 服务状态
 	long lPid;			// 进程号
 	int iCheck;			// 是否在非配置时间检测
+	int iRow;			// wyl 2026-07-03：XML配置中的服务行号，守护线程回写运行时PID时使用。
 	map<WeekInfo, vector<TimeInfo> > mapTimeConf;
 
-	ServiceInfo():strLabel(""), strName(""), strTitle(""), strPath(""), strCmdParam(""), iEnable(0), bStatus(false), lPid(-1), strCfg(""), iCheck(1)
+	ServiceInfo():strLabel(""), strName(""), strTitle(""), strPath(""), strCmdParam(""), iEnable(0), bStatus(false), lPid(-1), strCfg(""), iCheck(1), iRow(-1)
 	{
 		mapTimeConf.clear();
 	}
@@ -215,12 +216,15 @@ struct ServiceInfo
 			strCfg = p_ServiceInfo.strCfg;
 			lPid = p_ServiceInfo.lPid;
 			iCheck = p_ServiceInfo.iCheck;
-			std::copy(p_ServiceInfo.mapTimeConf.begin(), p_ServiceInfo.mapTimeConf.end(), std::inserter(mapTimeConf, mapTimeConf.end()));
+			iRow = p_ServiceInfo.iRow;
+			// Must replace the schedule map. std::map::insert keeps old week entries,
+			// which makes updated restart times invisible to existing worker threads.
+			mapTimeConf = p_ServiceInfo.mapTimeConf;
 		}
 		return *this;
 	}
 
-	ServiceInfo(const ServiceInfo &p_ServiceInfo):iEnable(p_ServiceInfo.iEnable),bStatus(p_ServiceInfo.bStatus), lPid(p_ServiceInfo.lPid), iCheck(p_ServiceInfo.iCheck)
+	ServiceInfo(const ServiceInfo &p_ServiceInfo):iEnable(p_ServiceInfo.iEnable),bStatus(p_ServiceInfo.bStatus), lPid(p_ServiceInfo.lPid), iCheck(p_ServiceInfo.iCheck), iRow(p_ServiceInfo.iRow)
 	{
 		strLabel = p_ServiceInfo.strLabel;
 		strName = p_ServiceInfo.strName;
@@ -228,7 +232,7 @@ struct ServiceInfo
 		strPath = p_ServiceInfo.strPath;
 		strCmdParam = p_ServiceInfo.strCmdParam;
 		strCfg = p_ServiceInfo.strCfg;
-		std::copy(p_ServiceInfo.mapTimeConf.begin(), p_ServiceInfo.mapTimeConf.end(), std::inserter(mapTimeConf, mapTimeConf.end()));
+		mapTimeConf = p_ServiceInfo.mapTimeConf;
 	}
 
 	void AddTime(WeekInfo p_enWeek, TimeInfo p_stTimeInfo)
@@ -253,4 +257,3 @@ struct ServiceInfo
 };
 
 #endif
-

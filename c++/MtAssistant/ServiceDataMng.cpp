@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "ServiceDataMng.h"
+#include "ServiceConfigXml.h"
+
 #include <io.h>
 
 #include "nsdk.h"
@@ -26,20 +28,20 @@ void CServiceDataMng::Release()
 	m_pThis = NULL;
 }
 
-CServiceDataMng::CServiceDataMng() : m_iCount(0)
+CServiceDataMng::CServiceDataMng() : m_iCount(0), m_strLogLevel("info")
 {
-
 }
 
 CServiceDataMng::~CServiceDataMng()
 {
-	//销毁所有守护线程
-	m_ServiceInfoLock.lock();
-	for (auto it = m_mapServiceInfo.begin(); it != m_mapServiceInfo.end(); it++)
-	{
-		DestroyDaemon(it->first);
-	}
-	m_ServiceInfoLock.unlock();
+	std::vector<int> vecDaemonRows;
+	m_DaemonLock.lock();
+	for (auto it = m_mapDaemon.begin(); it != m_mapDaemon.end(); ++it)
+		vecDaemonRows.push_back(it->first);
+	m_DaemonLock.unlock();
+
+	for (size_t i = 0; i < vecDaemonRows.size(); ++i)
+		DestroyDaemon(vecDaemonRows[i]);
 }
 
 void CServiceDataMng::Init()
@@ -59,26 +61,14 @@ void CServiceDataMng::Init()
 		if (1 == it->second.iEnable)
 		{
 			// wyl 2026-05-06：助手启动时只恢复已勾选启用服务的守护线程。
-			CreateDaemon(it->first, &it->second);
+			ServiceInfo stServiceInfo = it->second;
+			CreateDaemon(it->first, &stServiceInfo);
 		}
 	}
 }
 
-
-// wyl 2026-05-06：保留交易终端固定窗口标题，用于停止流程补充定位目标进程。
-string GetTitle(char *p_szName)
-{
-	if (0 == strcmp("TradingTerminal.exe", p_szName))
-		return "TradingTerminal.exe";
-	
-	return "";
-}
-
 namespace
 {
-	const int MAX_SERVICE_CFG_COUNT = 256;// wyl 2026-05-06：限制服务配置数量，避免异常ini导致循环和内存压力失控。
-	const int MAX_TIME_CFG_COUNT = 128;// wyl 2026-05-06：限制单服务时间段数量，避免异常配置拖慢界面和守护线程。
-
 	// wyl 2026-05-06：bat运行后实际进程通常是cmd，无法按脚本完整路径反查，只能使用旧PID兜底。
 	bool IsBatchServiceName(const string& p_refName)
 	{
@@ -104,44 +94,62 @@ namespace
 	{
 		if (p_refServiceInfo.strName.length() < 4 || p_refServiceInfo.strPath.empty())
 			return false;
+		if (!IsAbsoluteProgramPath(p_refServiceInfo.strPath))
+			return false;
 
 		string strExt = p_refServiceInfo.strName.substr(p_refServiceInfo.strName.length() - 4);
 		return _stricmp(strExt.c_str(), ".exe") == 0 || _stricmp(strExt.c_str(), ".bat") == 0;
 	}
 
-	// wyl 2026-05-06：校验ini中的数量字段，负数按0处理，超上限则截断。
-	int NormalizeCfgCount(const char *p_szSection, const char *p_szKey, int p_iValue, int p_iMaxValue)
+	string BuildServiceLabel(int p_iRow)
 	{
-		if (p_iValue < 0)
-		{
-			MT_WARN("[MtAssistant] invalid config %s/%s=%d, use 0", p_szSection, p_szKey, p_iValue);
-			return 0;
-		}
-		if (p_iValue > p_iMaxValue)
-		{
-			MT_WARN("[MtAssistant] config %s/%s=%d exceeds max %d, clamped", p_szSection, p_szKey, p_iValue, p_iMaxValue);
-			return p_iMaxValue;
-		}
-		return p_iValue;
+		char szLabel[64] = { 0 };
+		sprintf_s(szLabel, "Info_%d", p_iRow);
+		return szLabel;
 	}
 
-	// wyl 2026-05-06：严格解析HH:mm:ss，避免非法时间进入守护调度。
-	bool ParseRunTime(const char *p_szValue, tagRunTime &p_refTime)
+	bool IsCurrentProcessServicePath(const string& p_refServicePath)
 	{
-		if (p_szValue == NULL)
+		char szCurrentPath[4096] = { 0 };
+		DWORD dwLen = GetModuleFileNameA(NULL, szCurrentPath, sizeof(szCurrentPath));
+		if (dwLen == 0 || dwLen >= sizeof(szCurrentPath))
 			return false;
 
-		int hour = -1, min = -1, sec = -1, pos = 0;
-		if (sscanf_s(p_szValue, " %d:%d:%d %n", &hour, &min, &sec, &pos) != 3 || p_szValue[pos] != '\0')
+		string strCurrentFullPath;
+		string strServiceFullPath;
+		if (!NormalizeFullProgramPath(szCurrentPath, strCurrentFullPath))
+			return false;
+		if (!NormalizeFullProgramPath(p_refServicePath, strServiceFullPath))
 			return false;
 
-		if (hour < 0 || hour > 23 || min < 0 || min > 59 || sec < 0 || sec > 59)
-			return false;
+		return _stricmp(strCurrentFullPath.c_str(), strServiceFullPath.c_str()) == 0;
+	}
+}
 
-		p_refTime.hour = hour;
-		p_refTime.min = min;
-		p_refTime.sec = sec;
-		return true;
+void CServiceDataMng::NormalizeServiceRows(std::map<int, ServiceInfo>& p_refMapServiceInfo)
+{
+	std::map<int, ServiceInfo> mapNormalized;
+	int iRow = 0;
+	for (auto it = p_refMapServiceInfo.begin(); it != p_refMapServiceInfo.end(); ++it)
+	{
+		ServiceInfo stServiceInfo = it->second;
+		stServiceInfo.iRow = iRow;
+		stServiceInfo.strLabel = BuildServiceLabel(iRow);
+		stServiceInfo.strCfg = m_strCfg;
+		mapNormalized[iRow] = stServiceInfo;
+		++iRow;
+	}
+	p_refMapServiceInfo.swap(mapNormalized);
+}
+
+void CServiceDataMng::SaveCfg(const std::map<int, ServiceInfo>& p_refMapServiceInfo)
+{
+	ServiceConfigXmlData stData;
+	stData.strLogLevel = m_strLogLevel.empty() ? "info" : m_strLogLevel;
+	stData.mapServiceInfo = p_refMapServiceInfo;
+	if (!SaveServiceConfigXml(m_strCfg, stData))
+	{
+		MT_WARN("[MtAssistant] save config failed, path=%s", m_strCfg.c_str());
 	}
 }
 
@@ -168,94 +176,43 @@ void CServiceDataMng::ReadCfg()
 	m_strCfg.append(NSDK_PATH_DELIMETER);
 	m_strCfg.append(SERVICE_CFG_NAME);
 
+	ServiceConfigXmlData stConfigData;
 	if (_access(m_strCfg.c_str(), 0) == -1)
 	{
-		MT_WARN("[MtAssistant] config file missing, path=%s", m_strCfg.c_str());
+		MT_WARN("[MtAssistant] xml config file missing, create empty config, path=%s", m_strCfg.c_str());
+		m_ServiceInfoLock.lock();
+		m_mapServiceInfo.clear();
+		m_iCount = 0;
+		m_ServiceInfoLock.unlock();
+		SaveCfg(stConfigData.mapServiceInfo);
+		CLog::GetInstance()->SetLogLevel((char*)stConfigData.strLogLevel.c_str());
 		return;
 	}
 
-	// 设置日志级别
-	char strLogLevel[64] = { 0 };
-	GetPrivateProfileString("LOG", "LogLevel", "info", strLogLevel, sizeof(strLogLevel), m_strCfg.c_str());
-	MT_INFO("[MtAssistant] log level: %s", strLogLevel);
-	CLog::GetInstance()->SetLogLevel(strLogLevel);
-
-	char szTemp[_MAX_PATH] = { 0 };
-
-	MT_INFO("[MtAssistant] load config start");
-	m_iCount = NormalizeCfgCount("Info", "Count", GetPrivateProfileInt("Info", "Count", 0, m_strCfg.c_str()), MAX_SERVICE_CFG_COUNT);
-
-	char strLabel[100] = { 0 };
-	char strStartTime[100] = { 0 };
-	char strEndTime[100] = { 0 };
-	char strTimeCount[100] = { 0 };
-
-	for (int i = 0; i < m_iCount; i++)
+	MT_INFO("[MtAssistant] load xml config start");
+	if (!LoadServiceConfigXml(m_strCfg, stConfigData))
 	{
-		ServiceInfo pstServiceInfo;
-
-		sprintf(strLabel, "Info_%d", i);
-		GetPrivateProfileString(strLabel, "Name", "", szTemp, _MAX_PATH, m_strCfg.c_str());
-		pstServiceInfo.strLabel = strLabel;
-		pstServiceInfo.strName = szTemp;
-
-		//ini中文读不了
-		//GetPrivateProfileString(strLabel, "Title", "", szTemp, _MAX_PATH, m_strCfg.c_str());
-		//pstServiceInfo.strTitle = szTemp;
-
-		pstServiceInfo.strTitle = GetTitle(szTemp);
-
-		GetPrivateProfileString(strLabel, "Path", "", szTemp, _MAX_PATH, m_strCfg.c_str());
-		pstServiceInfo.strPath = szTemp;
-
-		pstServiceInfo.iEnable = GetPrivateProfileInt(strLabel, "Enable", 0, m_strCfg.c_str());
-		pstServiceInfo.lPid = GetPrivateProfileInt(strLabel, "Pid", -1, m_strCfg.c_str());
-		pstServiceInfo.iCheck = GetPrivateProfileInt(strLabel, "Check", 0, m_strCfg.c_str());
-		pstServiceInfo.strCfg = m_strCfg;
-		pstServiceInfo.strLabel = strLabel;
-
-		for (int j = 0; j < WEEK_NUM; j++)
-		{
-			WeekInfo enWeek = j == 0 ? MON : j == 1 ? TUE : j == 2 ? WED : j == 3 ? THU : j == 4 ? FRI : j == 5 ? SAT : j == 6 ? SUN : MON;
-			vector<TimeInfo> &listTimeInfo = pstServiceInfo.mapTimeConf[enWeek];
-			
-			sprintf(strTimeCount, "TimeCount_%d", j);
-			int iTimeCount = NormalizeCfgCount(strLabel, strTimeCount, GetPrivateProfileInt(strLabel, strTimeCount, 0, m_strCfg.c_str()), MAX_TIME_CFG_COUNT);
-
-			for (int k = 0; k < iTimeCount; k++)//时间下标
-			{
-				TimeInfo stTimeInfo;
-				tagRunTime stStartTime;
-				tagRunTime stEndTime;
-
-				sprintf(strStartTime, "StartTime_%d_%d", j, k);
-				GetPrivateProfileString(strLabel, strStartTime, "0:0:0", szTemp, _MAX_PATH, m_strCfg.c_str());
-				if (!ParseRunTime(szTemp, stStartTime))
-				{
-					MT_WARN("[MtAssistant] invalid config %s/%s=%s, skip schedule", strLabel, strStartTime, szTemp);
-					continue;
-				}
-				stTimeInfo.StartTime = stStartTime;
-
-				sprintf(strEndTime, "EndTime_%d_%d", j, k);
-				GetPrivateProfileString(strLabel, strEndTime, "0:0:0", szTemp, _MAX_PATH, m_strCfg.c_str());
-				if (!ParseRunTime(szTemp, stEndTime))
-				{
-					MT_WARN("[MtAssistant] invalid config %s/%s=%s, skip schedule", strLabel, strEndTime, szTemp);
-					continue;
-				}
-				stTimeInfo.EndTime = stEndTime;
-
-				listTimeInfo.push_back(stTimeInfo);
-			}
-		}
-
 		m_ServiceInfoLock.lock();
-		m_mapServiceInfo[i] = pstServiceInfo;
+		m_mapServiceInfo.clear();
+		m_iCount = 0;
 		m_ServiceInfoLock.unlock();
+		CLog::GetInstance()->SetLogLevel((char*)m_strLogLevel.c_str());
+		return;
 	}
 
-	MT_INFO("[MtAssistant] load config done");
+	m_strLogLevel = stConfigData.strLogLevel.empty() ? "info" : stConfigData.strLogLevel;
+	MT_INFO("[MtAssistant] log level: %s", m_strLogLevel.c_str());
+	CLog::GetInstance()->SetLogLevel((char*)m_strLogLevel.c_str());
+
+	std::map<int, ServiceInfo> mapServiceInfo = stConfigData.mapServiceInfo;
+	NormalizeServiceRows(mapServiceInfo);
+
+	m_ServiceInfoLock.lock();
+	m_mapServiceInfo = mapServiceInfo;
+	m_iCount = (int)m_mapServiceInfo.size();
+	m_ServiceInfoLock.unlock();
+
+	MT_INFO("[MtAssistant] load xml config done");
 }
 
 ServiceInfo CServiceDataMng::GetServiceInfo(int p_iServiceRow)
@@ -276,13 +233,7 @@ int CServiceDataMng::GetAllServiceInfo(std::map<int, ServiceInfo> &p_mapServiceI
 	m_ServiceInfoLock.lock();
 	p_mapServiceInfo = m_mapServiceInfo;
 	m_ServiceInfoLock.unlock();
-
-	for (auto it = p_mapServiceInfo.begin(); it != p_mapServiceInfo.end(); it++)
-	{
-		it->second.lPid = GetPrivateProfileInt(it->second.strLabel.c_str(), "Pid", -1, m_strCfg.c_str());
-	}
-
-	return p_mapServiceInfo.size();
+	return (int)p_mapServiceInfo.size();
 }
 
 // wyl 2026-05-06：每次重新生成状态表，并按完整路径探测真实进程，避免旧服务已运行但界面显示停止。
@@ -315,15 +266,13 @@ void CServiceDataMng::GetAllServiceStatus(std::map<int, bool> &p_mapServiceStatu
 
 		if (lPid > 0 && refServiceInfo.lPid != lPid)
 		{
-			// wyl 2026-05-06：状态刷新发现旧服务已运行时，立即写回PID并打印已启动日志。
-			WritePrivateProfileString(refServiceInfo.strLabel.c_str(), "Pid", std::to_string(lPid).c_str(), m_strCfg.c_str());
-			m_ServiceInfoLock.lock();
-			if (m_mapServiceInfo.find(it->first) != m_mapServiceInfo.end())
-				m_mapServiceInfo[it->first].lPid = lPid;
-			m_ServiceInfoLock.unlock();
-
+			UpdateRuntimePid(it->first, lPid);
 			MT_INFO("[MtAssistant] service already started, name=%s,path=%s,pid=%ld",
 				refServiceInfo.strName.c_str(), refServiceInfo.strPath.c_str(), lPid);
+		}
+		else if (lPid <= 0 && refServiceInfo.lPid > 0)
+		{
+			UpdateRuntimePid(it->first, -1);
 		}
 
 		p_mapServiceStatus[it->first] = bRunning;
@@ -332,44 +281,99 @@ void CServiceDataMng::GetAllServiceStatus(std::map<int, bool> &p_mapServiceStatu
 
 void CServiceDataMng::UpdateAllServiceInfo(std::map<int, ServiceInfo> &p_mapServiceInfo, ServiceInfo p_refServiceInfo, OperationType p_enType)
 {
-	int iServiceCount = 0;
+	bool bAllDaemonDestroyed = true;
+	if (DEL == p_enType)
+	{
+		std::vector<int> vecDaemonRows;
+		m_DaemonLock.lock();
+		for (auto it = m_mapDaemon.begin(); it != m_mapDaemon.end(); ++it)
+			vecDaemonRows.push_back(it->first);
+		m_DaemonLock.unlock();
+
+		for (size_t i = 0; i < vecDaemonRows.size(); ++i)
+		{
+			if (!DestroyDaemon(vecDaemonRows[i]))
+				bAllDaemonDestroyed = false;
+		}
+	}
+
+	std::map<int, ServiceInfo> mapServiceInfo = p_mapServiceInfo;
+	NormalizeServiceRows(mapServiceInfo);
+
 	m_ServiceInfoLock.lock();
-	m_mapServiceInfo = p_mapServiceInfo;
-	iServiceCount = (int)m_mapServiceInfo.size();
+	m_mapServiceInfo = mapServiceInfo;
+	m_iCount = (int)m_mapServiceInfo.size();
+	std::map<int, ServiceInfo> mapSnapshot = m_mapServiceInfo;
 	m_ServiceInfoLock.unlock();
 
-	// wyl 2026-05-06：添加服务只保存配置和PID，守护线程仍由界面勾选时创建。
-	UpdateServiceToCfg(iServiceCount, &p_refServiceInfo, iServiceCount, p_enType);
+	p_mapServiceInfo = mapSnapshot;
+	SaveCfg(mapSnapshot);
+
+	if (DEL == p_enType)
+	{
+		if (!bAllDaemonDestroyed)
+		{
+			MT_WARN("[Worker] skip daemon recreate because old daemon is still exiting");
+			return;
+		}
+
+		for (auto it = mapSnapshot.begin(); it != mapSnapshot.end(); ++it)
+		{
+			if (1 == it->second.iEnable)
+			{
+				ServiceInfo stServiceInfo = it->second;
+				CreateDaemon(it->first, &stServiceInfo);
+			}
+		}
+	}
 }
+
 void CServiceDataMng::UpdateEnable(int p_iServiceRow, int p_iEnable)
 {
 	bool bFind = false;
+	std::map<int, ServiceInfo> mapSnapshot;
 	m_ServiceInfoLock.lock();
 	if (m_mapServiceInfo.find(p_iServiceRow) != m_mapServiceInfo.end())
 	{
 		bFind = true;
 		m_mapServiceInfo[p_iServiceRow].iEnable = p_iEnable;
+		mapSnapshot = m_mapServiceInfo;
 	}
 	m_ServiceInfoLock.unlock();
 
 	if (!bFind)
 		return;
 
-	// wyl 2026-05-06：勾选状态只落配置；守护线程由界面勾选创建、取消勾选销毁。
-	UpdateEnableToCfg(p_iServiceRow, p_iEnable);
+	// wyl 2026-05-06：勾选状态只落XML配置；守护线程由界面勾选创建、取消勾选销毁。
+	SaveCfg(mapSnapshot);
 }
+
+void CServiceDataMng::UpdateRuntimePid(int p_iServiceRow, long p_lPid)
+{
+	bool bFind = false;
+	std::map<int, ServiceInfo> mapSnapshot;
+	m_ServiceInfoLock.lock();
+	if (m_mapServiceInfo.find(p_iServiceRow) != m_mapServiceInfo.end())
+	{
+		bFind = true;
+		m_mapServiceInfo[p_iServiceRow].lPid = p_lPid;
+		mapSnapshot = m_mapServiceInfo;
+	}
+	m_ServiceInfoLock.unlock();
+
+	if (bFind)
+		SaveCfg(mapSnapshot);
+}
+
 void CServiceDataMng::UpdateTimeInfo(int p_iServiceRow, WeekInfo p_enWeek, int p_iTimeRow, TimeInfo p_stTimeInfo, OperationType p_enType)
 {
 	ServiceInfo objServiceInfo;
+	bool bFind = false;
+	std::map<int, ServiceInfo> mapSnapshot;
 
 	if (MODIFY == p_enType)// 改， 暂不支持
 	{
-		m_ServiceInfoLock.lock();
-		if (m_mapServiceInfo.find(p_iServiceRow) != m_mapServiceInfo.end())
-		{
-			vector<TimeInfo> &vecTimeInfo = m_mapServiceInfo[p_iServiceRow].mapTimeConf[p_enWeek];
-		}
-		m_ServiceInfoLock.unlock();
+		return;
 	}
 	else if (ADD == p_enType)// 增
 	{
@@ -379,6 +383,8 @@ void CServiceDataMng::UpdateTimeInfo(int p_iServiceRow, WeekInfo p_enWeek, int p
 			ServiceInfo &refServiceInfo = m_mapServiceInfo[p_iServiceRow];
 			refServiceInfo.AddTime(p_enWeek, p_stTimeInfo);
 			objServiceInfo = refServiceInfo;
+			mapSnapshot = m_mapServiceInfo;
+			bFind = true;
 		}
 		m_ServiceInfoLock.unlock();
 	}
@@ -390,6 +396,8 @@ void CServiceDataMng::UpdateTimeInfo(int p_iServiceRow, WeekInfo p_enWeek, int p
 			ServiceInfo &refServiceInfo = m_mapServiceInfo[p_iServiceRow];
 			refServiceInfo.DelTime(p_enWeek, p_iTimeRow);
 			objServiceInfo = refServiceInfo;
+			mapSnapshot = m_mapServiceInfo;
+			bFind = true;
 		}
 		m_ServiceInfoLock.unlock();
 	}
@@ -398,129 +406,54 @@ void CServiceDataMng::UpdateTimeInfo(int p_iServiceRow, WeekInfo p_enWeek, int p
 		return;
 	}
 
-	//把数据写入配置文件
-	UpdateTimeToCfg(p_iServiceRow, &objServiceInfo, m_iCount, p_enType);
+	if (!bFind)
+		return;
 
-	//同步到守护线程
+	SaveCfg(mapSnapshot);
+	MT_INFO("[Worker] schedule config changed, row=%d,week=%s,start=%s,end=%s,op=%d,name=%s,path=%s",
+		p_iServiceRow, WeekToXmlName(p_enWeek),
+		p_stTimeInfo.StartTime.toString().c_str(), p_stTimeInfo.EndTime.toString().c_str(),
+		(int)p_enType, objServiceInfo.strName.c_str(), objServiceInfo.strPath.c_str());
 	UpdateTimeDaemon(p_iServiceRow, &objServiceInfo);
 }
 
-void CServiceDataMng::UpdateEnableToCfg(int p_iServiceRow, int p_iEnable)
+int CServiceDataMng::StopService(int p_iServiceRow)
 {
-	char strLabel[100] = { 0 };
-	sprintf(strLabel, "Info_%d", p_iServiceRow);
-	WritePrivateProfileString(strLabel, "Enable", std::to_string(p_iEnable).c_str(), m_strCfg.c_str());
-}
+	ServiceInfo stServiceInfo = GetServiceInfo(p_iServiceRow);
+	if (stServiceInfo.strName.empty() || stServiceInfo.strPath.empty())
+		return -1;
 
-void CServiceDataMng::UpdateTimeToCfg(int p_iServiceRow, ServiceInfo *p_refServiceInfo, int p_iCount, OperationType p_enType)
-{
-	char strLabel[100] = { 0 };
-	char strStartTime[100] = { 0 };
-	char strEndTime[100] = { 0 };
-	char strTimeCount[100] = { 0 };
+	UpdateEnable(p_iServiceRow, 0);
+	DestroyDaemon(p_iServiceRow);
 
-
-	if (NULL == p_refServiceInfo)
-		return;
-
-	//先删除后写入
-	sprintf(strLabel, "Info_%d", p_iServiceRow);
-	p_refServiceInfo->lPid = GetPrivateProfileInt(strLabel, "Pid", p_refServiceInfo->lPid, m_strCfg.c_str());
-	//p_refServiceInfo->iCheck = GetPrivateProfileInt(strLabel, "Check", 0, m_strCfg.c_str());
-	WritePrivateProfileSection(strLabel, "", m_strCfg.c_str());
-
-	if (ADD == p_enType || DEL == p_enType)
+	if (IsCurrentProcessServicePath(stServiceInfo.strPath))
 	{
-
-		WritePrivateProfileString(strLabel, "Name", p_refServiceInfo->strName.c_str(), m_strCfg.c_str());
-		WritePrivateProfileString(strLabel, "Path", p_refServiceInfo->strPath.c_str(), m_strCfg.c_str());
-		//WritePrivateProfileString(strLabel, "Cmd", p_refServiceInfo->strCmdParam.c_str(), m_strCfg.c_str());
-		WritePrivateProfileString(strLabel, "Enable", std::to_string(p_refServiceInfo->iEnable).c_str(), m_strCfg.c_str());
-		WritePrivateProfileString(strLabel, "Pid", std::to_string(p_refServiceInfo->lPid).c_str(), m_strCfg.c_str());
-		WritePrivateProfileString(strLabel, "Check", std::to_string(p_refServiceInfo->iCheck).c_str(), m_strCfg.c_str());
-
-		for (int j = 0; j < WEEK_NUM; j++)
-		{
-			WeekInfo enWeek = j == 0 ? MON : j == 1 ? TUE : j == 2 ? WED : j == 3 ? THU : j == 4 ? FRI : j == 5 ? SAT : j == 6 ? SUN : MON;
-			vector<TimeInfo> listTimeInfo = p_refServiceInfo->mapTimeConf[enWeek];
-
-			sprintf(strTimeCount, "TimeCount_%d", j);
-			WritePrivateProfileString(strLabel, strTimeCount, std::to_string(listTimeInfo.size()).c_str(), m_strCfg.c_str());
-
-			for (int k = 0; k < listTimeInfo.size(); k++)//时间下标
-			{
-				TimeInfo stTimeInfo = listTimeInfo[k];
-
-				sprintf(strStartTime, "StartTime_%d_%d", j, k);
-				WritePrivateProfileString(strLabel, strStartTime, stTimeInfo.StartTime.toString().c_str(), m_strCfg.c_str());
-
-				sprintf(strEndTime, "EndTime_%d_%d", j, k);
-				WritePrivateProfileString(strLabel, strEndTime, stTimeInfo.EndTime.toString().c_str(), m_strCfg.c_str());
-			}
-		}
+		MT_WARN("[MtAssistant] skip stop current assistant process, name=%s,path=%s",
+			stServiceInfo.strName.c_str(), stServiceInfo.strPath.c_str());
+		return -2;
 	}
-	else if (MODIFY == p_enType)
+
+	long lPid = ProbeRunningServicePid(stServiceInfo);
+	int iStopRet = StopProcessTree(lPid > 0 ? lPid : -1,
+		stServiceInfo.strName.c_str(),
+		stServiceInfo.strPath.c_str(),
+		stServiceInfo.strTitle.c_str(),
+		0,
+		10 * 1000);
+
+	if (0 == iStopRet)
 	{
+		UpdateRuntimePid(p_iServiceRow, -1);
+		MT_INFO("[MtAssistant] stop service, name=%s,path=%s",
+			stServiceInfo.strName.c_str(), stServiceInfo.strPath.c_str());
 	}
-}
-
-void CServiceDataMng::UpdateServiceToCfg(int p_iServiceRow, ServiceInfo *p_refServiceInfo, int p_iCount, OperationType p_enType)
-{
-	char strLabel[100] = { 0 };
-	char strStartTime[100] = { 0 };
-	char strEndTime[100] = { 0 };
-	char strTimeCount[100] = { 0 };
-
-	//服务数量
-	WritePrivateProfileString("Info", "Count", std::to_string(p_iCount).c_str(), m_strCfg.c_str());
-
-	if (NULL == p_refServiceInfo)
-		return;
-
-	if (ADD == p_enType)
+	else
 	{
-		sprintf(strLabel, "Info_%d", p_iCount - 1);
-		p_refServiceInfo->lPid = GetPrivateProfileInt(strLabel, "Pid", p_refServiceInfo->lPid, m_strCfg.c_str());
-		//p_refServiceInfo->iCheck = GetPrivateProfileInt(strLabel, "Check", 0, m_strCfg.c_str());
-		WritePrivateProfileSection(strLabel, "", m_strCfg.c_str());
-
-		WritePrivateProfileString(strLabel, "Name", p_refServiceInfo->strName.c_str(), m_strCfg.c_str());
-		WritePrivateProfileString(strLabel, "Path", p_refServiceInfo->strPath.c_str(), m_strCfg.c_str());
-		//WritePrivateProfileString(strLabel, "Cmd", p_refServiceInfo->strCmdParam.c_str(), m_strCfg.c_str());
-		WritePrivateProfileString(strLabel, "Enable", std::to_string(p_refServiceInfo->iEnable).c_str(), m_strCfg.c_str());
-		WritePrivateProfileString(strLabel, "Pid", std::to_string(p_refServiceInfo->lPid).c_str(), m_strCfg.c_str());
-		WritePrivateProfileString(strLabel, "Check", std::to_string(p_refServiceInfo->iCheck).c_str(), m_strCfg.c_str());
-
-		for (int j = 0; j < WEEK_NUM; j++)
-		{
-			WeekInfo enWeek = j == 0 ? MON : j == 1 ? TUE : j == 2 ? WED : j == 3 ? THU : j == 4 ? FRI : j == 5 ? SAT : j == 6 ? SUN : MON;
-			vector<TimeInfo> listTimeInfo = p_refServiceInfo->mapTimeConf[enWeek];
-
-			sprintf(strTimeCount, "TimeCount_%d", j);
-			WritePrivateProfileString(strLabel, strTimeCount, std::to_string(listTimeInfo.size()).c_str(), m_strCfg.c_str());
-
-			for (int k = 0; k < listTimeInfo.size(); k++)//时间下标
-			{
-				TimeInfo stTimeInfo = listTimeInfo[k];
-
-				sprintf(strStartTime, "StartTime_%d_%d", j, k);
-				WritePrivateProfileString(strLabel, strStartTime, stTimeInfo.StartTime.toString().c_str(), m_strCfg.c_str());
-
-				sprintf(strEndTime, "EndTime_%d_%d", j, k);
-				WritePrivateProfileString(strLabel, strEndTime, stTimeInfo.EndTime.toString().c_str(), m_strCfg.c_str());
-			}
-		}
+		MT_WARN("[MtAssistant] stop service failed=%d, name=%s,path=%s",
+			iStopRet, stServiceInfo.strName.c_str(), stServiceInfo.strPath.c_str());
 	}
-	else if (DEL == p_enType)
-	{
-		//先删除后写入
-		sprintf(strLabel, "Info_%d", p_iServiceRow);
-		WritePrivateProfileSection(strLabel, NULL, m_strCfg.c_str());
-		DestroyDaemon(p_iServiceRow);
-	}
-	else if (MODIFY == p_enType)
-	{
-	}
+
+	return iStopRet;
 }
 
 void CServiceDataMng::CreateDaemon(int p_iServiceRow, ServiceInfo *p_refServiceInfo)
@@ -528,81 +461,159 @@ void CServiceDataMng::CreateDaemon(int p_iServiceRow, ServiceInfo *p_refServiceI
 	if (NULL == p_refServiceInfo || !IsValidServiceInfo(*p_refServiceInfo))
 		return;
 
+	ServiceInfo stServiceInfo = *p_refServiceInfo;
+	stServiceInfo.iRow = p_iServiceRow;
+	stServiceInfo.strLabel = BuildServiceLabel(p_iServiceRow);
+	stServiceInfo.strCfg = m_strCfg;
+
 	bool bCreated = false;
 	bool bUpdated = false;
+	CThreadWork* pStaleWork = NULL;
 
 	m_DaemonLock.lock();
 	auto it = m_mapDaemon.find(p_iServiceRow);
+	if (it != m_mapDaemon.end() && it->second->m_bThreadWorkFinished.load())
+	{
+		pStaleWork = it->second;
+		m_mapDaemon.erase(it);
+		it = m_mapDaemon.end();
+	}
+
 	if (it == m_mapDaemon.end())
 	{
-		CThreadWork *work = new CThreadWork(p_refServiceInfo);
+		CThreadWork *work = new CThreadWork(&stServiceInfo);
 		m_mapDaemon[p_iServiceRow] = work;
 		bCreated = true;
 	}
 	else
 	{
 		// wyl 2026-05-06：守护线程已存在时只同步最新配置，不重复创建线程。
-		it->second->UpdateTime(p_refServiceInfo);
+		it->second->UpdateTime(&stServiceInfo);
 		bUpdated = true;
 	}
 	m_DaemonLock.unlock();
 
+	if (pStaleWork != NULL)
+	{
+		delete pStaleWork;
+		MT_WARN("[Worker] stale daemon replaced, row=%d,name=%s,path=%s",
+			p_iServiceRow, stServiceInfo.strName.c_str(), stServiceInfo.strPath.c_str());
+	}
+
 	if (bCreated)
 	{
 		MT_INFO("[Worker] daemon created, name=%s,path=%s",
-			p_refServiceInfo->strName.c_str(), p_refServiceInfo->strPath.c_str());
+			stServiceInfo.strName.c_str(), stServiceInfo.strPath.c_str());
 	}
 	else if (bUpdated)
 	{
 		MT_INFO("[Worker] daemon updated, name=%s,path=%s",
-			p_refServiceInfo->strName.c_str(), p_refServiceInfo->strPath.c_str());
+			stServiceInfo.strName.c_str(), stServiceInfo.strPath.c_str());
 	}
 
 	Sleep(50);
 }
 
-void CServiceDataMng::DestroyDaemon(int p_iServiceRow)
+bool CServiceDataMng::DestroyDaemon(int p_iServiceRow)
 {
-	bool bFlag = false;
+	CThreadWork* work = NULL;
 	string strName = "", strPath = "";
+
 	m_DaemonLock.lock();
-	if (m_mapDaemon.find(p_iServiceRow) != m_mapDaemon.end())
+	auto it = m_mapDaemon.find(p_iServiceRow);
+	if (it != m_mapDaemon.end())
 	{
-		CThreadWork *work = m_mapDaemon[p_iServiceRow];
-		bFlag = true;
-
+		work = it->second;
 		work->m_bExit = true;
-		while (work->m_bThreadWorkFinished == false) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(5));
-		}
-
 		strName = work->m_stServiceInfo.strName;
 		strPath = work->m_stServiceInfo.strPath;
-		
-		delete work;
-		work = NULL;
-		m_mapDaemon.erase(p_iServiceRow);
 	}
 	m_DaemonLock.unlock();
-	if (bFlag)
+
+	if (work == NULL)
+		return true;
+
+	const int iMaxWaitMs = 15000;
+	int iWaitedMs = 0;
+	while (!work->m_bThreadWorkFinished.load() && iWaitedMs < iMaxWaitMs)
 	{
-		MT_INFO("[Worker] service deleted, name=%s,path=%s",
-			strName.c_str(), strPath.c_str());
+		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		iWaitedMs += 20;
 	}
+
+	if (!work->m_bThreadWorkFinished.load())
+	{
+		MT_WARN("[Worker] daemon destroy timeout, row=%d,name=%s,path=%s",
+			p_iServiceRow, strName.c_str(), strPath.c_str());
+		return false;
+	}
+
+	m_DaemonLock.lock();
+	auto itErase = m_mapDaemon.find(p_iServiceRow);
+	if (itErase != m_mapDaemon.end() && itErase->second == work)
+	{
+		m_mapDaemon.erase(itErase);
+	}
+	m_DaemonLock.unlock();
+
+	delete work;
+	MT_INFO("[Worker] daemon destroyed, name=%s,path=%s",
+		strName.c_str(), strPath.c_str());
+	return true;
 }
 
 void CServiceDataMng::UpdateTimeDaemon(int p_iServiceRow, ServiceInfo *p_refServiceInfo)
 {
-	ServiceInfo stServiceInfo;
+	if (NULL == p_refServiceInfo)
+		return;
+
+	ServiceInfo stServiceInfo = *p_refServiceInfo;
+	bool bSynced = false;
+	bool bNeedCreate = false;
+	CThreadWork* pStaleWork = NULL;
+
 	m_DaemonLock.lock();
-	if (m_mapDaemon.find(p_iServiceRow) != m_mapDaemon.end())
+	auto it = m_mapDaemon.find(p_iServiceRow);
+	if (it != m_mapDaemon.end() && it->second->m_bThreadWorkFinished.load())
 	{
-		CThreadWork *work = m_mapDaemon[p_iServiceRow];
-		stServiceInfo = work->m_stServiceInfo;
-		work->UpdateTime(p_refServiceInfo);
+		pStaleWork = it->second;
+		m_mapDaemon.erase(it);
+		it = m_mapDaemon.end();
+	}
+
+	if (it != m_mapDaemon.end())
+	{
+		CThreadWork *work = it->second;
+		work->UpdateTime(&stServiceInfo);
+		bSynced = true;
+	}
+	else if (1 == stServiceInfo.iEnable)
+	{
+		bNeedCreate = true;
 	}
 	m_DaemonLock.unlock();
 
-	MT_INFO("[Worker] schedule synced, name=%s,path=%s",
-		stServiceInfo.strName.c_str(), stServiceInfo.strPath.c_str());
+	if (pStaleWork != NULL)
+	{
+		delete pStaleWork;
+		MT_WARN("[Worker] stale daemon removed before schedule sync, row=%d,name=%s,path=%s",
+			p_iServiceRow, stServiceInfo.strName.c_str(), stServiceInfo.strPath.c_str());
+	}
+
+	if (bSynced)
+	{
+		MT_INFO("[Worker] schedule synced, row=%d,name=%s,path=%s",
+			p_iServiceRow, stServiceInfo.strName.c_str(), stServiceInfo.strPath.c_str());
+	}
+	else if (bNeedCreate)
+	{
+		MT_WARN("[Worker] schedule changed but daemon missing, recreate, row=%d,name=%s,path=%s",
+			p_iServiceRow, stServiceInfo.strName.c_str(), stServiceInfo.strPath.c_str());
+		CreateDaemon(p_iServiceRow, &stServiceInfo);
+	}
+	else
+	{
+		MT_INFO("[Worker] schedule changed while service disabled, row=%d,name=%s,path=%s",
+			p_iServiceRow, stServiceInfo.strName.c_str(), stServiceInfo.strPath.c_str());
+	}
 }

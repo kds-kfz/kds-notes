@@ -15,8 +15,14 @@
 // CServiceApp
 
 BEGIN_MESSAGE_MAP(CServiceApp, CWinApp)
-	ON_COMMAND(ID_HELP, &CWinApp::OnHelp)
+	ON_COMMAND(ID_HELP, &CServiceApp::OnHelp)
 END_MESSAGE_MAP()
+
+
+void CServiceApp::OnHelp()
+{
+	// MtAssistant does not ship a help file; swallow F1/Help to avoid MFC's default error dialog.
+}
 
 
 // CServiceApp 构造
@@ -110,4 +116,3 @@ BOOL CServiceApp::InitInstance()
 	//  而不是启动应用程序的消息泵。
 	return FALSE;
 }
-

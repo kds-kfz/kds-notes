@@ -86,7 +86,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <TargetName>$(ProjectName)</TargetName>
-    <OutDir>$(SolutionDir)\bin\$(Platform)vc14</OutDir>
+    <OutDir>$(SolutionDir)\bin\$(Platform)vc14\</OutDir>
     <IntDir>$(ProjectDir)\Temp\VC++\MT\$(ProjectName)\$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -97,11 +97,16 @@
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <DisableSpecificWarnings>4190;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories>.\vender\tinyxml\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>version.lib;tinyxml.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>.\vender\tinyxml\lib\Win32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>if not exist "$(OutDir)MtAssistant.xml" copy /Y "$(ProjectDir)conf\MtAssistant.xml" "$(OutDir)MtAssistant.xml"</Command>
+    </PostBuildEvent>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
       <ValidateAllParameters>true</ValidateAllParameters>
@@ -120,14 +125,17 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_WINDOWS;_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>.\;.\public;.\vender\nsdk\include;.\vender\thread\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;.\public;.\vender\nsdk\include;.\vender\thread\include;%(AdditionalIncludeDirectories);.\vender\tinyxml\include</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4190;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalLibraryDirectories>.\lib64;.\vender\nsdk\lib\$(Platform)vc14;$(SolutionDir)\vender\thread\lib\$(Platform)vc14</AdditionalLibraryDirectories>
-      <AdditionalDependencies>version.lib;libnsdk.lib;pthreadVC2.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>.\lib64;.\vender\nsdk\lib\$(Platform)vc14;$(SolutionDir)\vender\thread\lib\$(Platform)vc14;.\vender\tinyxml\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>version.lib;libnsdk.lib;pthreadVC2.lib;tinyxml.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>if not exist "$(OutDir)MtAssistant.xml" copy /Y "$(ProjectDir)conf\MtAssistant.xml" "$(OutDir)MtAssistant.xml"</Command>
+    </PostBuildEvent>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
       <ValidateAllParameters>true</ValidateAllParameters>
@@ -149,13 +157,18 @@
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <DisableSpecificWarnings>4190;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <AdditionalIncludeDirectories>.\vender\tinyxml\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>version.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>version.lib;tinyxml.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>.\vender\tinyxml\lib\Win32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PostBuildEvent>
+      <Command>if not exist "$(OutDir)MtAssistant.xml" copy /Y "$(ProjectDir)conf\MtAssistant.xml" "$(OutDir)MtAssistant.xml"</Command>
+    </PostBuildEvent>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
       <ValidateAllParameters>true</ValidateAllParameters>
@@ -176,7 +189,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>_WINDOWS;NDEBUG;_CRT_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>.\;.\public;.\vender\nsdk\include;.\vender\thread\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;.\public;.\vender\nsdk\include;.\vender\thread\include;%(AdditionalIncludeDirectories);.\vender\tinyxml\include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp14</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <DisableSpecificWarnings>4190;%(DisableSpecificWarnings)</DisableSpecificWarnings>
@@ -185,9 +198,12 @@
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(SolutionDir)\vender\nsdk\lib\$(Platform)vc14;$(SolutionDir)\vender\thread\lib\$(Platform)vc14</AdditionalLibraryDirectories>
-      <AdditionalDependencies>version.lib;libnsdk.lib;pthreadVC2.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\vender\nsdk\lib\$(Platform)vc14;$(SolutionDir)\vender\thread\lib\$(Platform)vc14;.\vender\tinyxml\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>version.lib;libnsdk.lib;pthreadVC2.lib;tinyxml.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>if not exist "$(OutDir)MtAssistant.xml" copy /Y "$(ProjectDir)conf\MtAssistant.xml" "$(OutDir)MtAssistant.xml"</Command>
+    </PostBuildEvent>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
       <ValidateAllParameters>true</ValidateAllParameters>
@@ -209,6 +225,7 @@
     <ClInclude Include="public\Thread.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Service.h" />
+    <ClInclude Include="ServiceConfigXml.h" />
     <ClInclude Include="ServiceDataMng.h" />
     <ClInclude Include="ServiceDlg.h" />
     <ClInclude Include="stdafx.h" />
@@ -232,6 +249,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Service.cpp" />
+    <ClCompile Include="ServiceConfigXml.cpp" />
     <ClCompile Include="ServiceDataMng.cpp" />
     <ClCompile Include="ServiceDlg.cpp" />
     <ClCompile Include="stdafx.cpp">
@@ -247,6 +265,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="res\MtAssistant.rc2" />
+    <None Include="conf\MtAssistant.xml" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\MtAssistant.ico" />

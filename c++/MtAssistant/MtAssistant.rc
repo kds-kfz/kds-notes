@@ -99,8 +99,8 @@ FONT 9, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
     GROUPBOX        "Program",IDC_STATIC,389,5,155,251
     LTEXT           "Choose:",IDC_CHOOSE_STATIC,397,19,36,11
-    PUSHBUTTON      "Add",IDC_ADD_BUTTON,433,36,36,14
-    PUSHBUTTON      "Delete",IDC_DEL_BUTTON,469,36,36,14
+    PUSHBUTTON      "Add",IDC_ADD_BUTTON,422,36,30,14
+    PUSHBUTTON      "Delete",IDC_DEL_BUTTON,452,36,30,14
     LTEXT           "Args:",IDC_PARAM_STATIC,396,61,37,11
     GROUPBOX        "Schedule",IDC_STATIC,393,76,147,173
     LTEXT           "Week:",IDC_WEEK_STATIC,412,89,26,11
@@ -112,11 +112,12 @@ BEGIN
     PUSHBUTTON      "Add",IDC_TIME_ADD_BUTTON,413,146,36,14
     EDITTEXT        IDC_PARAM_EDIT,443,58,96,14,ES_AUTOHSCROLL
     EDITTEXT        IDC_EXE_EDIT,436,17,103,14,ES_AUTOHSCROLL | ES_READONLY
-    CONTROL         "",IDC_SERVICE_LIST,"SysListView32",LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,5,5,380,251
+    CONTROL         "",IDC_SERVICE_LIST,"SysListView32",LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,5,5,381,251
     CONTROL         "",IDC_TIME_LIST,"SysListView32",LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,399,166,136,77
-    PUSHBUTTON      "Browse",IDC_LOOK_BUTTON,397,36,36,14
+    PUSHBUTTON      "Browse",IDC_LOOK_BUTTON,392,36,30,14
     COMBOBOX        IDC_WEEK_COMBO,443,87,89,86,CBS_DROPDOWN | WS_VSCROLL,WS_EX_STATICEDGE
-    PUSHBUTTON      "Log",IDC_LOG_BUTTON,505,36,36,14
+    PUSHBUTTON      "Log",IDC_LOG_BUTTON,512,36,30,14
+    PUSHBUTTON      "Stop",IDC_STOP_BUTTON,482,36,30,14
 END
 
 IDD_LOG_DIALOG DIALOGEX 0, 0, 328, 209
@@ -148,8 +149,8 @@ END
 //
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 1,0,0,1
- PRODUCTVERSION 1,0,0,1
+ FILEVERSION 1,0,0,2
+ PRODUCTVERSION 1,0,0,2
  FILEFLAGSMASK 0x3fL
 #ifdef _DEBUG
  FILEFLAGS 0x1L
@@ -166,12 +167,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "Shenzhen Kingdom Technology Co., Ltd."
             VALUE "FileDescription", "MtAssistant.exe"
-            VALUE "FileVersion", "1.0.0.1"
+            VALUE "FileVersion", "1.0.0.2"
             VALUE "InternalName", "MtAssistant.exe"
             VALUE "LegalCopyright", "All rights reserved."
             VALUE "OriginalFilename", "MtAssistant.exe"
             VALUE "ProductName", "MtAssistant.exe"
-            VALUE "ProductVersion", "1.0.0.1"
+            VALUE "ProductVersion", "1.0.0.2"
         END
     END
     BLOCK "VarFileInfo"

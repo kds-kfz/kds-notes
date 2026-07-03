@@ -23,6 +23,7 @@ public:
 // ÷ÿ–¥
 public:
 	virtual BOOL InitInstance();
+	afx_msg void OnHelp();
 
 //  µœ÷
 

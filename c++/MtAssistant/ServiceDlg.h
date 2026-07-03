@@ -30,12 +30,14 @@ protected:
 
 	// 生成的消息映射函数
 	virtual BOOL OnInitDialog();
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
 	bool m_bStatus;// wyl 2026-05-06：标记主窗口是否已进入可刷新状态，避免销毁期间继续更新UI。
+	bool m_bStopPending;// wyl 2026-07-03：Stop后台执行中，防止重复点击造成UI阻塞或重复停止。
 	CFont m_Font;
 	CListCtrl m_ServiceList;// wyl 2026-05-06：服务列表，状态列统一由UI线程刷新。
 	CEdit m_AppPathEdit;
@@ -46,6 +48,8 @@ public:
 	CListCtrl m_TimeList;
 
 	int GetSelectedItemIndex(CListCtrl& p_listCtrl);
+	void ClearServiceDetail();
+	void ReloadServiceList();
 
 	afx_msg void OnNMClickServiceList(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnItemchangedList(NMHDR* pNMHDR, LRESULT* pResult);// wyl 2026-05-06：处理复选框启停，过滤无关状态变化。
@@ -59,4 +63,8 @@ public:
 	afx_msg void OnCbnSelchangeWeekCombo();
 	afx_msg void OnClose();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);// wyl 2026-05-06：UI线程定时刷新服务运行状态。
+	afx_msg BOOL OnHelpInfo(HELPINFO* pHelpInfo);
+	afx_msg void OnHelp();
+	afx_msg void OnBnClickedStopButton();
+	afx_msg LRESULT OnStopServiceDone(WPARAM wParam, LPARAM lParam);
 };

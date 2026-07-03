@@ -217,7 +217,7 @@ namespace
 		CloseWindowData* pData = reinterpret_cast<CloseWindowData*>(lParam);
 		DWORD dwPid = 0;
 		GetWindowThreadProcessId(hWnd, &dwPid);
-		if (dwPid != 0 && pData->psetPids->find(dwPid) != pData->psetPids->end())
+		if (dwPid != 0 && dwPid != GetCurrentProcessId() && pData->psetPids->find(dwPid) != pData->psetPids->end())
 			PostMessage(hWnd, WM_CLOSE, 0, 0);
 		return TRUE;
 	}
@@ -385,11 +385,15 @@ int StopProcessTree(long p_lProcessID, const char* p_szProcessName, const char* 
 	if (vecTargets.empty())
 		return 0;
 
-	// wyl 2026-05-06：先发送窗口关闭和控制台中断，让服务有机会自行释放资源。
-	RequestCloseWindows(vecTargets);
-	RequestConsoleBreak(vecTargets);
-	// wyl 2026-05-06：最多等待5分钟优雅退出，具体等待时长由调用方传入。
-	bool bExited = WaitTargetsExit(setRoots, p_szProcessName, p_szProcessFullPath, p_szWindowTitle, p_iGracefulWaitMs);
+	bool bExited = false;
+	if (p_iGracefulWaitMs > 0)
+	{
+		// wyl 2026-05-06：先发送窗口关闭和控制台中断，让服务有机会自行释放资源。
+		RequestCloseWindows(vecTargets);
+		RequestConsoleBreak(vecTargets);
+		// wyl 2026-05-06：最多等待5分钟优雅退出，具体等待时长由调用方传入。
+		bExited = WaitTargetsExit(setRoots, p_szProcessName, p_szProcessFullPath, p_szWindowTitle, p_iGracefulWaitMs);
+	}
 	if (!bExited)
 	{
 		// wyl 2026-05-06：优雅等待超时后再次扫描，按最新进程树执行强杀兜底。

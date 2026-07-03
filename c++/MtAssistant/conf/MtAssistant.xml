@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<MtAssistant>
+    <!-- Log: log config. level supports debug/info/warn/error. Default is info. -->
+    <Log level="info"/>
+    <!-- Services: programs managed by MtAssistant. -->
+    <Services>
+        <!-- Service: name is file name; path must be a full absolute program path; enable starts daemon; pid is last runtime pid; check enables launch outside schedule. -->
+        <Service name="TradingTerminal.exe" path="F:\gwz\trank\mt5-terminal-v2\bin\x64vc14\TradingTerminal.exe" enable="0" pid="-1" check="1">
+            <!-- Schedule: restart time group. week can be Mon/Tue/Wed/Thu/Fri/Sat/Sun. -->
+            <Schedule week="Sun">
+                <!-- Time: restart time range. start/end format is HH:mm:ss. -->
+                <Time start="0:0:0" end="0:1:0"/>
+            </Schedule>
+        </Service>
+    </Services>
+</MtAssistant>

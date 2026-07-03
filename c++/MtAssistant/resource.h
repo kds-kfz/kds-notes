@@ -17,6 +17,7 @@
 #define IDC_LOOK_BUTTON                 1006
 #define IDC_WEEK_STATIC                 1008
 #define IDC_START_STATIC                1009
+#define IDC_STOP_BUTTON                 1010
 #define IDC_WEEK_COMBO                  1011
 #define IDC_END_STATIC                  1013
 #define IDC_TIME_DEL_BUTTON             1014
@@ -28,9 +29,9 @@
 #define IDC_SERVICE_LIST                1026
 #define IDC_TIME_LIST                   1027
 #define IDC_LIST_LOG                    1032
-#define IDC_PICK_UP_BUTTON              1035
 #define IDC_PICK_PATH_EDIT              1033
 #define IDC_PICK_FILE_LIST              1034
+#define IDC_PICK_UP_BUTTON              1035
 
 // Next default values for new objects
 // 
