@@ -8,9 +8,27 @@
 #include "Log.h"
 #include "publicfunc.h"
 #include "publicGlobalvar.h"
+#include "ServerRuntimeContext.h"
 
 namespace
 {
+	int HexDigitValue(char p_chValue)
+	{
+		if (p_chValue >= '0' && p_chValue <= '9')
+		{
+			return p_chValue - '0';
+		}
+		if (p_chValue >= 'A' && p_chValue <= 'F')
+		{
+			return p_chValue - 'A' + 10;
+		}
+		if (p_chValue >= 'a' && p_chValue <= 'f')
+		{
+			return p_chValue - 'a' + 10;
+		}
+		return -1;
+	}
+
 	char ToLowerAscii(char ch)
 	{
 		return (ch >= 'A' && ch <= 'Z') ? (ch - 'A' + 'a') : ch;
@@ -21,15 +39,22 @@ namespace
 		return (nullptr == p_szValue) ? 0 : strlen(p_szValue);
 	}
 
-	void ClearHttpActiveReq(CONNID dwConnID, unsigned long long ullReqID)
+	void ClearHttpActiveReq(ST_HTTP_SERVER_RUNTIME* p_pRuntime,
+		CONNID dwConnID, unsigned long long ullReqID)
 	{
-		pthread_mutex_lock(&g_mutexHttpReq);
-		std::map<CONNID, unsigned long long>::iterator itActive = g_mapHttpConnActiveReq.find(dwConnID);
-		if (itActive != g_mapHttpConnActiveReq.end() && itActive->second == ullReqID)
+		if (p_pRuntime == nullptr)
 		{
-			g_mapHttpConnActiveReq.erase(itActive);
+			return;
 		}
-		pthread_mutex_unlock(&g_mutexHttpReq);
+		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		std::map<CONNID, unsigned long long>::iterator itActive =
+			p_pRuntime->mapActiveRequest.find(dwConnID);
+		if (itActive != p_pRuntime->mapActiveRequest.end() &&
+			itActive->second == ullReqID)
+		{
+			p_pRuntime->mapActiveRequest.erase(itActive);
+		}
+		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
 	}
 
 	bool HttpSocketIsConnectedNoThrow(IHttpServer* pSender, CONNID dwConnID, unsigned long long ullReqID)
@@ -52,12 +77,13 @@ namespace
 		return bAlive ? true : false;
 	}
 
-	bool IsHttpTransportSendable(IHttpServer* pSender, CONNID dwConnID, unsigned long long ullReqID)
+	bool IsHttpTransportSendable(ST_HTTP_SERVER_RUNTIME* p_pRuntime,
+		IHttpServer* pSender, CONNID dwConnID, unsigned long long ullReqID)
 	{
 		// wyl 2026-05-19：异步回包前同时校验全局服务状态和 HP-Socket 连接状态，避免回包到已关闭连接。
-		return nullptr != pSender
-			&& g_bHttpServerStatus
-			&& pSender == g_CHttpPackServer
+		return p_pRuntime != nullptr && pSender != nullptr
+			&& p_pRuntime->bServerStatus.load()
+			&& pSender == p_pRuntime->pPackServer
 			&& HttpSocketIsConnectedNoThrow(pSender, dwConnID, ullReqID);
 	}
 
@@ -124,9 +150,10 @@ namespace
 	}
 }
 
-CHttpAsynReqObj::CHttpAsynReqObj()
-	: m_pSender(nullptr), m_dwConnID(0), m_ullReqID(0), m_unClientPort(0),
+CHttpAsynReqObj::CHttpAsynReqObj(ST_HTTP_SERVER_RUNTIME* p_pRuntime)
+	: m_pRuntime(p_pRuntime), m_pSender(nullptr), m_dwConnID(0), m_ullReqID(0), m_unClientPort(0),
 	m_enHttpStatus(OK), m_bDispatched(false), m_bKeepAlive(false), m_bResponseSent(false),
+	m_bRequestRejected(false), m_enRequestRejectStatus(BadRequest),
 	m_uiRequestHeadCount(0), m_uiRequestHeadBytes(0)
 {
 	memset(m_szClientIp, 0, sizeof(m_szClientIp));
@@ -139,6 +166,32 @@ CHttpAsynReqObj::~CHttpAsynReqObj()
 const char* CHttpAsynReqObj::GetUrl()
 {
 	return m_strUrl.empty() ? nullptr : m_strUrl.c_str();
+}
+
+const char* CHttpAsynReqObj::GetRawUrl()
+{
+	return m_strRawUrl.empty() ? nullptr : m_strRawUrl.c_str();
+}
+
+const char* CHttpAsynReqObj::GetQueryString()
+{
+	return m_strQueryString.empty() ? nullptr : m_strQueryString.c_str();
+}
+
+const char* CHttpAsynReqObj::GetParam(const char* p_szName)
+{
+	if (nullptr == p_szName || '\0' == *p_szName)
+		return nullptr;
+
+	for (std::vector<ST_HTTP_QUERY_PARAM>::const_iterator itParam = m_vecQueryParam.begin();
+		itParam != m_vecQueryParam.end(); ++itParam)
+	{
+		if (itParam->strName == p_szName)
+		{
+			return itParam->strValue.c_str();
+		}
+	}
+	return nullptr;
 }
 
 const char* CHttpAsynReqObj::GetMethodType()
@@ -250,11 +303,11 @@ bool CHttpAsynReqObj::SendResponse(const void* p_szData, int p_iLen)
 		return false;
 	}
 
-	if (!IsHttpTransportSendable(pSender, dwConnID, ullReqID))
+	if (!IsHttpTransportSendable(m_pRuntime, pSender, dwConnID, ullReqID))
 	{
 		HTTP_WARN("ReqID=%llu,ConnID=%llu,SkipSendResponseClosed,Status=%d,BodyLen=%d",
 			ullReqID, (unsigned long long)dwConnID, (int)m_enHttpStatus, iBodyLen);
-		ClearHttpActiveReq(dwConnID, ullReqID);
+		ClearHttpActiveReq(m_pRuntime, dwConnID, ullReqID);
 		DetachTransport();
 		return false;
 	}
@@ -265,14 +318,14 @@ bool CHttpAsynReqObj::SendResponse(const void* p_szData, int p_iLen)
 	{
 		HTTP_ERROR("ReqID=%llu,ConnID=%llu,SendResponseFail,err=%d",
 			ullReqID, (unsigned long long)dwConnID, SYS_GetLastError());
-		ClearHttpActiveReq(dwConnID, ullReqID);
+		ClearHttpActiveReq(m_pRuntime, dwConnID, ullReqID);
 		DetachTransport();
 		return false;
 	}
 
 	m_bResponseSent = true;
 	// wyl 2026-04-25：只有当本次响应已经被底层网络层接受后，才清理当前连接的活动请求限制。
-	ClearHttpActiveReq(dwConnID, ullReqID);
+	ClearHttpActiveReq(m_pRuntime, dwConnID, ullReqID);
 
 	if (m_bKeepAlive)
 	{
@@ -325,6 +378,54 @@ void CHttpAsynReqObj::SetMethod(const char* p_szMethod)
 void CHttpAsynReqObj::SetUrl(const char* p_szUrl)
 {
 	m_strUrl = (nullptr == p_szUrl) ? "" : p_szUrl;
+}
+
+EN_HTTP_QUERY_PARSE_RESULT CHttpAsynReqObj::SetRequestUrl(const char* p_szRawUrl, const char* p_szQuery,
+	size_t p_uiMaxRawUrlBytes, size_t p_uiMaxQueryParamCount,
+	size_t& p_refUiObservedRawUrlBytes, size_t& p_refUiObservedQueryParamCount)
+{
+	p_refUiObservedRawUrlBytes = 0;
+	p_refUiObservedQueryParamCount = 0;
+	m_strRawUrl.clear();
+	m_strQueryString.clear();
+	m_vecQueryParam.clear();
+
+	if (nullptr == p_szRawUrl)
+	{
+		return HTTP_QUERY_PARSE_OK;
+	}
+
+	// 有界计算请求目标长度，异常长 URL 不再触发无上限扫描和分配。
+	p_refUiObservedRawUrlBytes = strnlen_s(p_szRawUrl, p_uiMaxRawUrlBytes + 1);
+	if (p_refUiObservedRawUrlBytes > p_uiMaxRawUrlBytes)
+	{
+		return HTTP_QUERY_PARSE_RAW_URL_TOO_LONG;
+	}
+	m_strRawUrl.assign(p_szRawUrl, p_refUiObservedRawUrlBytes);
+
+	if (nullptr != p_szQuery)
+	{
+		const size_t uiQueryLength = strnlen_s(p_szQuery, p_uiMaxRawUrlBytes + 1);
+		if (uiQueryLength > p_uiMaxRawUrlBytes)
+		{
+			return HTTP_QUERY_PARSE_RAW_URL_TOO_LONG;
+		}
+		m_strQueryString.assign(p_szQuery, uiQueryLength);
+	}
+	else
+	{
+		// 仅在底层没有提供 HUF_QUERY 时回退到 raw URL，正常 GET 请求不走重复定位。
+		const size_t uiQueryPos = m_strRawUrl.find('?');
+		if (uiQueryPos != std::string::npos)
+		{
+			const size_t uiQueryBegin = uiQueryPos + 1;
+			const size_t uiFragmentPos = m_strRawUrl.find('#', uiQueryBegin);
+			const size_t uiQueryEnd = uiFragmentPos == std::string::npos ? m_strRawUrl.size() : uiFragmentPos;
+			m_strQueryString.assign(m_strRawUrl.data() + uiQueryBegin, uiQueryEnd - uiQueryBegin);
+		}
+	}
+
+	return ParseQueryString(p_uiMaxQueryParamCount, p_refUiObservedQueryParamCount);
 }
 
 void CHttpAsynReqObj::SetAddress(const char* p_szClientIp, unsigned short p_unClientPort)
@@ -414,7 +515,7 @@ bool CHttpAsynReqObj::AppendContent(const unsigned char* p_pData, int p_iLen, si
 
 void CHttpAsynReqObj::AbortRequest()
 {
-	ClearHttpActiveReq(m_dwConnID, m_ullReqID);
+	ClearHttpActiveReq(m_pRuntime, m_dwConnID, m_ullReqID);
 
 	IHttpServer* pSender = m_pSender;
 	const CONNID dwConnID = m_dwConnID;
@@ -475,4 +576,92 @@ std::string CHttpAsynReqObj::NormalizeHeaderName(const char* p_szName)
 		++p_szName;
 	}
 	return strHeaderName;
+}
+
+void CHttpAsynReqObj::SetRequestReject(HttpStatusType p_enStatus, const char* p_szReason)
+{
+	m_bRequestRejected = true;
+	m_enRequestRejectStatus = p_enStatus;
+	m_strRequestRejectReason = nullptr == p_szReason ? "request rejected" : p_szReason;
+}
+
+bool CHttpAsynReqObj::HasRequestReject() const
+{
+	return m_bRequestRejected;
+}
+
+HttpStatusType CHttpAsynReqObj::GetRequestRejectStatus() const
+{
+	return m_enRequestRejectStatus;
+}
+
+const char* CHttpAsynReqObj::GetRequestRejectReason() const
+{
+	return m_strRequestRejectReason.empty() ? "request rejected" : m_strRequestRejectReason.c_str();
+}
+
+EN_HTTP_QUERY_PARSE_RESULT CHttpAsynReqObj::ParseQueryString(size_t p_uiMaxQueryParamCount,
+	size_t& p_refUiObservedQueryParamCount)
+{
+	m_vecQueryParam.clear();
+	p_refUiObservedQueryParamCount = 0;
+	if (m_strQueryString.empty())
+	{
+		return HTTP_QUERY_PARSE_OK;
+	}
+
+	// 常用接口只有少量参数，先预留八项可避免正常请求扩容，又不放大每个请求的固定内存。
+	m_vecQueryParam.reserve(8);
+	ST_HTTP_QUERY_PARAM stParam;
+	bool bReadingValue = false;
+	bool bSegmentHasText = false;
+	for (size_t uiIndex = 0; uiIndex <= m_strQueryString.size(); ++uiIndex)
+	{
+		const bool bAtEnd = uiIndex == m_strQueryString.size();
+		const char chRaw = bAtEnd ? '&' : m_strQueryString[uiIndex];
+		if (chRaw == '&')
+		{
+			if (bSegmentHasText)
+			{
+				++p_refUiObservedQueryParamCount;
+				if (p_refUiObservedQueryParamCount > p_uiMaxQueryParamCount)
+				{
+					return HTTP_QUERY_PARSE_PARAM_TOO_MANY;
+				}
+				if (!stParam.strName.empty())
+				{
+					m_vecQueryParam.push_back(std::move(stParam));
+				}
+			}
+			stParam = ST_HTTP_QUERY_PARAM();
+			bReadingValue = false;
+			bSegmentHasText = false;
+			continue;
+		}
+		bSegmentHasText = true;
+		if (chRaw == '=' && !bReadingValue)
+		{
+			bReadingValue = true;
+			continue;
+		}
+
+		char chDecoded = chRaw == '+' ? ' ' : chRaw;
+		if (chRaw == '%' && uiIndex + 2 < m_strQueryString.size())
+		{
+			const int iHigh = HexDigitValue(m_strQueryString[uiIndex + 1]);
+			const int iLow = HexDigitValue(m_strQueryString[uiIndex + 2]);
+			if (iHigh >= 0 && iLow >= 0)
+			{
+				chDecoded = static_cast<char>((iHigh << 4) | iLow);
+				uiIndex += 2;
+			}
+		}
+		if ('\0' == chDecoded)
+		{
+			return HTTP_QUERY_PARSE_DECODED_NUL;
+		}
+		std::string& refStrTarget = bReadingValue ? stParam.strValue : stParam.strName;
+		refStrTarget.push_back(chDecoded);
+	}
+	return HTTP_QUERY_PARSE_OK;
 }

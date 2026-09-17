@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 开发配置：JetStream 可以关闭，Best Effort 行情中继仍可独立运行。 -->
+<CloudNetDataApi>
+	<!-- Application：当前 EXE 自身配置，不传递给 IceRPCPush。 -->
+	<Application>
+		<!-- maxQueueEntries 为最大条数，maxQueueBytes 为最大字节数，flushIntervalMs 为后台唤醒毫秒数；满载丢弃 DEBUG/INFO，WARN/ERROR 也不得突破硬上限。 -->
+		<!-- Log：path 相对 EXE；name 是日志前缀；level 支持 debug/info/warn/error/off，日志实现直接复用 V2 公共组件。 -->
+		<Log path="log/MtEventService" name="MtEventService" level="info" maxQueueEntries="65536" maxQueueBytes="67108864" flushIntervalMs="100" />
+	</Application>
+	<!-- Cluster：dev 关闭分布式租约，所有 Version+No 保持单实例兼容行为。 -->
+	<Cluster enable="0" />
+	<!-- 第二阶段高可用示例，启用前必须完成多 Event 实例、Core NATS 广播和接管联调。
+	<Cluster enable="1" instanceId="MtEventService-01" nodeId="CloudNetNode1" adapterId="MtEventServiceRPC-1"
+		leaseBucket="MT_TRADING_CLUSTER" leaseTtlMs="15000" renewIntervalMs="5000" failClosedMs="10000" replicas="3">
+		<Server url="nats://127.0.0.1:4222" />
+	</Cluster>
+	-->
+	<!-- MtEventService：隔离 1211 Best Effort 行情和 122x/124x Reliable 两类引擎。 -->
+	<MtEventService>
+		<!-- MarketEvent：同一 Version+No 固定映射到一个工作线程；queueCapacity 是全部分片共享上限。 -->
+		<!-- queueCapacity=0 不因容量主动淘汰；正数 128-10000000 时满载淘汰最旧 Tick；dropLogIntervalMs 限制告警频率。 -->
+		<MarketEvent workerThreads="4" queueCapacity="0" dropLogIntervalMs="10000" />
+		<!-- Broadcast：第一阶段关闭跨实例广播，通知直接扇出到当前进程的 Ice 订阅者；第二阶段才改为 1。 -->
+		<Broadcast enable="0" subject="mt.event.broadcast" maxPayloadBytes="8388608"
+			dedupeCapacity="500000" pendingMessages="200000" pendingBytes="268435456" />
+		<!-- ReliableEvent：enable=1 时启动必须连接 JetStream；URL 不得携带生产明文凭据。 -->
+		<!-- Stream 使用文件存储，EventId 作为 Nats-Msg-Id 去重；消费者通过 1173/1174 显式拉取和 ACK。 -->
+		<!-- 第一阶段：单个 NATS JetStream 节点，Reliable Event 必须启用并显式使用 1 副本。 -->
+		<!-- 第二阶段高可用：部署至少 3 个 NATS 节点后，将 replicas 改为 3；当前不生效。 -->
+		<ReliableEvent enable="1"
+			url="nats://127.0.0.1:4222"
+			stream="MT_TRADING_EVENTS"
+			subjectPrefix="mt.trade"
+			maxAgeSeconds="604800"
+			maxBytes="10737418240"
+			duplicateWindowSeconds="86400"
+			replicas="1"
+			fetchBatchMax="256"
+			fetchWaitMs="1000"
+			maxDeliver="20" />
+	</MtEventService>
+	<!-- IceRPCPush：底层 Ice 3.8.2、Binary、推送和日志参数。 -->
+	<IceRPCPush>
+		<!-- Ice：以 Property 的 name/value 表示 Ice 运行时属性。 -->
+		<Ice>
+			<!-- Ice.Default.Locator：MtIceGrid 注册中心地址，六服务必须完全一致。 -->
+			<Property name="Ice.Default.Locator" value="MtIceGrid/Locator:default -h 127.0.0.1 -p 18000:default -h 127.0.0.1 -p 18010" />
+			<!-- Ice.ProgramName：Ice 诊断信息中的当前进程名称。 -->
+			<Property name="Ice.ProgramName" value="MtEventService" />
+			<!-- Ice.MessageSizeMax：单条 Ice 消息上限，单位 KiB；65536 表示 64 MiB。 -->
+			<Property name="Ice.MessageSizeMax" value="65536" />
+			<!-- Identity：本地对象标识，必须与 Local.service 一致。 -->
+			<Property name="Identity" value="MtEventServiceRPC" />
+			<!-- MtEventServiceRPC.Endpoints：本地对象适配器监听地址；端口 30005 只属于 MtEventService。 -->
+			<Property name="MtEventServiceRPC.Endpoints" value="tcp -z -h * -p 30005" />
+			<!-- MtEventServiceRPC.AdapterId：向 Locator 动态登记的适配器标识，客户端间接代理必须引用该值。 -->
+			<Property name="MtEventServiceRPC.AdapterId" value="MtEventServiceRPC" />
+			<!-- MtQuoteServiceRPC：Event 通过 Locator 连接 Quote 并注册 1211 推送。 -->
+			<Property name="MtQuoteServiceRPC" value="MtQuoteServiceRPC@MtQuoteServiceRPC" />
+			<Property name="MtQuoteServiceRPCClient.Endpoints" value="default -z -h localhost" />
+			<!-- MtDeriveServiceRPC：Event 通过 Locator 连接 Derive 并注册 1251/1252 派生通知。 -->
+			<Property name="MtDeriveServiceRPC" value="MtDeriveServiceRPC@MtDeriveServiceRPC" />
+			<Property name="MtDeriveServiceRPCClient.Endpoints" value="default -z -h localhost" />
+		</Ice>
+		<!-- ICEPUSH：Binary 限制、异步行为和底层推送参数。 -->
+		<ICEPUSH>
+			<!-- AsyncWaitCompleted：0 表示异步提交后立即返回，不把异步接口退化为同步等待。 -->
+			<AsyncWaitCompleted>0</AsyncWaitCompleted>
+			<!-- BinaryProtocolVersion：CloudNetDataApi Binary 传输版本，当前固定为 1。 -->
+			<BinaryProtocolVersion>1</BinaryProtocolVersion>
+			<!-- BinaryCompressionThresholdBytes：载荷达到该字节数后尝试 Snappy，仅在压缩结果更小时启用。 -->
+			<BinaryCompressionThresholdBytes>1024</BinaryCompressionThresholdBytes>
+			<!-- BinaryMaxPayloadBytes：主载荷与扩展载荷原始总长度上限，52428800 为 50 MiB。 -->
+			<BinaryMaxPayloadBytes>52428800</BinaryMaxPayloadBytes>
+			<!-- BinaryCallTimeoutMs：同步 Binary RPC/PUT 超时毫秒数。 -->
+			<BinaryCallTimeoutMs>15000</BinaryCallTimeoutMs>
+			<!-- BinaryServerWorkerThreads：服务端 Binary 有界队列工作线程数。 -->
+			<BinaryServerWorkerThreads>4</BinaryServerWorkerThreads>
+			<!-- BinaryServerQueueCapacity：服务端待处理请求上限，队列满时立即返回错误。 -->
+			<BinaryServerQueueCapacity>4096</BinaryServerQueueCapacity>
+			<!-- BinaryMaxPendingAsync：客户端未完成异步请求上限。 -->
+			<BinaryMaxPendingAsync>10000</BinaryMaxPendingAsync>
+			<!-- LogLevel：IceRPCPush 底层日志级别；目录固定为 EXE 同级 PushLog，文件名前缀自动包含当前 EXE 名。 -->
+			<LogLevel>info</LogLevel>
+			<!-- RPCPushmax：底层服务允许保存的推送注册客户端上限。 -->
+			<RPCPushmax>4096</RPCPushmax>
+			<!-- 未启用旧 TCP/UDP/组播快速推送端口，统一走 Ice RegisterPush/Publish。 -->
+			<RPCPushBindport>0</RPCPushBindport>
+			<RPCXPushBindport>0</RPCXPushBindport>
+			<RPCPushport>0</RPCPushport>
+			<RPCXPushport>0</RPCXPushport>
+			<RPCMPushport>0</RPCMPushport>
+		</ICEPUSH>
+	</IceRPCPush>
+	<!-- CloudNet：CloudNetDataApi 的本地服务、重连和推送续约配置。 -->
+	<CloudNet>
+		<!-- Log：CloudNetDataApi 独立错误日志；路径相对 EXE，文件名为 MtEventServiceCloudNet_YYYYMMDD.log。 -->
+		<Log path="log/MtEventService" name="MtEventServiceCloudNet" level="info" />
+		<!-- Local：id 是 LoadConfig 使用的插件名；service 是 Ice 对象名；startService=1 启动服务端；snappy=1 允许压缩。 -->
+		<Local id="MtEventService" service="MtEventServiceRPC" startService="1" snappy="1" />
+		<!-- Runtime：重连间隔 5 秒；推送注册 240 秒续约；threadPool=0 使用底层默认客户端线程池。 -->
+		<Runtime reconnectIntervalMs="5000" renewIntervalSec="240" threadPool="0" />
+		<!-- Services：当前服务需要主动调用的远端连接表。 -->
+		<Services>
+			<!-- autoConnect=1：Quote 后启动或重启时由 CloudNetDataApi 后台自动恢复连接。 -->
+			<Service id="MtQuoteService" proxy="MtQuoteServiceRPC" autoConnect="1" />
+			<!-- Derive 后启动或重启时自动恢复收益和权威 M1 的推送注册。 -->
+			<Service id="MtDeriveService" proxy="MtDeriveServiceRPC" autoConnect="1" />
+		</Services>
+		<!-- Subscriptions：当前服务需要注册并定时续约的推送订阅。 -->
+		<Subscriptions>
+			<!-- pluginId 是 Quote 服务端注册表中的唯一消费者身份；subInfo 用数字登记当前只消费 1211。 -->
+			<Subscribe target="MtQuoteService" pluginId="MtEventService-Quote-01" subInfo="|1211" enable="1" />
+			<!-- 只订阅 Derive 的收益和权威 M1；Event 校验来源与 Binary 后再以自身身份中继。 -->
+			<Subscribe target="MtDeriveService" pluginId="MtEventService-Derive-01" subInfo="|1251|1252" enable="1" />
+		</Subscriptions>
+	</CloudNet>
+</CloudNetDataApi>

@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	CloudNetDataApi IceGrid 应用模板。
+	当前 v1 优先支持插件自行启动 + Locator 动态注册；本模板用于后续切换到 IceGrid 托管插件进程。
+	服务名与 CloudNetDataApi\IceRPCPush.xml 的 6 插件模型保持一致。
+
+	配置项说明：
+	- application.name：Registry 中的应用唯一名称；tool\deploy_app.bat 固定检查 CloudNetDataApiGrid。
+	- server-template.id：可复用的 Server 模板名称。
+	- parameter.index：生成唯一 Server ID 的实例编号；同一应用内不能重复。
+	- parameter.exe：各 Node 上业务 exe 的绝对路径或相对 Node 工作目录的路径。
+	- server.id：IceGrid Server 唯一名称，由模板参数 index 生成。
+	- server.exe：Node 实际启动的程序路径，由 server-instance 传入。
+	- server.activation：manual 表示只部署不自动启动；改成 always 可随 Node 常驻启动。
+	- server.activation-timeout：等待业务进程激活的超时秒数。
+	- adapter.name：业务程序创建 Object Adapter 时使用的名称。
+	- adapter.endpoints：业务监听协议；不写固定端口时由系统分配，适合 IceGrid 托管实例。
+	- adapter.replica-group：该 Adapter 加入的负载均衡副本组。
+	- property Identity：业务对象 Identity，必须与客户端代理和 replica-group.object.identity 一致。
+	- property *Client.Endpoints：双向回调 Adapter 的默认端点；跨机回调时不能发布 localhost。
+	- property Ice.MessageSizeMax：单条 Ice 消息上限，单位 KiB。
+	- replica-group.id：所有副本共同使用的组 ID。
+	- load-balancing.type：副本选择策略；round-robin 表示轮询选择。
+	- object.identity/type：向 Locator 注册的知名对象 Identity 和 Slice 类型。
+	- node.name：部署目标 Node 名，必须与对应 node.cfg 的 IceGrid.Node.Name 一致。
+	- server-instance.template/index/exe：选择模板并为该 Node 生成一个具体 Server 实例。
+-->
+<icegrid>
+	<!-- 应用名由 tool\deploy_app.bat 用于判断 add/update；如无必要不要修改。 -->
+	<application name="CloudNetDataApiGrid">
+		<!-- Gateway：HTTP、WebSocket 和内部 RPC 分发入口。 -->
+		<server-template id="GatewayRPCServer">
+			<parameter name="index" />
+			<parameter name="exe" />
+			<server id="GatewayRPC-${index}" exe="${exe}" activation="manual" activation-timeout="10">
+				<adapter name="GatewayRPC" endpoints="tcp -z" replica-group="ReplicatedGatewayRPC" />
+				<property name="Identity" value="GatewayRPC" />
+				<property name="GatewayRPCClient.Endpoints" value="default -z -h localhost" />
+				<property name="Ice.MessageSizeMax" value="20480" />
+			</server>
+		</server-template>
+
+		<!-- MtQuoteService：连接 MT 行情源并发布 tick。 -->
+		<server-template id="MtQuoteServiceRPCServer">
+			<parameter name="index" />
+			<parameter name="exe" />
+			<server id="MtQuoteServiceRPC-${index}" exe="${exe}" activation="manual" activation-timeout="10">
+				<adapter name="MtQuoteServiceRPC" endpoints="tcp -z" replica-group="ReplicatedMtQuoteServiceRPC" />
+				<property name="Identity" value="MtQuoteServiceRPC" />
+				<property name="MtQuoteServiceRPCClient.Endpoints" value="default -z -h localhost" />
+				<property name="Ice.MessageSizeMax" value="20480" />
+			</server>
+		</server-template>
+
+		<!-- MtTradeService：承载交易指令、交易事件和配置事件。 -->
+		<server-template id="MtTradeServiceRPCServer">
+			<parameter name="index" />
+			<parameter name="exe" />
+			<server id="MtTradeServiceRPC-${index}" exe="${exe}" activation="manual" activation-timeout="10">
+				<adapter name="MtTradeServiceRPC" endpoints="tcp -z" replica-group="ReplicatedMtTradeServiceRPC" />
+				<property name="Identity" value="MtTradeServiceRPC" />
+				<property name="MtTradeServiceRPCClient.Endpoints" value="default -z -h localhost" />
+				<property name="Ice.MessageSizeMax" value="20480" />
+			</server>
+		</server-template>
+
+		<!-- MtQueryService：承载普通查询、历史数据和 K 线查询。 -->
+		<server-template id="MtQueryServiceRPCServer">
+			<parameter name="index" />
+			<parameter name="exe" />
+			<server id="MtQueryServiceRPC-${index}" exe="${exe}" activation="manual" activation-timeout="10">
+				<adapter name="MtQueryServiceRPC" endpoints="tcp -z" replica-group="ReplicatedMtQueryServiceRPC" />
+				<property name="Identity" value="MtQueryServiceRPC" />
+				<property name="MtQueryServiceRPCClient.Endpoints" value="default -z -h localhost" />
+				<property name="Ice.MessageSizeMax" value="20480" />
+			</server>
+		</server-template>
+
+		<!-- IceEventService：事件注册、续约和发布转发入口。 -->
+		<server-template id="IceEventServiceRPCServer">
+			<parameter name="index" />
+			<parameter name="exe" />
+			<server id="IceEventServiceRPC-${index}" exe="${exe}" activation="manual" activation-timeout="10">
+				<adapter name="IceEventServiceRPC" endpoints="tcp -z" replica-group="ReplicatedIceEventServiceRPC" />
+				<property name="Identity" value="IceEventServiceRPC" />
+				<property name="IceEventServiceRPCClient.Endpoints" value="default -z -h localhost" />
+				<property name="Ice.MessageSizeMax" value="20480" />
+			</server>
+		</server-template>
+
+		<!-- DeriveService：收益和 K 线等派生计算。 -->
+		<server-template id="DeriveServiceRPCServer">
+			<parameter name="index" />
+			<parameter name="exe" />
+			<server id="DeriveServiceRPC-${index}" exe="${exe}" activation="manual" activation-timeout="10">
+				<adapter name="DeriveServiceRPC" endpoints="tcp -z" replica-group="ReplicatedDeriveServiceRPC" />
+				<property name="Identity" value="DeriveServiceRPC" />
+				<property name="DeriveServiceRPCClient.Endpoints" value="default -z -h localhost" />
+				<property name="Ice.MessageSizeMax" value="20480" />
+			</server>
+		</server-template>
+
+		<!-- Gateway 副本组；客户端使用 GatewayRPC 间接代理。 -->
+		<replica-group id="ReplicatedGatewayRPC">
+			<load-balancing type="round-robin" />
+			<object identity="GatewayRPC" type="::JSONBINRPC::IJsonBinRPC" />
+		</replica-group>
+		<!-- MtQuoteService 副本组；多个行情实例使用唯一 Adapter ID 加入本组。 -->
+		<replica-group id="ReplicatedMtQuoteServiceRPC">
+			<load-balancing type="round-robin" />
+			<object identity="MtQuoteServiceRPC" type="::JSONBINRPC::IJsonBinRPC" />
+		</replica-group>
+		<!-- MtTradeService 副本组。 -->
+		<replica-group id="ReplicatedMtTradeServiceRPC">
+			<load-balancing type="round-robin" />
+			<object identity="MtTradeServiceRPC" type="::JSONBINRPC::IJsonBinRPC" />
+		</replica-group>
+		<!-- MtQueryService 副本组。 -->
+		<replica-group id="ReplicatedMtQueryServiceRPC">
+			<load-balancing type="round-robin" />
+			<object identity="MtQueryServiceRPC" type="::JSONBINRPC::IJsonBinRPC" />
+		</replica-group>
+		<!-- IceEventService 副本组；事件订阅有状态，扩容前先确认订阅状态共享方案。 -->
+		<replica-group id="ReplicatedIceEventServiceRPC">
+			<load-balancing type="round-robin" />
+			<object identity="IceEventServiceRPC" type="::JSONBINRPC::IJsonBinRPC" />
+		</replica-group>
+		<!-- DeriveService 副本组。 -->
+		<replica-group id="ReplicatedDeriveServiceRPC">
+			<load-balancing type="round-robin" />
+			<object identity="DeriveServiceRPC" type="::JSONBINRPC::IJsonBinRPC" />
+		</replica-group>
+
+		<!--
+		以下 server-instance 的 exe 是占位符。
+		如果后续改为 IceGrid 托管插件进程，请把 exe 改成真实插件启动程序路径。
+		-->
+		<!-- 默认本地 Node；名称必须与 config\node.cfg 完全一致。 -->
+		<node name="CloudNetNode1">
+			<server-instance template="GatewayRPCServer" index="1" exe="../plugin/Gateway.exe" />
+			<server-instance template="MtQuoteServiceRPCServer" index="1" exe="../plugin/MtQuoteService.exe" />
+			<server-instance template="MtTradeServiceRPCServer" index="1" exe="../plugin/MtTradeService.exe" />
+			<server-instance template="MtQueryServiceRPCServer" index="1" exe="../plugin/MtQueryService.exe" />
+			<server-instance template="IceEventServiceRPCServer" index="1" exe="../plugin/IceEventService.exe" />
+			<server-instance template="DeriveServiceRPCServer" index="1" exe="../plugin/DeriveService.exe" />
+		</node>
+	</application>
+</icegrid>

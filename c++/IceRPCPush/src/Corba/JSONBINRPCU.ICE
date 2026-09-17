@@ -1,4 +1,4 @@
-// **********************************************************************
+ï»¿// **********************************************************************
 //
 // Copyright (c) 2003-2013 ZeroC, Inc. All rights reserved.
 //
@@ -18,36 +18,83 @@ sequence<short>	AShort;
 sequence<byte>	AByte;
 sequence<float>	AFloat;
 sequence<int>	AInt;
-sequence<long>	AI64;	// typedef IceUtil::Int64 Long; ÊÇ64Î»µÄ
+sequence<long>	AI64;	// typedef IceUtil::Int64 Long; æ˜¯64ä½çš„
 
-// sliceÊäÈë£¬Êä³ö²»ÄÜ¹²ÓÃ»º³åÇø
-// Éı¼¶°æ±¾×¼±¸£º1¡¢Ìá¹©¶Ô·½ÊÇ·ñ²ÉÓÃsnappyÑ¹ËõµÈĞÅÏ¢£»2¡¢Ìá¹©ÏêÏ¸µÄ¶©ÔÄ²ÎÊı£¬Ï¸»¯ÍÆËÍµÄÄÚÈİ£¨»òÕßÖ±½ÓÍ¨¹ıRPCº¯Êı×Ô¼ºÊµÏÖ£©
-// 3£¬ÊµÏÖ¶¨ÏòÍÆËÍ£»
+// äºŒè¿›åˆ¶è½½è·å‹ç¼©ç±»å‹ï¼›ä¸šåŠ¡å±‚åªæ¥è§¦è§£å‹åçš„åŸå§‹å­—èŠ‚ã€‚
+enum BinaryCompression
+{
+	BinaryCompressionNone,
+	BinaryCompressionSnappy
+};
 
-// Í¨ÓÃÔöÖµ·şÎñ½Ó¿Ú£¬°üÀ¨ÍÆËÍ¹¦ÄÜ£¬Ö÷ÒªÍÆËÍĞĞÇé;  N:1 ¹ØÏµ
+// Ice ä¼ è¾“å±‚äºŒè¿›åˆ¶è½½è·ï¼Œç‰ˆæœ¬å’ŒåŸå§‹é•¿åº¦ç”¨äºæ ¡éªŒåè®®ä¸è§£å‹ç»“æœã€‚
+struct BinaryPayload
+{
+	int version;
+	BinaryCompression compression;
+	int rawSize;
+	AByte data;
+};
+
+// é€šç”¨äºŒè¿›åˆ¶è¯·æ±‚ï¼›RPC ä½¿ç”¨ payloadï¼ŒPUT è¿˜å¯ä»¥ä½¿ç”¨ paramã€wparam å’Œ extraã€‚
+struct BinaryRequest
+{
+	int version;
+	long syn;
+	long nFuncID;
+	long routeCode;
+	long param;
+	BinaryPayload payload;
+	long wparam;
+	BinaryPayload extra;
+};
+
+// é€šç”¨äºŒè¿›åˆ¶åº”ç­”ï¼›payload æ˜¯ä¸»ç»“æœï¼Œextra æ˜¯å¯é€‰æ‰©å±•ç»“æœã€‚
+struct BinaryResponse
+{
+	int version;
+	long retVal;
+	int errorCode;
+	long param;
+	BinaryPayload payload;
+	long wparam;
+	BinaryPayload extra;
+	string errInfo;
+};
+
+// sliceè¾“å…¥ï¼Œè¾“å‡ºä¸èƒ½å…±ç”¨ç¼“å†²åŒº
+// å‡çº§ç‰ˆæœ¬å‡†å¤‡ï¼š1ã€æä¾›å¯¹æ–¹æ˜¯å¦é‡‡ç”¨snappyå‹ç¼©ç­‰ä¿¡æ¯ï¼›2ã€æä¾›è¯¦ç»†çš„è®¢é˜…å‚æ•°ï¼Œç»†åŒ–æ¨é€çš„å†…å®¹ï¼ˆæˆ–è€…ç›´æ¥é€šè¿‡RPCå‡½æ•°è‡ªå·±å®ç°ï¼‰
+// 3ï¼Œå®ç°å®šå‘æ¨é€ï¼›
+
+// é€šç”¨å¢å€¼æœåŠ¡æ¥å£ï¼ŒåŒ…æ‹¬æ¨é€åŠŸèƒ½ï¼Œä¸»è¦æ¨é€è¡Œæƒ…;  N:1 å…³ç³»
 interface IJsonBinRPC	
 {
-	// ×¢²áÍøÂç»Øµ÷ÍÆËÍ½Ó¿Ú Ice::Identity idguid, Ö±½ÓÓÃµ±Ç°»·¾³µÄ
+	// æ³¨å†Œç½‘ç»œå›è°ƒæ¨é€æ¥å£ Ice::Identity idguid, ç›´æ¥ç”¨å½“å‰ç¯å¢ƒçš„
 	["amd"] long	RegisterStockPushIO(string guid,Ice::Identity	ident);
-	// ½Ó¿Úµ÷ÓÃ²ÎÊıÊÇjson¸ñÊ½£¬·µ»ØÊ±¶ş½øÖÆ£¬ÔõÃ´½âÎö£¬×ÔĞĞÔ¼¶¨
+	// æ¥å£è°ƒç”¨å‚æ•°æ˜¯jsonæ ¼å¼ï¼Œè¿”å›æ—¶äºŒè¿›åˆ¶ï¼Œæ€ä¹ˆè§£æï¼Œè‡ªè¡Œçº¦å®š
 	["amd"] long	JsonBinRPC(long syn,long nFuncID,long setcode,AByte reqJson,out long ilparam,out AByte slparam,out long iwparam,out AByte swparam,out string errinf);
-	// Ô¶³ÌĞ´ÈëµÄ½Ó¿Ú£¬Ğ´ÈëÃèÊöĞÅÏ¢ÊÇjson£¬Ğ´µÄÄÚÈİÊÇ×Ö·û´®; Í³Ò»½Ó¿Ú£¬Ò²ÔÊĞí·µ»ØÒ»¸öÏêÏ¸ĞÅÏ¢
+	// è¿œç¨‹å†™å…¥çš„æ¥å£ï¼Œå†™å…¥æè¿°ä¿¡æ¯æ˜¯jsonï¼Œå†™çš„å†…å®¹æ˜¯å­—ç¬¦ä¸²; ç»Ÿä¸€æ¥å£ï¼Œä¹Ÿå…è®¸è¿”å›ä¸€ä¸ªè¯¦ç»†ä¿¡æ¯
 	["amd"]	long	JsonBinPUT(long syn,long nFuncID,long setcode,AByte putJson,long ilparam,AByte slparam,long iwparam,AByte swparam,
 													out long oilparam,out AByte oslparam,out long oiwparam,out AByte oswparam,out string errinf);
-	// ×¢Ïú
+	// æ³¨é”€
 	["amd"] long	UnRegisterStockPushIO(string guid);
 
 
-	// ÍÆËÍ½Ó¿Ú²»ÄÜËæ±ãÓÃ£¬¿ÉÄÜºÜ¶àĞĞÇéÖ÷Õ¾Á´½Ó£¬Èç¹û¶¼ÍÆËÍ£¬¾ÍÈßÓàÁË£»Ö»ÓĞÔöÖµ·şÎñ×Ô¼ºÖ÷¶¯·¢ÆğµÄÁ´½Ó²ÅÍÆËÍĞĞÇé£»
-	// ´ø²»´ø°üÍ·£¬×Ô¼ºÍ¨¹ıreqnoÊ¶±ğ
-	["amd"] void	ProcessPackage(long reqno,AByte buf);
+	// æ¨é€æ¥å£ä¸èƒ½éšä¾¿ç”¨ï¼Œå¯èƒ½å¾ˆå¤šè¡Œæƒ…ä¸»ç«™é“¾æ¥ï¼Œå¦‚æœéƒ½æ¨é€ï¼Œå°±å†—ä½™äº†ï¼›åªæœ‰å¢å€¼æœåŠ¡è‡ªå·±ä¸»åŠ¨å‘èµ·çš„é“¾æ¥æ‰æ¨é€è¡Œæƒ…ï¼›
+	// å¸¦ä¸å¸¦åŒ…å¤´ï¼Œè‡ªå·±é€šè¿‡reqnoè¯†åˆ«
+	["amd"] void	ProcessPackage(long reqno,BinaryPayload payload);
 
 
 
-	// ×¢²áÍøÂç»Øµ÷ÍÆËÍ½Ó¿Ú Ice::Identity idguid, Ö±½ÓÓÃµ±Ç°»·¾³µÄ
+	// æ³¨å†Œç½‘ç»œå›è°ƒæ¨é€æ¥å£ Ice::Identity idguid, ç›´æ¥ç”¨å½“å‰ç¯å¢ƒçš„
 	["amd"] string	RegisterStockPushIO2(string guid,string subinfo,Ice::Identity	ident);
-	// ×¢Ïú
+	// æ³¨é”€
 	["amd"] string	UnRegisterStockPushIO2(string guid,string subinfo,Ice::Identity	ident);
+
+	// æ–°ç‰ˆå¾®æœåŠ¡é€šç”¨äºŒè¿›åˆ¶ RPCï¼Œå®¢æˆ·ç«¯å¯ä½¿ç”¨åŒæ­¥æˆ– Ice Async è°ƒç”¨æ–¹å¼ã€‚
+	["amd"] BinaryResponse BinaryRPC(BinaryRequest req);
+	// æ–°ç‰ˆå¾®æœåŠ¡é€šç”¨äºŒè¿›åˆ¶ PUTï¼Œå…è®¸æºå¸¦ä¸»è½½è·ã€æ‰©å±•è½½è·å’Œä¸¤ä¸ªæ•´å‹å‚æ•°ã€‚
+	["amd"] BinaryResponse BinaryPUT(BinaryRequest req);
 
 };
 

@@ -37,6 +37,26 @@ namespace JSONBINRPC
 
     using AI64 = std::vector<std::int64_t>;
 
+    /// @remarks The Slice compiler generated this enum class from Slice enumeration `::JSONBINRPC::BinaryCompression`.
+    enum class BinaryCompression : std::uint8_t
+    {
+        BinaryCompressionNone,
+
+        BinaryCompressionSnappy
+    };
+
+    /// Outputs the enumerator name or underlying value of a BinaryCompression to a stream.
+    /// @param os The output stream.
+    /// @param value The value to output.
+    /// @return The output stream.
+    std::ostream& operator<<(std::ostream& os, BinaryCompression value);
+
+    struct BinaryPayload;
+
+    struct BinaryRequest;
+
+    struct BinaryResponse;
+
     class IJsonBinRPCPrx;
 }
 
@@ -124,15 +144,15 @@ namespace JSONBINRPC
         /// @private
         void _iceI_UnRegisterStockPushIO(const std::shared_ptr<IceInternal::OutgoingAsyncT<std::int64_t>>&, std::string_view, const Ice::Context&) const;
 
-        void ProcessPackage(std::int64_t reqno, const AByte& buf, const Ice::Context& context = Ice::noExplicitContext) const;
+        void ProcessPackage(std::int64_t reqno, const BinaryPayload& payload, const Ice::Context& context = Ice::noExplicitContext) const;
 
-        [[nodiscard]] std::future<void> ProcessPackageAsync(std::int64_t reqno, const AByte& buf, const Ice::Context& context = Ice::noExplicitContext) const;
+        [[nodiscard]] std::future<void> ProcessPackageAsync(std::int64_t reqno, const BinaryPayload& payload, const Ice::Context& context = Ice::noExplicitContext) const;
 
         // NOLINTNEXTLINE(modernize-use-nodiscard)
-        std::function<void()> ProcessPackageAsync(std::int64_t reqno, const AByte& buf, std::function<void()> response, std::function<void(std::exception_ptr)> exception = nullptr, std::function<void(bool)> sent = nullptr, const Ice::Context& context = Ice::noExplicitContext) const;
+        std::function<void()> ProcessPackageAsync(std::int64_t reqno, const BinaryPayload& payload, std::function<void()> response, std::function<void(std::exception_ptr)> exception = nullptr, std::function<void(bool)> sent = nullptr, const Ice::Context& context = Ice::noExplicitContext) const;
 
         /// @private
-        void _iceI_ProcessPackage(const std::shared_ptr<IceInternal::OutgoingAsyncT<void>>&, std::int64_t, const AByte&, const Ice::Context&) const;
+        void _iceI_ProcessPackage(const std::shared_ptr<IceInternal::OutgoingAsyncT<void>>&, std::int64_t, const BinaryPayload&, const Ice::Context&) const;
 
         std::string RegisterStockPushIO2(std::string_view guid, std::string_view subinfo, const ::Ice::Identity& ident, const Ice::Context& context = Ice::noExplicitContext) const; // NOLINT(modernize-use-nodiscard)
 
@@ -154,6 +174,26 @@ namespace JSONBINRPC
         /// @private
         void _iceI_UnRegisterStockPushIO2(const std::shared_ptr<IceInternal::OutgoingAsyncT<std::string>>&, std::string_view, std::string_view, const ::Ice::Identity&, const Ice::Context&) const;
 
+        BinaryResponse BinaryRPC(const BinaryRequest& req, const Ice::Context& context = Ice::noExplicitContext) const; // NOLINT(modernize-use-nodiscard)
+
+        [[nodiscard]] std::future<BinaryResponse> BinaryRPCAsync(const BinaryRequest& req, const Ice::Context& context = Ice::noExplicitContext) const;
+
+        // NOLINTNEXTLINE(modernize-use-nodiscard)
+        std::function<void()> BinaryRPCAsync(const BinaryRequest& req, std::function<void(::JSONBINRPC::BinaryResponse)> response, std::function<void(std::exception_ptr)> exception = nullptr, std::function<void(bool)> sent = nullptr, const Ice::Context& context = Ice::noExplicitContext) const;
+
+        /// @private
+        void _iceI_BinaryRPC(const std::shared_ptr<IceInternal::OutgoingAsyncT<BinaryResponse>>&, const BinaryRequest&, const Ice::Context&) const;
+
+        BinaryResponse BinaryPUT(const BinaryRequest& req, const Ice::Context& context = Ice::noExplicitContext) const; // NOLINT(modernize-use-nodiscard)
+
+        [[nodiscard]] std::future<BinaryResponse> BinaryPUTAsync(const BinaryRequest& req, const Ice::Context& context = Ice::noExplicitContext) const;
+
+        // NOLINTNEXTLINE(modernize-use-nodiscard)
+        std::function<void()> BinaryPUTAsync(const BinaryRequest& req, std::function<void(::JSONBINRPC::BinaryResponse)> response, std::function<void(std::exception_ptr)> exception = nullptr, std::function<void(bool)> sent = nullptr, const Ice::Context& context = Ice::noExplicitContext) const;
+
+        /// @private
+        void _iceI_BinaryPUT(const std::shared_ptr<IceInternal::OutgoingAsyncT<BinaryResponse>>&, const BinaryRequest&, const Ice::Context&) const;
+
         /// Gets the type ID of the associated Slice interface.
         /// @return The string `"::JSONBINRPC::IJsonBinRPC"`.
         static const char* ice_staticId() noexcept;
@@ -170,6 +210,121 @@ namespace JSONBINRPC
         {
         }
     };
+}
+
+namespace JSONBINRPC
+{
+    /// @remarks The Slice compiler generated this struct from Slice struct `::JSONBINRPC::BinaryPayload`.
+    struct BinaryPayload
+    {
+        std::int32_t version;
+
+        ::JSONBINRPC::BinaryCompression compression;
+
+        std::int32_t rawSize;
+
+        ::JSONBINRPC::AByte data;
+
+        /// Creates a tuple with all the fields of this struct.
+        /// @return A tuple with all the fields of this struct.
+        [[nodiscard]] std::tuple<const std::int32_t&, const ::JSONBINRPC::BinaryCompression&, const std::int32_t&, const ::JSONBINRPC::AByte&> ice_tuple() const
+        {
+            return std::tie(version, compression, rawSize, data);
+        }
+
+        /// Outputs the name and value of each field of this instance to the stream.
+        /// @param os The output stream.
+        void ice_printFields(std::ostream& os) const;
+    };
+
+    /// Outputs the description of a BinaryPayload to a stream, including all its fields.
+    /// @param os The output stream.
+    /// @param value The instance to output.
+    /// @return The output stream.
+    std::ostream& operator<<(std::ostream& os, const BinaryPayload& value);
+
+    /// @remarks The Slice compiler generated this struct from Slice struct `::JSONBINRPC::BinaryRequest`.
+    struct BinaryRequest
+    {
+        std::int32_t version;
+
+        std::int64_t syn;
+
+        std::int64_t nFuncID;
+
+        std::int64_t routeCode;
+
+        std::int64_t param;
+
+        ::JSONBINRPC::BinaryPayload payload;
+
+        std::int64_t wparam;
+
+        ::JSONBINRPC::BinaryPayload extra;
+
+        /// Creates a tuple with all the fields of this struct.
+        /// @return A tuple with all the fields of this struct.
+        [[nodiscard]] std::tuple<const std::int32_t&, const std::int64_t&, const std::int64_t&, const std::int64_t&, const std::int64_t&, const ::JSONBINRPC::BinaryPayload&, const std::int64_t&, const ::JSONBINRPC::BinaryPayload&> ice_tuple() const
+        {
+            return std::tie(version, syn, nFuncID, routeCode, param, payload, wparam, extra);
+        }
+
+        /// Outputs the name and value of each field of this instance to the stream.
+        /// @param os The output stream.
+        void ice_printFields(std::ostream& os) const;
+    };
+
+    /// Outputs the description of a BinaryRequest to a stream, including all its fields.
+    /// @param os The output stream.
+    /// @param value The instance to output.
+    /// @return The output stream.
+    std::ostream& operator<<(std::ostream& os, const BinaryRequest& value);
+
+    /// @remarks The Slice compiler generated this struct from Slice struct `::JSONBINRPC::BinaryResponse`.
+    struct BinaryResponse
+    {
+        std::int32_t version;
+
+        std::int64_t retVal;
+
+        std::int32_t errorCode;
+
+        std::int64_t param;
+
+        ::JSONBINRPC::BinaryPayload payload;
+
+        std::int64_t wparam;
+
+        ::JSONBINRPC::BinaryPayload extra;
+
+        std::string errInfo;
+
+        /// Creates a tuple with all the fields of this struct.
+        /// @return A tuple with all the fields of this struct.
+        [[nodiscard]] std::tuple<const std::int32_t&, const std::int64_t&, const std::int32_t&, const std::int64_t&, const ::JSONBINRPC::BinaryPayload&, const std::int64_t&, const ::JSONBINRPC::BinaryPayload&, const std::string&> ice_tuple() const
+        {
+            return std::tie(version, retVal, errorCode, param, payload, wparam, extra, errInfo);
+        }
+
+        /// Outputs the name and value of each field of this instance to the stream.
+        /// @param os The output stream.
+        void ice_printFields(std::ostream& os) const;
+    };
+
+    /// Outputs the description of a BinaryResponse to a stream, including all its fields.
+    /// @param os The output stream.
+    /// @param value The instance to output.
+    /// @return The output stream.
+    std::ostream& operator<<(std::ostream& os, const BinaryResponse& value);
+
+    /// @cond INTERNAL
+    using Ice::Tuple::operator<;
+    using Ice::Tuple::operator<=;
+    using Ice::Tuple::operator>;
+    using Ice::Tuple::operator>=;
+    using Ice::Tuple::operator==;
+    using Ice::Tuple::operator!=;
+    /// @endcond
 }
 
 namespace JSONBINRPC
@@ -210,7 +365,7 @@ namespace JSONBINRPC
         /// @private
         void _iceD_UnRegisterStockPushIO(Ice::IncomingRequest&, std::function<void(Ice::OutgoingResponse)>);
 
-        virtual void ProcessPackageAsync(std::int64_t reqno, AByte buf, std::function<void()> response, std::function<void(std::exception_ptr)> exception, const Ice::Current& current) = 0;
+        virtual void ProcessPackageAsync(std::int64_t reqno, BinaryPayload payload, std::function<void()> response, std::function<void(std::exception_ptr)> exception, const Ice::Current& current) = 0;
 
         /// @private
         void _iceD_ProcessPackage(Ice::IncomingRequest&, std::function<void(Ice::OutgoingResponse)>);
@@ -224,6 +379,16 @@ namespace JSONBINRPC
 
         /// @private
         void _iceD_UnRegisterStockPushIO2(Ice::IncomingRequest&, std::function<void(Ice::OutgoingResponse)>);
+
+        virtual void BinaryRPCAsync(BinaryRequest req, std::function<void(const BinaryResponse& returnValue)> response, std::function<void(std::exception_ptr)> exception, const Ice::Current& current) = 0;
+
+        /// @private
+        void _iceD_BinaryRPC(Ice::IncomingRequest&, std::function<void(Ice::OutgoingResponse)>);
+
+        virtual void BinaryPUTAsync(BinaryRequest req, std::function<void(const BinaryResponse& returnValue)> response, std::function<void(std::exception_ptr)> exception, const Ice::Current& current) = 0;
+
+        /// @private
+        void _iceD_BinaryPUT(Ice::IncomingRequest&, std::function<void(Ice::OutgoingResponse)>);
 
         /// Gets the type ID of the associated Slice interface.
         /// @return The string `"::JSONBINRPC::IJsonBinRPC"`.
@@ -272,7 +437,7 @@ namespace JSONBINRPC
         /// @private
         void _iceD_UnRegisterStockPushIO(Ice::IncomingRequest&, std::function<void(Ice::OutgoingResponse)>);
 
-        virtual void ProcessPackageAsync(std::int64_t reqno, AByte buf, std::function<void()> response, std::function<void(std::exception_ptr)> exception, const Ice::Current& current) = 0;
+        virtual void ProcessPackageAsync(std::int64_t reqno, BinaryPayload payload, std::function<void()> response, std::function<void(std::exception_ptr)> exception, const Ice::Current& current) = 0;
 
         /// @private
         void _iceD_ProcessPackage(Ice::IncomingRequest&, std::function<void(Ice::OutgoingResponse)>);
@@ -287,6 +452,16 @@ namespace JSONBINRPC
         /// @private
         void _iceD_UnRegisterStockPushIO2(Ice::IncomingRequest&, std::function<void(Ice::OutgoingResponse)>);
 
+        virtual void BinaryRPCAsync(BinaryRequest req, std::function<void(const BinaryResponse& returnValue)> response, std::function<void(std::exception_ptr)> exception, const Ice::Current& current) = 0;
+
+        /// @private
+        void _iceD_BinaryRPC(Ice::IncomingRequest&, std::function<void(Ice::OutgoingResponse)>);
+
+        virtual void BinaryPUTAsync(BinaryRequest req, std::function<void(const BinaryResponse& returnValue)> response, std::function<void(std::exception_ptr)> exception, const Ice::Current& current) = 0;
+
+        /// @private
+        void _iceD_BinaryPUT(Ice::IncomingRequest&, std::function<void(Ice::OutgoingResponse)>);
+
         /// Gets the type ID of the associated Slice interface.
         /// @return The string `"::JSONBINRPC::IJsonBinRPC"`.
         static const char* ice_staticId() noexcept;
@@ -294,6 +469,81 @@ namespace JSONBINRPC
 
     /// A shared pointer to an AsyncIJsonBinRPC.
     using AsyncIJsonBinRPCPtr = std::shared_ptr<AsyncIJsonBinRPC>;
+}
+
+namespace Ice
+{
+    /// @cond INTERNAL
+    template<>
+    struct StreamableTraits<::JSONBINRPC::BinaryCompression>
+    {
+        static constexpr StreamHelperCategory helper = StreamHelperCategoryEnum;
+        static constexpr int minValue = 0;
+        static constexpr int maxValue = 1;
+        static constexpr int minWireSize = 1;
+        static constexpr bool fixedLength = false;
+    };
+    /// @endcond
+
+    /// @cond INTERNAL
+    template<>
+    struct StreamableTraits<::JSONBINRPC::BinaryPayload>
+    {
+        static constexpr StreamHelperCategory helper = StreamHelperCategoryStruct;
+        static constexpr int minWireSize = 10;
+        static constexpr bool fixedLength = false;
+    };
+
+    template<>
+    struct StreamReader<::JSONBINRPC::BinaryPayload>
+    {
+        /// Unmarshals a ::JSONBINRPC::BinaryPayload from the input stream.
+        static void read(InputStream* istr, ::JSONBINRPC::BinaryPayload& v)
+        {
+            istr->readAll(v.version, v.compression, v.rawSize, v.data);
+        }
+    };
+    /// @endcond
+
+    /// @cond INTERNAL
+    template<>
+    struct StreamableTraits<::JSONBINRPC::BinaryRequest>
+    {
+        static constexpr StreamHelperCategory helper = StreamHelperCategoryStruct;
+        static constexpr int minWireSize = 64;
+        static constexpr bool fixedLength = false;
+    };
+
+    template<>
+    struct StreamReader<::JSONBINRPC::BinaryRequest>
+    {
+        /// Unmarshals a ::JSONBINRPC::BinaryRequest from the input stream.
+        static void read(InputStream* istr, ::JSONBINRPC::BinaryRequest& v)
+        {
+            istr->readAll(v.version, v.syn, v.nFuncID, v.routeCode, v.param, v.payload, v.wparam, v.extra);
+        }
+    };
+    /// @endcond
+
+    /// @cond INTERNAL
+    template<>
+    struct StreamableTraits<::JSONBINRPC::BinaryResponse>
+    {
+        static constexpr StreamHelperCategory helper = StreamHelperCategoryStruct;
+        static constexpr int minWireSize = 53;
+        static constexpr bool fixedLength = false;
+    };
+
+    template<>
+    struct StreamReader<::JSONBINRPC::BinaryResponse>
+    {
+        /// Unmarshals a ::JSONBINRPC::BinaryResponse from the input stream.
+        static void read(InputStream* istr, ::JSONBINRPC::BinaryResponse& v)
+        {
+            istr->readAll(v.version, v.retVal, v.errorCode, v.param, v.payload, v.wparam, v.extra, v.errInfo);
+        }
+    };
+    /// @endcond
 }
 
 // NOLINTEND(modernize-concat-nested-namespaces)

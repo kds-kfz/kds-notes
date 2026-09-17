@@ -4,6 +4,8 @@
 #include "SocketInterface.h"
 #include "HPSocket.h"
 
+struct ST_WEB_SERVER_RUNTIME;
+
 /************************************************************************
 名称：IComplexHttp 组件监听器基接口
 描述：定义 IComplexHttp 组件监听器的所有事件
@@ -63,8 +65,13 @@ class  CWebServerListerNet : public IHttpServerListener
 	EnHandleResult OnShutdown(ITcpServer* pSender) override;
 
 public:
-	CWebServerListerNet() {}
+	// Listener 仅保存所属 WebSocket 实例上下文，回调热路径不查询工厂登记表。
+	explicit CWebServerListerNet(ST_WEB_SERVER_RUNTIME* p_pRuntime)
+		: m_pRuntime(p_pRuntime) {}
 	~CWebServerListerNet() {}
+
+private:
+	ST_WEB_SERVER_RUNTIME* m_pRuntime; // 不拥有；由 CWebSockServerObj 保证生命周期。
 };
 
 #endif

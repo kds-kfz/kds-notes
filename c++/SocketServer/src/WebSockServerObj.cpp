@@ -1,62 +1,182 @@
-#include "WebSockServerObj.h"
+ï»¿#include "WebSockServerObj.h"
 #include "publicGlobalvar.h"
+#include "WebSocketSendCoordinator.h"
+#include "ServerRuntimeContext.h"
 #include "publicfunc.h"
 #include "Log.h"
 #include <windows.h>
+#include <condition_variable>
+#include <memory>
+#include <mutex>
 
 namespace
 {
-	bool g_bWebMutexInit = false;
-
-	// wyl 2026-03-30£º¼¯ÖĞ¹ÜÀí Web ·şÎñÔËĞĞÊ±Ëø£¬±ÜÃâÖØ¸´ÆôÍ£Ê±³öÏÖÎ´³õÊ¼»¯»òÖØ¸´Ïú»Ù¡£
-	void InitWebMutexes()
+	// æ³¨å†Œå•æ¬¡å‘é€è°ƒç”¨ï¼›åœæœå…³é—­æ¥çº³é—¸é—¨åä¸å†äº§ç”Ÿæ–°ç¥¨æ®ã€‚
+	bool RegisterWebSendCall(ST_WEB_SERVER_RUNTIME* p_pRuntime)
 	{
-		if (g_bWebMutexInit)
-			return;
-
-		pthread_mutex_init(&g_mutexWebConnet, nullptr);
-		pthread_mutex_init(&g_mutexWebTask, nullptr);
-		pthread_mutex_init(&g_mutexWebReq, nullptr);
-		g_bWebMutexInit = true;
-	}
-
-	void DestroyWebMutexes()
-	{
-		if (!g_bWebMutexInit)
-			return;
-
-		pthread_mutex_destroy(&g_mutexWebConnet);
-		pthread_mutex_destroy(&g_mutexWebTask);
-		pthread_mutex_destroy(&g_mutexWebReq);
-		g_bWebMutexInit = false;
-	}
-
-	// wyl 2026-03-30£ºÍ³Ò»Çå¿Õ Web Á¬½Ó¡¢ÈÎÎñºÍ»º´æ×´Ì¬£¬±ÜÃâ¾É×´Ì¬²ĞÁôµ½ÏÂÒ»´ÎÆô¶¯¡£
-	void ClearWebRuntimeData()
-	{
-		if (!g_bWebMutexInit)
-			return;
-
-		pthread_mutex_lock(&g_mutexWebConnet);
-		g_mapWebClient.clear();
-		g_setWebLocalClosing.clear();
-		pthread_mutex_unlock(&g_mutexWebConnet);
-
-		pthread_mutex_lock(&g_mutexWebTask);
-		foreach(g_mapWebTask, it_task)
+		if (p_pRuntime == nullptr)
 		{
-			delete it_task->second;
+			return false;
 		}
-		g_mapWebTask.clear();
-		pthread_mutex_unlock(&g_mutexWebTask);
+		std::lock_guard<std::mutex> lock(
+			p_pRuntime->clSendLifecycleMutex);
+		if (!p_pRuntime->bSendAccepting)
+		{
+			return false;
+		}
+		++p_pRuntime->szActiveSendCount;
+		return true;
+	}
 
-		pthread_mutex_lock(&g_mutexWebReq);
-		foreach(g_mapWebQueue, it_queue)
+	// å½’è¿˜æ´»åŠ¨å‘é€è®¡æ•°ï¼›æœ€åä¸€ä¸ªè°ƒç”¨é€€å‡ºæ—¶å”¤é†’åœæœçº¿ç¨‹ã€‚
+	void UnregisterWebSendCall(ST_WEB_SERVER_RUNTIME* p_pRuntime)
+	{
+		if (p_pRuntime == nullptr)
+		{
+			return;
+		}
+		std::lock_guard<std::mutex> lock(
+			p_pRuntime->clSendLifecycleMutex);
+		if (p_pRuntime->szActiveSendCount > 0)
+		{
+			--p_pRuntime->szActiveSendCount;
+		}
+		if (p_pRuntime->szActiveSendCount == 0)
+		{
+			p_pRuntime->clSendLifecycleCondition.notify_all();
+		}
+	}
+
+	// å‘é€ç¥¨æ®ä½¿ç”¨ RAII å½’è¿˜ï¼Œå¼‚å¸¸å’Œæå‰è¿”å›éƒ½ä¸ä¼šé˜»å¡åŒè¿æ¥åç»­å‘é€ã€‚
+	class CWebSendTurnGuard
+	{
+	public:
+		explicit CWebSendTurnGuard(ST_WEB_SERVER_RUNTIME* p_pRuntime)
+			: m_pRuntime(p_pRuntime), m_ullConnID(0), m_ullTicket(0),
+			m_bRegistered(false), m_bAcquired(false)
+		{
+		}
+
+		~CWebSendTurnGuard()
+		{
+			Release();
+		}
+
+		bool Acquire(CONNID p_ullConnID, bool p_bClosing)
+		{
+			if (!RegisterWebSendCall(m_pRuntime))
+			{
+				return false;
+			}
+			m_bRegistered = true;
+			m_ullConnID = p_ullConnID;
+			try
+			{
+				// map å’Œ ticket åœ¨åŒä¸€ä¸´ç•ŒåŒºå†…å–å¾—ï¼Œé¿å…ç©ºé—²çŠ¶æ€åˆ é™¤åç”Ÿæˆç¬¬äºŒå¥—å‘é€åºåˆ—ã€‚
+				std::lock_guard<std::mutex> mapLock(
+					m_pRuntime->clSendOrdersMutex);
+				std::shared_ptr<ST_WEB_SEND_ORDER>& ptrOrder =
+					m_pRuntime->mapSendOrders[p_ullConnID];
+				if (nullptr == ptrOrder)
+				{
+					ptrOrder = std::make_shared<ST_WEB_SEND_ORDER>();
+				}
+				std::lock_guard<std::mutex> orderLock(ptrOrder->clMutex);
+				if (ptrOrder->bClosing)
+				{
+					return false;
+				}
+				if (p_bClosing)
+				{
+					ptrOrder->bClosing = true;
+				}
+				m_ptrOrder = ptrOrder;
+				m_ullTicket = ptrOrder->ullNextTicket++;
+			}
+			catch (...)
+			{
+				WEB_ERROR("ConnID=%llu,AcquireWebSendTurnAllocFail", (unsigned long long)p_ullConnID);
+				return false;
+			}
+
+			std::unique_lock<std::mutex> orderLock(m_ptrOrder->clMutex);
+			m_ptrOrder->clCondition.wait(orderLock, [this]() {
+				return m_ptrOrder->ullServingTicket == m_ullTicket;
+			});
+			m_bAcquired = true;
+			return true;
+		}
+
+	private:
+		void Release()
+		{
+			if (m_bAcquired && nullptr != m_ptrOrder)
+			{
+				{
+					std::lock_guard<std::mutex> mapLock(
+						m_pRuntime->clSendOrdersMutex);
+					auto itOrder = m_pRuntime->mapSendOrders.find(m_ullConnID);
+					std::lock_guard<std::mutex> orderLock(m_ptrOrder->clMutex);
+					++m_ptrOrder->ullServingTicket;
+					const bool bEraseOrder = m_ptrOrder->ullServingTicket == m_ptrOrder->ullNextTicket
+						&& (!m_ptrOrder->bClosing || m_ptrOrder->bConnectionClosed);
+					if (bEraseOrder &&
+						itOrder != m_pRuntime->mapSendOrders.end() &&
+						itOrder->second == m_ptrOrder)
+					{
+						m_pRuntime->mapSendOrders.erase(itOrder);
+					}
+				}
+				m_ptrOrder->clCondition.notify_all();
+				m_bAcquired = false;
+			}
+			if (m_bRegistered)
+			{
+				UnregisterWebSendCall(m_pRuntime);
+				m_bRegistered = false;
+			}
+		}
+
+	private:
+		ST_WEB_SERVER_RUNTIME* m_pRuntime;
+		CONNID m_ullConnID;
+		unsigned long long m_ullTicket;
+		bool m_bRegistered;
+		bool m_bAcquired;
+		std::shared_ptr<ST_WEB_SEND_ORDER> m_ptrOrder;
+	};
+
+	// wyl 2026-03-30ï¼šç»Ÿä¸€æ¸…ç©º Web è¿æ¥ã€ä»»åŠ¡å’Œç¼“å­˜çŠ¶æ€ï¼Œé¿å…æ—§çŠ¶æ€æ®‹ç•™åˆ°ä¸‹ä¸€æ¬¡å¯åŠ¨ã€‚
+	void ClearWebRuntimeData(ST_WEB_SERVER_RUNTIME* p_pRuntime)
+	{
+		if (p_pRuntime == nullptr)
+		{
+			return;
+		}
+
+		pthread_mutex_lock(&p_pRuntime->mutexConnection);
+		p_pRuntime->mapClient.clear();
+		p_pRuntime->setLocalClosing.clear();
+		pthread_mutex_unlock(&p_pRuntime->mutexConnection);
+
+		pthread_mutex_lock(&p_pRuntime->mutexTask);
+		foreach(p_pRuntime->mapNotifyQueue, it_queue)
+		{
+			for (NotifyTask* pTask : it_queue->second.deqTasks)
+			{
+				delete pTask;
+			}
+		}
+		p_pRuntime->mapNotifyQueue.clear();
+		pthread_mutex_unlock(&p_pRuntime->mutexTask);
+
+		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		foreach(p_pRuntime->mapRequest, it_queue)
 		{
 			delete it_queue->second;
 		}
-		g_mapWebQueue.clear();
-		pthread_mutex_unlock(&g_mutexWebReq);
+		p_pRuntime->mapRequest.clear();
+		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
 	}
 
 	bool HpSocketIsConnectedNoThrow(IHttpServer *pSender, CONNID dwConnID)
@@ -78,27 +198,59 @@ namespace
 		return bAlive ? true : false;
 	}
 
-	bool IsWebSocketSendable(IHttpServer *pSender, CONNID dwConnID)
+	bool IsWebSocketSendable(ST_WEB_SERVER_RUNTIME* p_pRuntime,
+		IHttpServer *pSender, CONNID dwConnID)
 	{
-		if (nullptr == pSender || !g_bWebMutexInit)
+		if (p_pRuntime == nullptr || pSender == nullptr)
+		{
 			return false;
+		}
 
 		bool bMapAlive = false;
-		pthread_mutex_lock(&g_mutexWebConnet);
-		std::map<CONNID, ClientData>::iterator itClient = g_mapWebClient.find(dwConnID);
-		// wyl 2026-05-19£º·¢ËÍÇ°Í¬Ê±Ğ£Ñé±¾µØÁ¬½Ó±íºÍ HP-Socket ×´Ì¬£¬±ÜÃâ¹Ø±ÕÍ¨ÖªÅÅ¶ÓÆÚ¼ä¼ÌĞøÍÆËÍ¾É ConnID¡£
-		bMapAlive = g_bWebServerStatus
-			&& pSender == g_CWebPackServer
-			&& itClient != g_mapWebClient.end()
+		pthread_mutex_lock(&p_pRuntime->mutexConnection);
+		std::map<CONNID, ClientData>::iterator itClient =
+			p_pRuntime->mapClient.find(dwConnID);
+		// wyl 2026-05-19ï¼šå‘é€å‰åŒæ—¶æ ¡éªŒæœ¬åœ°è¿æ¥è¡¨å’Œ HP-Socket çŠ¶æ€ï¼Œé¿å…å…³é—­é€šçŸ¥æ’é˜ŸæœŸé—´ç»§ç»­æ¨é€æ—§ ConnIDã€‚
+		bMapAlive = p_pRuntime->bServerStatus.load()
+			&& pSender == p_pRuntime->pPackServer
+			&& itClient != p_pRuntime->mapClient.end()
 			&& itClient->second.bConnected
-			&& g_setWebLocalClosing.find(dwConnID) == g_setWebLocalClosing.end();
-		pthread_mutex_unlock(&g_mutexWebConnet);
+			&& p_pRuntime->setLocalClosing.find(dwConnID) ==
+			p_pRuntime->setLocalClosing.end();
+		pthread_mutex_unlock(&p_pRuntime->mutexConnection);
 
 		return bMapAlive && HpSocketIsConnectedNoThrow(pSender, dwConnID);
 	}
 
-	bool SendWSMessageNoThrow(IHttpServer *pSender, CONNID dwConnID, BYTE iOperationCode,
-		const BYTE *pData, int iLength, ULONGLONG ullBodyLen, const char *p_szAction)
+	bool GetWebSocketPendingDataLengthNoThrow(ST_WEB_SERVER_RUNTIME* p_pRuntime,
+		IHttpServer *pSender, CONNID dwConnID, int& p_refIPendingBytes)
+	{
+		p_refIPendingBytes = 0;
+		if (!IsWebSocketSendable(p_pRuntime, pSender, dwConnID))
+			return false;
+
+		BOOL bQueryOK = FALSE;
+		int iPendingBytes = 0;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			bQueryOK = pSender->GetPendingDataLength(dwConnID, iPendingBytes);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			// ç¬¬ä¸‰æ–¹ç½‘ç»œåº“çŠ¶æ€æŸ¥è¯¢å¼‚å¸¸å¿…é¡»è¢«æˆªæ–­ï¼Œé¿å…æ…¢è¿æ¥è¯Šæ–­æ‰“ç©¿ä¸šåŠ¡è¿›ç¨‹ã€‚
+			WEB_ERROR("ConnID=%llu,WebSockGetPendingDataLengthException=0x%08X",
+				(unsigned long long)dwConnID, dwExceptionCode);
+			return false;
+		}
+		if (!bQueryOK || iPendingBytes < 0)
+			return false;
+
+		p_refIPendingBytes = iPendingBytes;
+		return true;
+	}
+
+	bool SendWSMessageNoThrow(IHttpServer *pSender, CONNID dwConnID, BYTE iOperationCode,		const BYTE *pData, int iLength, ULONGLONG ullBodyLen, const char *p_szAction)
 	{
 		if (nullptr == pSender)
 			return false;
@@ -111,7 +263,7 @@ namespace
 		}
 		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
 		{
-			// wyl 2026-05-19£ºµÚÈı·½ÍøÂç¿â·¢ËÍÒì³£²»ÄÜÈÃ½ø³ÌÎŞÈÕÖ¾ÍË³ö£¬ÖÁÉÙÂäÏÂ ConnID¡¢¶¯×÷ºÍÒì³£Âë¡£
+			// wyl 2026-05-19ï¼šç¬¬ä¸‰æ–¹ç½‘ç»œåº“å‘é€å¼‚å¸¸ä¸èƒ½è®©è¿›ç¨‹æ— æ—¥å¿—é€€å‡ºï¼Œè‡³å°‘è½ä¸‹ ConnIDã€åŠ¨ä½œå’Œå¼‚å¸¸ç ã€‚
 			WEB_ERROR("ConnID=%llu,%sException=0x%08X,Opcode=%u,SendDataLen=%d",
 				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "SendWSMessage",
 				dwExceptionCode, (unsigned int)iOperationCode, iLength);
@@ -119,45 +271,212 @@ namespace
 		}
 		return bSendOK ? true : false;
 	}
+
+	bool SendWebSocketDataOrdered(ST_WEB_SERVER_RUNTIME* p_pRuntime,
+		IHttpServer *pSender, CONNID dwConnID, BYTE p_byOperationCode,
+		const char *p_szData, int p_iDataLen, const char *p_szAction)
+	{
+		CWebSendTurnGuard clTurnGuard(p_pRuntime);
+		if (!clTurnGuard.Acquire(dwConnID, false))
+		{
+			return false;
+		}
+		bool bSendOK = false;
+		if (IsWebSocketSendable(p_pRuntime, pSender, dwConnID))
+		{
+			bSendOK = SendWSMessageNoThrow(pSender, dwConnID, p_byOperationCode,
+				(const BYTE *)p_szData, p_iDataLen, p_iDataLen, p_szAction);
+		}
+		else
+		{
+			WEB_WARN("ConnID=%llu,SkipSendWebSocketClosed,Opcode=%u,SendDataLen=%d",
+				(unsigned long long)dwConnID, (unsigned int)p_byOperationCode, p_iDataLen);
+		}
+		return bSendOK;
+	}
+
+	void CloseWebSocketOrdered(ST_WEB_SERVER_RUNTIME* p_pRuntime,
+		IHttpServer *pSender, CONNID dwConnID, BYTE p_byDataOperationCode,
+		const char *p_szData, int p_iDataLen)
+	{
+		CWebSendTurnGuard clTurnGuard(p_pRuntime);
+		if (!clTurnGuard.Acquire(dwConnID, true))
+		{
+			return;
+		}
+		const bool bCanClose = IsWebSocketSendable(p_pRuntime, pSender, dwConnID);
+		if (p_pRuntime != nullptr && bCanClose)
+		{
+			pthread_mutex_lock(&p_pRuntime->mutexConnection);
+			std::map<CONNID, ClientData>::iterator itClient =
+				p_pRuntime->mapClient.find(dwConnID);
+			if (itClient != p_pRuntime->mapClient.end())
+			{
+				itClient->second.bConnected = false;
+			}
+			p_pRuntime->setLocalClosing.insert(dwConnID);
+			pthread_mutex_unlock(&p_pRuntime->mutexConnection);
+		}
+
+		if (!bCanClose)
+		{
+			WEB_WARN("ConnID=%llu,SkipCloseWebSocketClosed", (unsigned long long)dwConnID);
+			return;
+		}
+		if (nullptr != p_szData && p_iDataLen > 0 &&
+			!SendWSMessageNoThrow(pSender, dwConnID, p_byDataOperationCode,
+				(const BYTE *)p_szData, p_iDataLen, p_iDataLen, "SendCloseData"))
+		{
+			WEB_ERROR("ConnID=%llu,SendCloseDataFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
+		}
+		if (!SendWSMessageNoThrow(pSender, dwConnID, 8, nullptr, 0, 0, "SendCloseFrame"))
+		{
+			WEB_WARN("ConnID=%llu,SendCloseFrameFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
+		}
+		if (!pSender->Disconnect(dwConnID, false) && p_pRuntime != nullptr)
+		{
+			pthread_mutex_lock(&p_pRuntime->mutexConnection);
+			p_pRuntime->setLocalClosing.erase(dwConnID);
+			p_pRuntime->mapClient.erase(dwConnID);
+			pthread_mutex_unlock(&p_pRuntime->mutexConnection);
+
+			pthread_mutex_lock(&p_pRuntime->mutexRequest);
+			auto itQueue = p_pRuntime->mapRequest.find(dwConnID);
+			if (itQueue != p_pRuntime->mapRequest.end())
+			{
+				delete itQueue->second;
+				p_pRuntime->mapRequest.erase(itQueue);
+			}
+			pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+			MarkWebSocketSendConnectionClosed(p_pRuntime, dwConnID);
+		}
+	}
 }
 
-void DeleteWebObj(void)
+void StartWebSocketSendCoordinator(ST_WEB_SERVER_RUNTIME* p_pRuntime)
 {
-	// wyl 2026-03-30£ºÍ£·şÊ±ÏÈÀ­µÍ Web ÔËĞĞ×´Ì¬£¬ÔÙÍ£Ö¹·şÎñºÍÏß³Ì³Ø£¬±ÜÃâ»Øµ÷¼ÌĞø½øÈëÎŞĞ§×´Ì¬¡£
-	g_bWebServerStatus = false;
-
-	if (nullptr != g_CWebPackServer)
+	if (p_pRuntime == nullptr)
 	{
-		g_CWebPackServer->Stop();
-		g_CWebPackServer->Wait(INFINITE);
+		return;
+	}
+	std::lock_guard<std::mutex> lifecycleLock(
+		p_pRuntime->clSendLifecycleMutex);
+	p_pRuntime->bSendAccepting = true;
+}
+
+void StopWebSocketSendCoordinator(ST_WEB_SERVER_RUNTIME* p_pRuntime)
+{
+	if (p_pRuntime == nullptr)
+	{
+		return;
+	}
+	{
+		std::unique_lock<std::mutex> lifecycleLock(
+			p_pRuntime->clSendLifecycleMutex);
+		p_pRuntime->bSendAccepting = false;
+		p_pRuntime->clSendLifecycleCondition.wait(lifecycleLock,
+			[p_pRuntime]() {
+			return p_pRuntime->szActiveSendCount == 0;
+		});
+	}
+	std::lock_guard<std::mutex> sendLock(p_pRuntime->clSendOrdersMutex);
+	p_pRuntime->mapSendOrders.clear();
+}
+
+void MarkWebSocketSendConnectionClosed(ST_WEB_SERVER_RUNTIME* p_pRuntime,
+	CONNID p_ullConnID)
+{
+	if (p_pRuntime == nullptr)
+	{
+		return;
+	}
+	std::lock_guard<std::mutex> mapLock(p_pRuntime->clSendOrdersMutex);
+	auto itOrder = p_pRuntime->mapSendOrders.find(p_ullConnID);
+	if (itOrder == p_pRuntime->mapSendOrders.end() || nullptr == itOrder->second)
+	{
+		return;
+	}
+	std::lock_guard<std::mutex> orderLock(itOrder->second->clMutex);
+	itOrder->second->bClosing = true;
+	itOrder->second->bConnectionClosed = true;
+	if (itOrder->second->ullServingTicket == itOrder->second->ullNextTicket)
+	{
+		p_pRuntime->mapSendOrders.erase(itOrder);
+	}
+}
+
+bool SendWebSocketControlFrameOrdered(ST_WEB_SERVER_RUNTIME* p_pRuntime,
+	IHttpServer* p_pSender, CONNID p_ullConnID,
+	BYTE p_byOperationCode, const BYTE* p_pData, int p_iDataLen, const char* p_szAction)
+{
+	CWebSendTurnGuard clTurnGuard(p_pRuntime);
+	if (!clTurnGuard.Acquire(p_ullConnID, false) ||
+		!IsWebSocketSendable(p_pRuntime, p_pSender, p_ullConnID))
+	{
+		return false;
+	}
+	return SendWSMessageNoThrow(p_pSender, p_ullConnID, p_byOperationCode,
+		p_pData, p_iDataLen, p_iDataLen, p_szAction);
+}
+
+bool CloseWebSocketFromPeerOrdered(ST_WEB_SERVER_RUNTIME* p_pRuntime,
+	IHttpServer* p_pSender, CONNID p_ullConnID)
+{
+	CWebSendTurnGuard clTurnGuard(p_pRuntime);
+	if (!clTurnGuard.Acquire(p_ullConnID, true))
+	{
+		return false;
+	}
+	const bool bCanClose = IsWebSocketSendable(
+		p_pRuntime, p_pSender, p_ullConnID);
+	if (bCanClose && !SendWSMessageNoThrow(p_pSender, p_ullConnID, 8, nullptr, 0, 0, "ReplyCloseFrame"))
+	{
+		WEB_WARN("ConnID=%llu,ReplyCloseFrameFail,err=%d", (unsigned long long)p_ullConnID, SYS_GetLastError());
+	}
+	if (nullptr != p_pSender)
+	{
+		p_pSender->Disconnect(p_ullConnID, false);
+	}
+	return bCanClose;
+}
+
+// åœæœåªé‡Šæ”¾æŒ‡å®š WebSocket å®ä¾‹ï¼Œå…¶ä»–ç½‘ç»œå®ä¾‹ç»§ç»­ç‹¬ç«‹è¿è¡Œã€‚
+void DeleteWebObj(ST_WEB_SERVER_RUNTIME* p_pRuntime)
+{
+	if (p_pRuntime == nullptr)
+	{
+		return;
+	}
+	// wyl 2026-03-30ï¼šåœæœæ—¶å…ˆæ‹‰ä½ Web è¿è¡ŒçŠ¶æ€ï¼Œå†åœæ­¢æœåŠ¡å’Œçº¿ç¨‹æ± ï¼Œé¿å…å›è°ƒç»§ç»­è¿›å…¥æ— æ•ˆçŠ¶æ€ã€‚
+	p_pRuntime->bServerStatus.store(false);
+	p_pRuntime->clIdentity.MarkStopped();
+	StopWebSocketSendCoordinator(p_pRuntime);
+
+	if (p_pRuntime->pPackServer != nullptr)
+	{
+		p_pRuntime->pPackServer->Stop();
+		p_pRuntime->pPackServer->Wait(INFINITE);
 	}
 
-	// wyl 2026-04-15£ºÏÈµÈ´ıÏß³Ì³ØÖĞÒÑÅÅ¶ÓµÄ Web »Øµ÷×ÔÈ»ÍË³ö£¬ÔÙÏú»Ùµ×²ã server£¬
-	// ±ÜÃâÍ¬½ø³Ì²¢ĞĞ·şÎñ»òÍ£·ş±ß½çÏÂ£¬ÉÏ²ã»Øµ÷ÄÃµ½ÒÑ¾­Ê§Ğ§µÄ p_refServerHandle¡£
-	if (nullptr != g_CWebHPThreadPool)
+	// wyl 2026-04-15ï¼šå…ˆç­‰å¾…çº¿ç¨‹æ± ä¸­å·²æ’é˜Ÿçš„ Web å›è°ƒè‡ªç„¶é€€å‡ºï¼Œå†é”€æ¯åº•å±‚ serverï¼Œ
+	// é¿å…åŒè¿›ç¨‹å¹¶è¡ŒæœåŠ¡æˆ–åœæœè¾¹ç•Œä¸‹ï¼Œä¸Šå±‚å›è°ƒæ‹¿åˆ°å·²ç»å¤±æ•ˆçš„ p_refServerHandleã€‚
+	p_pRuntime->clThreadPool->Stop();
+
+	ClearWebRuntimeData(p_pRuntime);
+
+	if (p_pRuntime->pPackServer != nullptr)
 	{
-		g_CWebHPThreadPool->Stop();
+		HP_Destroy_HttpServer(p_pRuntime->pPackServer);
+		p_pRuntime->pPackServer = nullptr;
 	}
 
-	ClearWebRuntimeData();
-
-	if (nullptr != g_CWebPackServer)
+	if (p_pRuntime->pListener != nullptr)
 	{
-		HP_Destroy_HttpServer(g_CWebPackServer);
-		g_CWebPackServer = nullptr;
+		delete p_pRuntime->pListener;
+		p_pRuntime->pListener = nullptr;
 	}
-
-	if (nullptr != g_CWebServerListerNet)
-	{
-		delete g_CWebServerListerNet;
-		g_CWebServerListerNet = nullptr;
-	}
-	DestroyWebMutexes();
-
-	g_pWebHandle = nullptr;
-	g_ullWebTaskID = 0;
-
-	CWebLog::Release();
+	p_pRuntime->pNotifyHandler = nullptr;
+	p_pRuntime->ullTaskId = 0;
 }
 
 int CWebSockServerObj::WebSockCompare(void* p_refSrcClient, void* p_refObjClient)
@@ -170,135 +489,185 @@ int CWebSockServerObj::WebSockCompare(void* p_refSrcClient, void* p_refObjClient
 	return dwSrcConnID == dwObjConnID ? 0 : 1;
 }
 
-CWebSockServerObj::CWebSockServerObj()
+CWebSockServerObj::CWebSockServerObj(const std::string& p_refServiceName,
+	std::uint64_t p_ullInstanceId)
+	: m_ptrRuntime(new ST_WEB_SERVER_RUNTIME(
+		p_refServiceName, p_ullInstanceId))
 {
-
 }
 
 CWebSockServerObj::~CWebSockServerObj()
 {
-	DeleteWebObj();
+	DeleteWebObj(m_ptrRuntime.get());
+}
+
+bool CWebSockServerObj::FillRuntimeInfo(
+	ST_SOCKET_SERVER_RUNTIME_INFO& p_refInfo) const
+{
+	if (m_ptrRuntime == nullptr)
+	{
+		return false;
+	}
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
+	if (!m_ptrRuntime->clIdentity.Snapshot(p_refInfo))
+	{
+		return false;
+	}
+	if (m_ptrRuntime->pPackServer != nullptr)
+	{
+		p_refInfo.uiMaxConnectionCount =
+			m_ptrRuntime->pPackServer->GetMaxConnectionCount();
+		p_refInfo.uiAcceptSocketCount =
+			m_ptrRuntime->pPackServer->GetAcceptSocketCount();
+		p_refInfo.uiSocketListenQueue =
+			m_ptrRuntime->pPackServer->GetSocketListenQueue();
+	}
+	return true;
+}
+
+bool CWebSockServerObj::SetSocketListenQueue(
+	unsigned int p_uiSocketListenQueue)
+{
+	if (m_ptrRuntime == nullptr || p_uiSocketListenQueue == 0 ||
+		p_uiSocketListenQueue > 65535U)
+	{
+		return false;
+	}
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
+	if (m_ptrRuntime->bServerStatus.load() ||
+		m_ptrRuntime->pPackServer != nullptr)
+	{
+		return false;
+	}
+	m_ptrRuntime->uiSocketListenQueue = p_uiSocketListenQueue;
+	return true;
 }
 
 bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPort, unsigned int p_uiRBufLen, unsigned int p_uiMaxConnectNum, unsigned int p_uiMaxAcceptNum,
 	WEB_NOTIFY_PROC p_webHandle, unsigned int p_uiThreadNum, unsigned int p_uiQueueNum, char *p_szErr, const char *p_szLogFold)
 {
-	pthread_mutex_lock(&g_mutexServiceLifecycle);
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
 
 	if (nullptr == p_szErr)
 	{
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
 	if (nullptr == p_szIp || 7 > strlen(p_szIp))
 	{
 		_snprintf(p_szErr, 1024, "code=-1,msg=init param err");
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
-	// wyl 2026-03-30£ºÆô¶¯Ç°ÏÈÇåÀí¾ÉÊµÀı²ĞÁô£¬±ÜÃâÖØ¸´Æô¶¯Ê±¸´ÓÃÔà×´Ì¬¡£
-	DeleteWebObj();
+	// wyl 2026-03-30ï¼šå¯åŠ¨å‰å…ˆæ¸…ç†æ—§å®ä¾‹æ®‹ç•™ï¼Œé¿å…é‡å¤å¯åŠ¨æ—¶å¤ç”¨è„çŠ¶æ€ã€‚
+	DeleteWebObj(m_ptrRuntime.get());
 
 	int iRet = 0;
 
-	//1.³õÊ¼»¯ÈÕÖ¾
+	//1.åˆå§‹åŒ–æ—¥å¿—
 	if (nullptr != p_szLogFold && strlen(p_szLogFold) > 0)
 	{
-		// wyl 2026-03-30£ºWeb ·şÎñÊ¹ÓÃ¶ÀÁ¢ÈÕÖ¾µ¥Àı£¬±ÜÃâÓë TCP ·şÎñ¹²ÏíÈÕÖ¾Â·¾¶ºÍÉúÃüÖÜÆÚ¡£
+		// wyl 2026-03-30ï¼šWeb æœåŠ¡ä½¿ç”¨ç‹¬ç«‹æ—¥å¿—å•ä¾‹ï¼Œé¿å…ä¸ TCP æœåŠ¡å…±äº«æ—¥å¿—è·¯å¾„å’Œç”Ÿå‘½å‘¨æœŸã€‚
 		if (MA_OK == CWebLog::GetInstance()->InitLog(p_szLogFold))
 		{
-			CWebLog::GetInstance()->Resume();//»Ö¸´¹¤×÷
+			CWebLog::GetInstance()->Resume();//æ¢å¤å·¥ä½œ
 			WEB_INFO("log started");
 		}
 		else
 		{
 			_snprintf(p_szErr, 1024, "code=-2,msg=log init fail");
-			DeleteWebObj();
-			pthread_mutex_unlock(&g_mutexServiceLifecycle);
+			DeleteWebObj(m_ptrRuntime.get());
 			return false;
 		}
-		// ÉèÖÃÈÕÖ¾µÈ¼¶
+		// è®¾ç½®æ—¥å¿—ç­‰çº§
 		CWebLog::GetInstance()->SetLogLevel((char *)"info");
 	}
 
-	// ÉèÖÃÈÎÎñ»Øµ÷
-	g_pWebHandle = p_webHandle;
+	// è®¾ç½®ä»»åŠ¡å›è°ƒ
+	m_ptrRuntime->pNotifyHandler = p_webHandle;
 
-	// wyl 2026-03-30£ºÏÈ³õÊ¼»¯ËøºÍÏß³Ì³Ø£¬ÔÙÆô¶¯ÍøÂç¼àÌı£¬¼õÉÙÆô¶¯´°¿ÚÆÚ¾ºÌ¬¡£
-	InitWebMutexes();
+	// wyl 2026-03-30ï¼šå…ˆåˆå§‹åŒ–å‘é€åè°ƒå™¨å’Œçº¿ç¨‹æ± ï¼Œå†å¯åŠ¨ç½‘ç»œç›‘å¬ï¼Œå‡å°‘å¯åŠ¨çª—å£æœŸç«æ€ã€‚
+	StartWebSocketSendCoordinator(m_ptrRuntime.get());
 
-	//2.ÉèÖÃÏß³Ì³Ø
-	g_CWebHPThreadPool->AdjustThreadCount(p_uiThreadNum);
-	if (!g_CWebHPThreadPool->Start(p_uiThreadNum, p_uiQueueNum, TRP_CALL_FAIL, 0))
+	//2.è®¾ç½®çº¿ç¨‹æ± 
+	m_ptrRuntime->clThreadPool->AdjustThreadCount(p_uiThreadNum);
+	if (!m_ptrRuntime->clThreadPool->Start(p_uiThreadNum,
+		p_uiQueueNum, TRP_CALL_FAIL, 0))
 	{
 		_snprintf(p_szErr, 1024, "code=%d,msg=thread pool start fail", SYS_GetLastError());
-		DeleteWebObj();
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
+		DeleteWebObj(m_ptrRuntime.get());
 		return false;
 	}
 
-	//3.´´½¨·şÎñ¼àÌıÆ÷
-	if (nullptr == g_CWebServerListerNet)
+	//3.åˆ›å»ºæœåŠ¡ç›‘å¬å™¨
+	if (m_ptrRuntime->pListener == nullptr)
 	{
-		g_CWebServerListerNet = new CWebServerListerNet();
+		m_ptrRuntime->pListener = new (std::nothrow)
+			CWebServerListerNet(m_ptrRuntime.get());
 	}
 
-	if (nullptr == g_CWebServerListerNet)
+	if (m_ptrRuntime->pListener == nullptr)
 	{
 		iRet = SYS_GetLastError();
 		_snprintf(p_szErr, 1024, "code=%d,msg=create web server lister fail", iRet);
-		DeleteWebObj();
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
+		DeleteWebObj(m_ptrRuntime.get());
 		return false;
 	}
 
-	//4.´´½¨·şÎñ
-	if (nullptr == g_CWebPackServer)
+	//4.åˆ›å»ºæœåŠ¡
+	if (m_ptrRuntime->pPackServer == nullptr)
 	{
-		g_CWebPackServer = HP_Create_HttpServer(g_CWebServerListerNet);
+		m_ptrRuntime->pPackServer = HP_Create_HttpServer(
+			m_ptrRuntime->pListener);
 	}
 
-	if (nullptr == g_CWebPackServer)
+	if (m_ptrRuntime->pPackServer == nullptr)
 	{
 		_snprintf(p_szErr, 1024, "code=%d,msg=create web server fail", SYS_GetLastError());
-		DeleteWebObj();
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
+		DeleteWebObj(m_ptrRuntime.get());
 		return false;
 	}
 
-	//5.ÉèÖÃ³¬Ê±ĞÄÌø
-	g_CWebPackServer->SetKeepAliveTime(2000);
-	g_CWebPackServer->SetKeepAliveInterval(1000);
+	//5.è®¾ç½®è¶…æ—¶å¿ƒè·³
+	m_ptrRuntime->pPackServer->SetKeepAliveTime(2000);
+	m_ptrRuntime->pPackServer->SetKeepAliveInterval(1000);
 
-	//6.ÉèÖÃ»º´æ´óĞ¡
-	g_CWebPackServer->SetSocketBufferSize(p_uiRBufLen);
+	//6.è®¾ç½®ç¼“å­˜å¤§å°
+	m_ptrRuntime->pPackServer->SetSocketBufferSize(p_uiRBufLen);
 
-	//7.ÉèÖÃ×î´óÁ¬½ÓÊı
-	g_CWebPackServer->SetMaxConnectionCount(p_uiMaxConnectNum);
+	//7.è®¾ç½®æœ€å¤§è¿æ¥æ•°
+	m_ptrRuntime->pPackServer->SetMaxConnectionCount(p_uiMaxConnectNum);
 
-	// wyl 2026-03-30£ºÕâÀïÉèÖÃµÄÊÇµ×²ã Accept Ô¤·ÖÅäÊıÁ¿£¬²»ÊÇ¡°Í¬Ò» IP ×î´óÁ¬½ÓÊı¡±ÏŞÁ÷¡£
-	//8.ÉèÖÃAccept´óĞ¡
-	g_CWebPackServer->SetAcceptSocketCount(p_uiMaxAcceptNum);
+	// wyl 2026-03-30ï¼šè¿™é‡Œè®¾ç½®çš„æ˜¯åº•å±‚ Accept é¢„åˆ†é…æ•°é‡ï¼Œä¸æ˜¯â€œåŒä¸€ IP æœ€å¤§è¿æ¥æ•°â€é™æµã€‚
+	//8.è®¾ç½®Acceptå¤§å°
+	m_ptrRuntime->pPackServer->SetAcceptSocketCount(p_uiMaxAcceptNum);
+	// TCP listen é˜Ÿåˆ—ä¸ Accept é¢„æŠ•é€’æ•°é‡è¯­ä¹‰ç‹¬ç«‹ï¼›æœªæ˜¾å¼è®¾ç½®æ—¶ä¿ç•™ HPSocket é»˜è®¤å€¼ã€‚
+	if (m_ptrRuntime->uiSocketListenQueue != 0)
+	{
+		m_ptrRuntime->pPackServer->SetSocketListenQueue(
+			m_ptrRuntime->uiSocketListenQueue);
+	}
 
-	// wyl 2026-03-30£º×ÊÔ´×¼±¸Íê³ÉºóÔÙ±ê¼Ç Web ·şÎñ¿ÉÔËĞĞ£¬¹©»Øµ÷Â·¾¶×ö×´Ì¬±£»¤¡£
-	g_bWebServerStatus = true;
+	// wyl 2026-03-30ï¼šèµ„æºå‡†å¤‡å®Œæˆåå†æ ‡è®° Web æœåŠ¡å¯è¿è¡Œï¼Œä¾›å›è°ƒè·¯å¾„åšçŠ¶æ€ä¿æŠ¤ã€‚
+	m_ptrRuntime->bServerStatus.store(true);
 
-	//9.Æô¶¯·şÎñ
-	if (!g_CWebPackServer->Start(p_szIp, p_unPort))
+	//9.å¯åŠ¨æœåŠ¡
+	if (!m_ptrRuntime->pPackServer->Start(p_szIp, p_unPort))
 	{
 		char szErrDesc[256] = { 0 };
-		SafeCopyCString(szErrDesc, sizeof(szErrDesc), g_CWebPackServer->GetLastErrorDesc());
+		SafeCopyCString(szErrDesc, sizeof(szErrDesc),
+			m_ptrRuntime->pPackServer->GetLastErrorDesc());
 		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
-			g_CWebPackServer->GetLastError(), szErrDesc);
-		DeleteWebObj();
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
+			m_ptrRuntime->pPackServer->GetLastError(), szErrDesc);
+		DeleteWebObj(m_ptrRuntime.get());
 		return false;
 	}
 
+	m_ptrRuntime->clIdentity.MarkStarted(p_szIp, p_unPort);
 	WEB_INFO("server started");
-	pthread_mutex_unlock(&g_mutexServiceLifecycle);
 	return true;
 }
 
@@ -308,7 +677,7 @@ bool CWebSockServerObj::CreateWssSock(const char*, unsigned short, unsigned int,
 	const char*, const char*,
 	const char*)
 {
-	// wyl 2026-03-30£ºµ±Ç°°æ±¾ÉĞÎ´ÊµÏÖ WSS ½¨Á´ºÍÖ¤Êé×°ÔØ£¬±ØĞëÃ÷È··µ»ØÊ§°Ü£¬±ÜÃâÉÏ²ãÎóÅĞ·şÎñÒÑÆô¶¯³É¹¦¡£
+	// wyl 2026-03-30ï¼šå½“å‰ç‰ˆæœ¬å°šæœªå®ç° WSS å»ºé“¾å’Œè¯ä¹¦è£…è½½ï¼Œå¿…é¡»æ˜ç¡®è¿”å›å¤±è´¥ï¼Œé¿å…ä¸Šå±‚è¯¯åˆ¤æœåŠ¡å·²å¯åŠ¨æˆåŠŸã€‚
 	if (nullptr != p_szErr)
 	{
 		_snprintf(p_szErr, 1024, "code=-3,msg=wss not implement");
@@ -318,72 +687,26 @@ bool CWebSockServerObj::CreateWssSock(const char*, unsigned short, unsigned int,
 
 void CWebSockServerObj::StopWebSock()
 {
-	pthread_mutex_lock(&g_mutexServiceLifecycle);
-	DeleteWebObj();
-	pthread_mutex_unlock(&g_mutexServiceLifecycle);
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
+	DeleteWebObj(m_ptrRuntime.get());
 }
 
 void CWebSockServerObj::WebSockClose(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen)
 {
 	if (nullptr == p_refServer || nullptr == p_refClient)
 		return;
+	CloseWebSocketOrdered(m_ptrRuntime.get(), (IHttpServer *)p_refServer,
+		(CONNID)p_refClient, 2, p_szData, p_iDataLen);
+}
 
-	IHttpServer *pSender = (IHttpServer *)p_refServer;
-	CONNID dwConnID = (CONNID)p_refClient;
-
-	bool bCanClose = IsWebSocketSendable(pSender, dwConnID);
-	if (g_bWebMutexInit && bCanClose)
-	{
-		pthread_mutex_lock(&g_mutexWebConnet);
-		std::map<CONNID, ClientData>::iterator itClient = g_mapWebClient.find(dwConnID);
-		if (itClient != g_mapWebClient.end())
-		{
-			// wyl 2026-05-19£º±¾¶ËÖ÷¶¯¹Ø±Õ¿ªÊ¼Ê±Á¢¼´³·Ïú¿É·¢ËÍ×´Ì¬£¬×èÖ¹ÆäËüÒµÎñÏß³Ì¼ÌĞøÍÆËÍÍ¬Ò»Á¬½Ó¡£
-			itClient->second.bConnected = false;
-		}
-		// wyl 2026-03-30£ºÏÔÊ½±ê¼Ç¡°±¾¶ËÖ÷¶¯¶Ï¿ª¡±£¬²»ÒªÔÙÒÀÀµ OnClose ÀïµÄ²Ù×÷ÀàĞÍ²Â²â¹Ø±ÕÀ´Ô´¡£
-		g_setWebLocalClosing.insert(dwConnID);
-		pthread_mutex_unlock(&g_mutexWebConnet);
-	}
-
-	if (!bCanClose)
-	{
-		WEB_WARN("ConnID=%llu,SkipCloseWebSocketClosed", (unsigned long long)dwConnID);
+void CWebSockServerObj::WebSockCloseText(void *p_refServer, void *p_refClient,
+	const char *p_szData, int p_iDataLen)
+{
+	if (nullptr == p_refServer || nullptr == p_refClient)
 		return;
-	}
-
-	// wyl 2026-03-30£ºWebSocket ¹Ø±ÕÇ°Èç¹ûÓĞÒµÎñÊı¾İ£¬°´¶ş½øÖÆÏûÏ¢Ö¡·¢ËÍ£¬²»ÔÙ´íÎóµØ»Ø HTTP ÏìÓ¦¡£
-	if (nullptr != p_szData && p_iDataLen > 0)
-	{
-		if (!SendWSMessageNoThrow(pSender, dwConnID, 2, (const BYTE *)p_szData, p_iDataLen, p_iDataLen, "SendCloseData"))
-		{
-			WEB_ERROR("ConnID=%llu,SendCloseDataFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
-		}
-	}
-
-	// wyl 2026-03-30£ºÖ÷¶¯¹Ø±ÕÊ±²¹·¢ WebSocket Close Ö¡£¬±ÜÃâ¿Í»§¶Ë°Ñ¹Ø±Õ¹ı³ÌÊ¶±ğ³ÉĞ­Òé´íÎó¡£
-	if (!SendWSMessageNoThrow(pSender, dwConnID, 8, nullptr, 0, 0, "SendCloseFrame"))
-	{
-		WEB_WARN("ConnID=%llu,SendCloseFrameFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
-	}
-
-	// wyl 2026-03-30£º¸ÄÎªÓÅÑÅ¶Ï¿ª£¬ÈÃÇ°ÃæÒÑ¾­ÅÅ¶ÓµÄ WebSocket Êı¾İÖ¡ºÍ Close Ö¡ÓĞ»ú»á·¢³ö¡£
-	if (!pSender->Disconnect(dwConnID, false) && g_bWebMutexInit)
-	{
-		// wyl 2026-03-30£ºÈç¹ûÖ÷¶¯¶Ï¿ªÊ§°Ü£¬Ö÷¶¯»ØÊÕ±¾´Î±ê¼ÇºÍ»º´æ£¬±ÜÃâ×´Ì¬²ĞÁô¡£
-		pthread_mutex_lock(&g_mutexWebConnet);
-		g_setWebLocalClosing.erase(dwConnID);
-		g_mapWebClient.erase(dwConnID);
-		pthread_mutex_unlock(&g_mutexWebConnet);
-
-		pthread_mutex_lock(&g_mutexWebReq);
-		if (g_mapWebQueue.find(dwConnID) != g_mapWebQueue.end())
-		{
-			delete g_mapWebQueue[dwConnID];
-			g_mapWebQueue.erase(dwConnID);
-		}
-		pthread_mutex_unlock(&g_mutexWebReq);
-	}
+	CloseWebSocketOrdered(m_ptrRuntime.get(), (IHttpServer *)p_refServer,
+		(CONNID)p_refClient, 1, p_szData, p_iDataLen);
 }
 
 bool CWebSockServerObj::WebSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen)
@@ -391,27 +714,19 @@ bool CWebSockServerObj::WebSockSend(void *p_refServer, void *p_refClient, const 
 	if (nullptr == p_refServer || nullptr == p_refClient || nullptr == p_szData || 0 >= p_iDataLen)
 		return false;
 
-	IHttpServer *pSender = (IHttpServer *)p_refServer;
-	CONNID dwConnID = (CONNID)p_refClient;
+	return SendWebSocketDataOrdered(m_ptrRuntime.get(),
+		(IHttpServer *)p_refServer, (CONNID)p_refClient,
+		2, p_szData, p_iDataLen, "SendWSBinaryMessage");
+}
 
-	if (!IsWebSocketSendable(pSender, dwConnID))
-	{
-		WEB_WARN("ConnID=%llu,SkipSendWebSocketClosed,SendDataLen=%d", (unsigned long long)dwConnID, p_iDataLen);
+bool CWebSockServerObj::WebSockSendText(void *p_refServer, void *p_refClient,
+	const char *p_szData, int p_iDataLen)
+{
+	if (nullptr == p_refServer || nullptr == p_refClient || nullptr == p_szData || 0 >= p_iDataLen)
 		return false;
-	}
-
-	// wyl 2026-03-30£ºWebSocket ¶ÔÍâ·¢ËÍÍ³Ò»×ßÏûÏ¢Ö¡½Ó¿Ú£¬µ±Ç°°´¶ş½øÖÆÖ¡·¢ËÍÒÔÆ¥ÅäÉÏ²ã¡°Ô­Ê¼×Ö½Ú¿é¡±ÓïÒå¡£
-	bool bSendOK = SendWSMessageNoThrow(pSender, dwConnID, 2, (const BYTE *)p_szData, p_iDataLen, p_iDataLen, "SendWSMessage");
-
-	if (bSendOK)
-	{
-		WEB_INFO("ConnID=%llu,SendDataLen=%d", (unsigned long long)dwConnID, p_iDataLen);
-	}
-	else
-	{
-		WEB_ERROR("ConnID=%llu,SendDataLen=%d,err=%d", (unsigned long long)dwConnID, p_iDataLen, SYS_GetLastError());
-	}
-	return bSendOK;
+	return SendWebSocketDataOrdered(m_ptrRuntime.get(),
+		(IHttpServer *)p_refServer, (CONNID)p_refClient,
+		1, p_szData, p_iDataLen, "SendWSTextMessage");
 }
 
 bool CWebSockServerObj::WebSockIsAlive(void *p_refServer, void *p_refClient)
@@ -421,6 +736,15 @@ bool CWebSockServerObj::WebSockIsAlive(void *p_refServer, void *p_refClient)
 
 	IHttpServer *pSender = (IHttpServer *)p_refServer;
 	CONNID dwConnID = (CONNID)p_refClient;
-	return IsWebSocketSendable(pSender, dwConnID);
+	return IsWebSocketSendable(m_ptrRuntime.get(), pSender, dwConnID);
 }
+bool CWebSockServerObj::WebSockGetPendingDataLength(void *p_refServer, void *p_refClient,
+	int& p_refIPendingBytes)
+{
+	p_refIPendingBytes = 0;
+	if (nullptr == p_refServer || nullptr == p_refClient)
+		return false;
 
+	return GetWebSocketPendingDataLengthNoThrow(m_ptrRuntime.get(),
+		(IHttpServer *)p_refServer, (CONNID)p_refClient, p_refIPendingBytes);
+}

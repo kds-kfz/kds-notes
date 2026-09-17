@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <Ice/Ice.h>
 #include "corba/JSONBINRPCU.h"
@@ -12,54 +12,65 @@
 #include "IceRPCPush.h"
 #include "sexport.h"
 #include "userdata.h"
+#include <atomic>
+#include <condition_variable>
+#include <cstdint>
+#include <deque>
+#include <mutex>
+#include <set>
+#include <thread>
 
-// È«¾Ö¹ÜÀíÖ¸Õë
-extern CRITICAL_SECTION		g_csHandleLock;
+struct ST_XML_CONFIG_DATA;
+
+// å…¨å±€ç®¡ç†æŒ‡é’ˆ
 extern std::map<HANDLE,HANDLE>	g_mapHandle;
-// ²ÉÓÃÏß³Ì¹Ø±Õice£¬Èç¹û³¢ÊÔN´Î¹Ø±Õ²»ÁË£¬Ç¿ÖÆ¹Ø±Õ£¬·ÀÖ¹¿¨×¡ÉÏ²ãÖ÷³ÌĞò;
-// Õı³£Çé¿öÏÂ£¬»áË³ÀûÍË³ö£¬Ö»Òª²»ÒªÔÙiceµÄ»Øµ÷ÀïÃæ²Ù×÷
+// é‡‡ç”¨çº¿ç¨‹å…³é—­iceï¼Œå¦‚æœå°è¯•Næ¬¡å…³é—­ä¸äº†ï¼Œå¼ºåˆ¶å…³é—­ï¼Œé˜²æ­¢å¡ä½ä¸Šå±‚ä¸»ç¨‹åº;
+// æ­£å¸¸æƒ…å†µä¸‹ï¼Œä¼šé¡ºåˆ©é€€å‡ºï¼Œåªè¦ä¸è¦å†iceçš„å›è°ƒé‡Œé¢æ“ä½œ
 
-// ¼¯ÖĞÍÆËÍÏß³ÌÊ¹ÓÃµÄ°ü½Úµã£¬¿çÏß³Ì´«µİºóÓÉÏû·Ñ·½ÊÍ·Å¡£
+// é›†ä¸­æ¨é€çº¿ç¨‹ä½¿ç”¨çš„åŒ…èŠ‚ç‚¹ï¼ŒæŒæœ‰è‡ªæè¿°è½½è·å‰¯æœ¬å¹¶ç”±æ¶ˆè´¹æ–¹è´Ÿè´£æ ¡éªŒè§£å‹ã€‚
 struct ST_PACK_QUEUE 
 {
-	// µ±Ç°°üÊÇ·ñÊ¹ÓÃ snappy Ñ¹Ëõ£¬Ïû·ÑÏß³Ì¾İ´Ë¾ö¶¨ÊÇ·ñ½âÑ¹¡£
-	char	bSnappy;
-	// Ö±½ÓÌáÇ°·µ»Ø£¬ÍÆËÍÅúÁ¿£¬·şÎñÆ÷²»¹ØĞÄ·µ»ØÖµ
+	// ç›´æ¥æå‰è¿”å›ï¼Œæ¨é€æ‰¹é‡ï¼ŒæœåŠ¡å™¨ä¸å…³å¿ƒè¿”å›å€¼
 	// ::JSONBINRPC::AMD_IJsonBinRPC_ProcessPackagePtr	cb;
-	// ÍÆËÍÇëÇóºÅ»òÍ¨ÖªºÅ£¬ÉÏ²ã¸ù¾İËüÇø·ÖÒµÎñÀàĞÍ¡£
+	// æ¨é€è¯·æ±‚å·æˆ–é€šçŸ¥å·ï¼Œä¸Šå±‚æ ¹æ®å®ƒåŒºåˆ†ä¸šåŠ¡ç±»å‹ã€‚
 	long long lReqNo;
-	// p_pBuf µÄÓĞĞ§×Ö½ÚÊı£¬ÔÊĞí¶ş½øÖÆÄÚÈİ°üº¬ 0¡£
-	long	lBufLen;
-	// ¿çÏß³Ì¸´ÖÆ³öÀ´µÄ°üÌå»º³åÇø£¬ÓÉ¶ÓÁĞÏû·Ñ·½ delete[]¡£
-	char *	pBuf;
+	// Ice å›è°ƒæ·±æ‹·è´çš„é€åŒ…è½½è·ï¼Œå›è°ƒè¿”å›åä»ä¿æŒæœ‰æ•ˆã€‚
+	::JSONBINRPC::BinaryPayload stPayload;
+	// æ¥æ”¶è¿æ¥é…ç½®çš„åè®®ç‰ˆæœ¬ï¼Œç”¨äºå·¥ä½œçº¿ç¨‹æ‹’ç»ä¸å…¼å®¹è½½è·ã€‚
+	int iProtocolVersion;
+	// æ¥æ”¶è¿æ¥å…è®¸çš„åŸå§‹è½½è·ä¸Šé™ï¼Œé˜²æ­¢è§£å‹æ”¾å¤§å†…å­˜å ç”¨ã€‚
+	int iMaxPayloadBytes;
 	ST_PACK_QUEUE()
 	{
-		bSnappy = 0;
 		//cb = nullptr;
 		lReqNo = 0;
-		pBuf = NULL;
-		lBufLen = 0;
+		stPayload.version = 1;
+		stPayload.compression = ::JSONBINRPC::BinaryCompression::BinaryCompressionNone;
+		stPayload.rawSize = 0;
+		stPayload.data.clear();
+		iProtocolVersion = 1;
+		iMaxPayloadBytes = 0;
 	}
 };
-// 64 Î»×éºÏ Key£¬ÓÃÁ½¸ö BKDR hash ½µµÍ¿Í»§¶Ë p_strGuid ³åÍ»¸ÅÂÊ¡£
+// 64 ä½ç»„åˆ Keyï¼Œç”¨ä¸¤ä¸ª BKDR hash é™ä½å®¢æˆ·ç«¯ p_strGuid å†²çªæ¦‚ç‡ã€‚
 union	ST_UNI_KEY
 {
-	unsigned long long	lKey;			// Î¨Ò»hashÖµ£¨0-0µÄ¿éÊÇÎŞĞ§¿é)
+	unsigned long long	lKey;			// å”¯ä¸€hashå€¼ï¼ˆ0-0çš„å—æ˜¯æ— æ•ˆå—)
 	struct  
 	{
-		DWORD	dwLowKey;		// µÍÎ»
-		DWORD	dwHighKey;	// ¸ßÎ»
+		DWORD	dwLowKey;		// ä½ä½
+		DWORD	dwHighKey;	// é«˜ä½
 	}stKeyPart; 
 };
 
-// Òì²½PUTµÄĞÅÏ¢; ST_JSON_INPUT ÊÇÉÏ²ãÒì²½PUTµÄÊı¾İ,µ÷ÓÃÊ±ºòÒÑ¾­°ÑÊı¾İ·¢ËÍ³öÈ¥£¬¿ÉÒÔ²»ÓÃ³¤ÆÚ±£´æ
+// å¼‚æ­¥PUTçš„ä¿¡æ¯; ST_JSON_INPUT æ˜¯ä¸Šå±‚å¼‚æ­¥PUTçš„æ•°æ®,è°ƒç”¨æ—¶å€™å·²ç»æŠŠæ•°æ®å‘é€å‡ºå»ï¼Œå¯ä»¥ä¸ç”¨é•¿æœŸä¿å­˜
 struct ST_JSON_INPUT_EX : ST_JSON_INPUT 
 {
-	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr		pRpcCallback;	// RPC Òì²½»Ø°ü¶ÔÏó£¬RPC ÇëÇó´¦ÀíÍê³Éºóµ÷ÓÃ¡£
-	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr		pPutCallback;	// PUT Òì²½»Ø°ü¶ÔÏó£¬PUT ÇëÇó´¦ÀíÍê³Éºóµ÷ÓÃ¡£
-	::JSONBINRPC::AByte								 aJsonReq;		// Éî¿½±´ºóµÄÇëÇó JSON Êı¾İ£¬±ÜÃâÒıÓÃ Ice ¾Ö²¿»º³å¡£
-	::JSONBINRPC::AByte								 aLParam;		// PUT µÚÒ»×é¶ş½øÖÆ²ÎÊıÉî¿½±´¡£
-	::JSONBINRPC::AByte								 aWParam;		// PUT µÚ¶ş×é¶ş½øÖÆ²ÎÊıÉî¿½±´¡£
+	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr		pRpcCallback;	// RPC å¼‚æ­¥å›åŒ…å¯¹è±¡ï¼ŒRPC è¯·æ±‚å¤„ç†å®Œæˆåè°ƒç”¨ã€‚
+	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr		pPutCallback;	// PUT å¼‚æ­¥å›åŒ…å¯¹è±¡ï¼ŒPUT è¯·æ±‚å¤„ç†å®Œæˆåè°ƒç”¨ã€‚
+	::JSONBINRPC::AByte								 aJsonReq;		// æ·±æ‹·è´åçš„è¯·æ±‚ JSON æ•°æ®ï¼Œé¿å…å¼•ç”¨ Ice å±€éƒ¨ç¼“å†²ã€‚
+	::JSONBINRPC::AByte								 aLParam;		// PUT ç¬¬ä¸€ç»„äºŒè¿›åˆ¶å‚æ•°æ·±æ‹·è´ã€‚
+	::JSONBINRPC::AByte								 aWParam;		// PUT ç¬¬äºŒç»„äºŒè¿›åˆ¶å‚æ•°æ·±æ‹·è´ã€‚
 	ST_JSON_INPUT_EX():ST_JSON_INPUT()
 	{
 		pRpcCallback = nullptr;
@@ -81,14 +92,14 @@ struct ST_JSON_INPUT_EX : ST_JSON_INPUT
 		aWParam.clear();
 	}
 };
-// Ô¶³Ìµ÷ÓÃºóµÄ·µ»ØĞÅÏ¢£¬Ex ÊÇÄÚ²¿À©Õ¹ºóµÄĞÅÏ¢¡£
+// è¿œç¨‹è°ƒç”¨åçš„è¿”å›ä¿¡æ¯ï¼ŒEx æ˜¯å†…éƒ¨æ‰©å±•åçš„ä¿¡æ¯ã€‚
 struct ST_JSON_MULTI_RESULT_EX : ST_JSON_M_RESULT_LEVEL
 {
-	HANDLE										hHandle;	// ·¢Æğµ÷ÓÃµÄ¿Í»§¶Ë HANDLE£¬ÓÃÓÚ EndPre ºÍÒì³£ÉÏ±¨¡£
-	::JSONBINRPC::AByte							aReqJson;	// ÇëÇó JSON Éî¿½±´£¬±£Ö¤½á¹û¶ÔÏóÖĞ stJsonReq Ö¸ÕëÓĞĞ§¡£
-	::Ice::AsyncResultPtr						pResult;	// Ice ¼æÈİÒì²½½á¹û¶ÔÏó£¬Pre/End Ä£Ê½µÈ´ıËüÍê³É¡£
-	::JSONBINRPC::AByte							aLParam;	// µÚÒ»×é¶ş½øÖÆ·µ»ØÊı¾İ³ÖÓĞÕß¡£
-	::JSONBINRPC::AByte							aWParam;	// µÚ¶ş×é¶ş½øÖÆ·µ»ØÊı¾İ³ÖÓĞÕß¡£
+	HANDLE										hHandle;	// å‘èµ·è°ƒç”¨çš„å®¢æˆ·ç«¯ HANDLEï¼Œç”¨äº EndPre å’Œå¼‚å¸¸ä¸ŠæŠ¥ã€‚
+	::JSONBINRPC::AByte							aReqJson;	// è¯·æ±‚ JSON æ·±æ‹·è´ï¼Œä¿è¯ç»“æœå¯¹è±¡ä¸­ stJsonReq æŒ‡é’ˆæœ‰æ•ˆã€‚
+	::Ice::AsyncResultPtr						pResult;	// Ice å…¼å®¹å¼‚æ­¥ç»“æœå¯¹è±¡ï¼ŒPre/End æ¨¡å¼ç­‰å¾…å®ƒå®Œæˆã€‚
+	::JSONBINRPC::AByte							aLParam;	// ç¬¬ä¸€ç»„äºŒè¿›åˆ¶è¿”å›æ•°æ®æŒæœ‰è€…ã€‚
+	::JSONBINRPC::AByte							aWParam;	// ç¬¬äºŒç»„äºŒè¿›åˆ¶è¿”å›æ•°æ®æŒæœ‰è€…ã€‚
 	ST_JSON_MULTI_RESULT_EX() :ST_JSON_M_RESULT_LEVEL()
 	{
 		hHandle = NULL;
@@ -98,17 +109,17 @@ struct ST_JSON_MULTI_RESULT_EX : ST_JSON_M_RESULT_LEVEL
 		aWParam.clear();
 	}
 };
-// Ö±»Øµ÷Ä£Ê½µÄÄÚ²¿½á¹û½Úµã£¬±£´æ Ice AMD »Ø°ü¶ÔÏó¡£
+// ç›´å›è°ƒæ¨¡å¼çš„å†…éƒ¨ç»“æœèŠ‚ç‚¹ï¼Œä¿å­˜ Ice AMD å›åŒ…å¯¹è±¡ã€‚
 struct	ST_JSON_MULTI_RESULT_DIRECT_CALLBACK : ST_JSON_M_RESULT_LEVEL
 {
-	char											chMode;		// ÇëÇóÄ£Ê½£¬Çø·Ö RPC ºÍ PUT¡£
-	long long									lSetCode;	// ÒµÎñ¼¯ºÏ»òÊĞ³¡±àÂë£¬»Øµ÷¸øÉÏ²ãÊ±±£³ÖÔ­Öµ¡£
-	HANDLE										hSelf;		// ·şÎñ¶Ë±£´æµÄ¿Í»§¶Ë¾ä±ú£¬ÓÃÓÚ»Ø°ü»ò·´ÏòÍÆËÍ¡£
-	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr		pRpcCallback;	// RPC Ö±»Øµ÷Ä£Ê½µÄ Ice »Ø°ü¶ÔÏó¡£
-	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr		pPutCallback;	// PUT Ö±»Øµ÷Ä£Ê½µÄ Ice »Ø°ü¶ÔÏó¡£
-	::JSONBINRPC::AByte								 aJsonReq;		// ÇëÇó JSON Éî¿½±´£¬±£Ö¤»Øµ÷ÆÚ¼äÖ¸ÕëÓĞĞ§¡£
-	::JSONBINRPC::AByte								 aLParam;		// PUT µÚÒ»×é¶ş½øÖÆ²ÎÊıÉî¿½±´¡£
-	::JSONBINRPC::AByte								 aWParam;		// PUT µÚ¶ş×é¶ş½øÖÆ²ÎÊıÉî¿½±´¡£
+	char											chMode;		// è¯·æ±‚æ¨¡å¼ï¼ŒåŒºåˆ† RPC å’Œ PUTã€‚
+	long long									lSetCode;	// ä¸šåŠ¡é›†åˆæˆ–å¸‚åœºç¼–ç ï¼Œå›è°ƒç»™ä¸Šå±‚æ—¶ä¿æŒåŸå€¼ã€‚
+	HANDLE										hSelf;		// æœåŠ¡ç«¯ä¿å­˜çš„å®¢æˆ·ç«¯å¥æŸ„ï¼Œç”¨äºå›åŒ…æˆ–åå‘æ¨é€ã€‚
+	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr		pRpcCallback;	// RPC ç›´å›è°ƒæ¨¡å¼çš„ Ice å›åŒ…å¯¹è±¡ã€‚
+	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr		pPutCallback;	// PUT ç›´å›è°ƒæ¨¡å¼çš„ Ice å›åŒ…å¯¹è±¡ã€‚
+	::JSONBINRPC::AByte								 aJsonReq;		// è¯·æ±‚ JSON æ·±æ‹·è´ï¼Œä¿è¯å›è°ƒæœŸé—´æŒ‡é’ˆæœ‰æ•ˆã€‚
+	::JSONBINRPC::AByte								 aLParam;		// PUT ç¬¬ä¸€ç»„äºŒè¿›åˆ¶å‚æ•°æ·±æ‹·è´ã€‚
+	::JSONBINRPC::AByte								 aWParam;		// PUT ç¬¬äºŒç»„äºŒè¿›åˆ¶å‚æ•°æ·±æ‹·è´ã€‚
 	ST_JSON_MULTI_RESULT_DIRECT_CALLBACK():ST_JSON_M_RESULT_LEVEL()
 	{
 		chMode= 0;
@@ -132,17 +143,17 @@ struct	ST_JSON_MULTI_RESULT_DIRECT_CALLBACK : ST_JSON_M_RESULT_LEVEL
 	}
 };
 
-// ¿Í»§¶ËÖ÷¶¯Á¬½ÓÍÆËÍÍ¨µÀµÄ×´Ì¬£¬Ö§³Ö TCP/UDP/×é²¥ÈıÖÖÄ£Ê½¡£
+// å®¢æˆ·ç«¯ä¸»åŠ¨è¿æ¥æ¨é€é€šé“çš„çŠ¶æ€ï¼Œæ”¯æŒ TCP/UDP/ç»„æ’­ä¸‰ç§æ¨¡å¼ã€‚
 struct ST_TCP_PUSH_CONN 
 {
-	std::string			strIp;			// Ô¶³ÌÍÆËÍÍ¨µÀ IP¡£
-	int					iPort;			// Ô¶³ÌÍÆËÍÍ¨µÀ¶Ë¿Ú¡£
+	std::string			strIp;			// è¿œç¨‹æ¨é€é€šé“ IPã€‚
+	int					iPort;			// è¿œç¨‹æ¨é€é€šé“ç«¯å£ã€‚
 
-	SOCKET				hSocket;		// TCP/UDP socket ¾ä±ú¡£
-	int					iNetType;		// ÍøÂçÀàĞÍ£¬È¡ SOCK_STREAM »ò SOCK_DGRAM¡£
-	HANDLE				hHandle;		// À­È¡Ïß³Ì¾ä±ú£¬ÓÉÍÆËÍ¹ÜÀíÆ÷¸ºÔğ¹Ø±Õ¡£
-	bool				bOpenTcpOk;	// TCP Í¨µÀÊÇ·ñÒÑ¾­´ò¿ª³É¹¦¡£
-	bool				bOpenUdpOk;	// UDP Í¨µÀÊÇ·ñÒÑ¾­´ò¿ª³É¹¦¡£
+	SOCKET				hSocket;		// TCP/UDP socket å¥æŸ„ã€‚
+	int					iNetType;		// ç½‘ç»œç±»å‹ï¼Œå– SOCK_STREAM æˆ– SOCK_DGRAMã€‚
+	HANDLE				hHandle;		// æ‹‰å–çº¿ç¨‹å¥æŸ„ï¼Œç”±æ¨é€ç®¡ç†å™¨è´Ÿè´£å…³é—­ã€‚
+	bool				bOpenTcpOk;	// TCP é€šé“æ˜¯å¦å·²ç»æ‰“å¼€æˆåŠŸã€‚
+	bool				bOpenUdpOk;	// UDP é€šé“æ˜¯å¦å·²ç»æ‰“å¼€æˆåŠŸã€‚
 	ST_TCP_PUSH_CONN()
 	{
 		strIp.clear();
@@ -154,18 +165,18 @@ struct ST_TCP_PUSH_CONN
 		hSocket	 = INVALID_SOCKET;
 	}
 };
-// UDP ÍÆËÍ¶Ë¿ÚºÍ¿Í»§¶ËÓ³ÉäĞÅÏ¢£¬ÍÆËÍÏß³ÌÓÃËüÎ¬»¤¿ìËÙÍ¨µÀ¡£
+// UDP æ¨é€ç«¯å£å’Œå®¢æˆ·ç«¯æ˜ å°„ä¿¡æ¯ï¼Œæ¨é€çº¿ç¨‹ç”¨å®ƒç»´æŠ¤å¿«é€Ÿé€šé“ã€‚
 struct	ST_UDP_INFO
 {
-	long					lRef;		// »îÔ¾ÒıÓÃ¼ÆÊı£¬½µµ½ 0 ºóÔÊĞíÇåÀí¸Ã UDP ¿Í»§¶Ë¡£
-	int						iPort;		// ±¾µØ°ó¶¨»òÔ¶³Ì·¢ËÍ¶Ë¿Ú¡£
-	SOCKET					iFd;		// UDP socket ¾ä±ú¡£
-	struct sockaddr_in		stAddr;		// Ô¶³ÌµØÖ·£¬·¢ËÍ UDP °üÊ±Ê¹ÓÃ¡£
+	long					lRef;		// æ´»è·ƒå¼•ç”¨è®¡æ•°ï¼Œé™åˆ° 0 åå…è®¸æ¸…ç†è¯¥ UDP å®¢æˆ·ç«¯ã€‚
+	int						iPort;		// æœ¬åœ°ç»‘å®šæˆ–è¿œç¨‹å‘é€ç«¯å£ã€‚
+	SOCKET					iFd;		// UDP socket å¥æŸ„ã€‚
+	struct sockaddr_in		stAddr;		// è¿œç¨‹åœ°å€ï¼Œå‘é€ UDP åŒ…æ—¶ä½¿ç”¨ã€‚
 	//unsigned long long		dwCount;
-	HANDLE					hHandle;	// ¹ØÁªµÄ SocketServer ¿Í»§¶Ë¾ä±ú£¬×÷Îª·şÎñ¶ËÍÆËÍÊ±Ê¹ÓÃ¡£
-	SOCKET					iServerFd;	// ·şÎñ¶Ë UDP socket ¾ä±ú¡£
-	class CPushMng	*		pParent;	// ËùÊôÍÆËÍ¹ÜÀíÆ÷£¬²»ÓµÓĞÆäÉúÃüÖÜÆÚ¡£
-	bool					bDeleted;	// ÊÇ·ñÒÑ¾­½øÈëÉ¾³ıÁ÷³Ì£¬±ÜÃâÖØ¸´ÊÍ·Å¡£
+	HANDLE					hHandle;	// å…³è”çš„ SocketServer å®¢æˆ·ç«¯å¥æŸ„ï¼Œä½œä¸ºæœåŠ¡ç«¯æ¨é€æ—¶ä½¿ç”¨ã€‚
+	SOCKET					iServerFd;	// æœåŠ¡ç«¯ UDP socket å¥æŸ„ã€‚
+	class CPushMng	*		pParent;	// æ‰€å±æ¨é€ç®¡ç†å™¨ï¼Œä¸æ‹¥æœ‰å…¶ç”Ÿå‘½å‘¨æœŸã€‚
+	bool					bDeleted;	// æ˜¯å¦å·²ç»è¿›å…¥åˆ é™¤æµç¨‹ï¼Œé¿å…é‡å¤é‡Šæ”¾ã€‚
 	ST_UDP_INFO()
 	{
 		lRef = 0;
@@ -178,25 +189,25 @@ struct	ST_UDP_INFO
 		bDeleted = false;
 	}
 };
-// Í³Ò»¹ÜÀí TCP/UDP/Ice ÍÆËÍ¶ÓÁĞ£¬²»Çø·ÖÍÆËÍÀ´Ô´£¬¼¯ÖĞ´¦ÀíÏŞÁ÷ºÍ»Øµ÷¡£
+// ç»Ÿä¸€ç®¡ç† TCP/UDP/Ice æ¨é€é˜Ÿåˆ—ï¼Œä¸åŒºåˆ†æ¨é€æ¥æºï¼Œé›†ä¸­å¤„ç†é™æµå’Œå›è°ƒã€‚
 class CPushMng
 {
 public:
-// »ñÈ¡È«¾ÖÍÆËÍ¹ÜÀíÆ÷²¢Ôö¼ÓÒıÓÃ£¬·şÎñ¶ËºÍ¿Í»§¶Ë×¢²á¶¼¹²ÏíËü¡£
+// è·å–å…¨å±€æ¨é€ç®¡ç†å™¨å¹¶å¢åŠ å¼•ç”¨ï¼ŒæœåŠ¡ç«¯å’Œå®¢æˆ·ç«¯æ³¨å†Œéƒ½å…±äº«å®ƒã€‚
 	static	CPushMng *	CreateNewPushObj();
-// ÊÍ·ÅÈ«¾ÖÍÆËÍ¹ÜÀíÆ÷ÒıÓÃ£¬×îºóÒ»¸öÒıÓÃÍË³öÊ±ÇåÀíÏß³ÌºÍ socket¡£
+// é‡Šæ”¾å…¨å±€æ¨é€ç®¡ç†å™¨å¼•ç”¨ï¼Œæœ€åä¸€ä¸ªå¼•ç”¨é€€å‡ºæ—¶æ¸…ç†çº¿ç¨‹å’Œ socketã€‚
 	static	void		ReleaseIt();
 	static	void		PushRegisterInfo(const char * p_szRegSubInfo,int p_iIsReg=1);
-// °Ñ Ice ÍÆËÍ°ü·ÅÈë¼¯ÖĞ¶ÓÁĞ£¬ÓÉ×¨ÓÃÏß³Ì½âÑ¹²¢·Ö·¢¡£
+// æŠŠ Ice æ¨é€åŒ…æ”¾å…¥é›†ä¸­é˜Ÿåˆ—ï¼Œç”±ä¸“ç”¨çº¿ç¨‹è§£å‹å¹¶åˆ†å‘ã€‚
 	static	void		PushPack(ST_PACK_QUEUE* p_pPack);
 	static	void		ProcessPackage(long long p_lReqNo,const char * p_pBuf,long p_lBufLen);
 	static	void		PushHandle(HANDLE p_hHandle,bool p_bIsDel=false);
-	// ¶¯Ì¬¸üĞÂ×¢²áµÄ»Øµ÷º¯Êı
+	// åŠ¨æ€æ›´æ–°æ³¨å†Œçš„å›è°ƒå‡½æ•°
 	static	void		UpdateCallBack(func_JsonICEPushClientPack p_pfnCallback,void * p_pParam,bool p_bIsDel=false);
-	// Í³Ò»¹ÜÀíÁ¬½Ó	SOCK_DGRAM		SOCK_STREAM
+	// ç»Ÿä¸€ç®¡ç†è¿æ¥	SOCK_DGRAM		SOCK_STREAM
 	static	void		PushConnectInfo(int p_iNetType,std::string p_strIp,std::string p_strPort);
-	// Æô¶¯UDP
-// Æô¶¯ UDP µã¶Ôµã¿ìËÙÍÆËÍ£¬ÊÊºÏ¸ßÆµĞĞÇé°ü½µµÍ Ice Ñ¹Á¦¡£
+	// å¯åŠ¨UDP
+// å¯åŠ¨ UDP ç‚¹å¯¹ç‚¹å¿«é€Ÿæ¨é€ï¼Œé€‚åˆé«˜é¢‘è¡Œæƒ…åŒ…é™ä½ Ice å‹åŠ›ã€‚
 	bool				StartP2PPush(int p_iThread,int p_iPort);
 	void				UDPPush(const char * p_pBuf,long p_lBufLen);
 protected:
@@ -204,7 +215,7 @@ protected:
 	~CPushMng();
 	static	DWORD	WINAPI	s_PushThread(void * p_pParam);
 	DWORD	PushThread();
-	// ¿Í»§¶ËsocketÀ­È¡Ïß³Ì
+	// å®¢æˆ·ç«¯socketæ‹‰å–çº¿ç¨‹
 	static	DWORD	WINAPI	s_PeekThread(void * p_pParam);
 	DWORD	PeekThread(ST_TCP_PUSH_CONN * p_pConn);
 	void	SetSubReqBuf(ST_REQ_HEADER * p_pReq);
@@ -214,69 +225,69 @@ protected:
 	static	DWORD	WINAPI	s_P2PRecv(void * p_pParam);
 	DWORD	P2PRecv(ST_UDP_INFO * p_pUdpInfo);
 protected:
-// È«¾Öµ¥ÀıÖ¸Õë£¬ÀúÊ·½Ó¿Ú°´½ø³Ì¹²ÏíÍÆËÍÏß³Ì¡£
+// å…¨å±€å•ä¾‹æŒ‡é’ˆï¼Œå†å²æ¥å£æŒ‰è¿›ç¨‹å…±äº«æ¨é€çº¿ç¨‹ã€‚
 	static	CPushMng *  m_pThis;
-// µ¥ÀıÒıÓÃ¼ÆÊı£¬±ÜÃâ¶à¸ö¿Í»§¶Ë×¢²áÊ±ÌáÇ°Ïú»ÙÍÆËÍÏß³Ì¡£
+// å•ä¾‹å¼•ç”¨è®¡æ•°ï¼Œé¿å…å¤šä¸ªå®¢æˆ·ç«¯æ³¨å†Œæ—¶æå‰é”€æ¯æ¨é€çº¿ç¨‹ã€‚
 	volatile LONG		m_lRef;
 	std::map<DWORD,int>	m_mapRegSubInfo;
 	//std::map<unsigned long long,std::string>			m_mapRegSubInfo;
 	//std::map<unsigned long long,int>					m_aRegSubState;
-	// ×÷Îª¿Í»§¶Ë£¬×¢²ánewµÄÊµÀı£¬·¢ÏÖÓĞ¸¸Àà£¬¿ÉÒÔ°ÑĞÅºÅµÆ´«µİ¸ø¸¸Àà£¬²»ÓÃÉÏ²ãÔÙ´ÎÒı³öĞÅºÅµÆ
-// ¿çÏß³ÌÍÆËÍ°ü¶ÓÁĞ£¬Éú²ú·½Ö»Èë¶Ó²¢»½ĞÑĞÅºÅÁ¿¡£
+	// ä½œä¸ºå®¢æˆ·ç«¯ï¼Œæ³¨å†Œnewçš„å®ä¾‹ï¼Œå‘ç°æœ‰çˆ¶ç±»ï¼Œå¯ä»¥æŠŠä¿¡å·ç¯ä¼ é€’ç»™çˆ¶ç±»ï¼Œä¸ç”¨ä¸Šå±‚å†æ¬¡å¼•å‡ºä¿¡å·ç¯
+// è·¨çº¿ç¨‹æ¨é€åŒ…é˜Ÿåˆ—ï¼Œç”Ÿäº§æ–¹åªå…¥é˜Ÿå¹¶å”¤é†’ä¿¡å·é‡ã€‚
 	CDataQueue<ST_PACK_QUEUE>							m_clPackQueue;
 	HANDLE											m_hPushPack;
 	HANDLE											m_hSemPush;
 protected:
-	// ×¢²áµÄ»Øµ÷º¯ÊıÇé¿ö
+	// æ³¨å†Œçš„å›è°ƒå‡½æ•°æƒ…å†µ
 	CRITICAL_SECTION								m_csPush;
-// ÒÑ×¢²áµÄÍÆËÍ»Øµ÷¼¯ºÏ£¬value ÊÇµ÷ÓÃ·½Í¸´«²ÎÊı¡£
+// å·²æ³¨å†Œçš„æ¨é€å›è°ƒé›†åˆï¼Œvalue æ˜¯è°ƒç”¨æ–¹é€ä¼ å‚æ•°ã€‚
 	std::map<func_JsonICEPushClientPack,void*>		m_mapPackCallback;
 	CRITICAL_SECTION								m_csHandle;
 	std::map<HANDLE,HANDLE>							m_mapHandle;
 	bool											m_bStop;
-// °´µØÖ·»º´æ¿Í»§¶ËÍÆËÍÁ¬½Ó£¬·ÀÖ¹ÖØ¸´½¨Á¬¡£
+// æŒ‰åœ°å€ç¼“å­˜å®¢æˆ·ç«¯æ¨é€è¿æ¥ï¼Œé˜²æ­¢é‡å¤å»ºè¿ã€‚
 	std::map<std::string,ST_TCP_PUSH_CONN*>				m_mapPushConn;
 	// UDP
 	int												m_iUdpThread;
 	std::map<int,ST_UDP_INFO*>							m_mapBindClient;
 	CRITICAL_SECTION								m_csClientPushLock;
-// UDP ¿Í»§¶ËĞÄÌø±í£¬³¤Ê±¼äÎŞÏìÓ¦µÄ¿Í»§¶Ë²»ÔÙÍÆËÍ¡£
-	std::map<unsigned long long,ST_UDP_INFO*>					m_mapPushClient;			// ĞèÒªÎ¬»¤ĞÄÌø°ü£¬³¤Ê±¼äÃ»·´À¡£¬²»ÔÙÍÆËÍ
+// UDP å®¢æˆ·ç«¯å¿ƒè·³è¡¨ï¼Œé•¿æ—¶é—´æ— å“åº”çš„å®¢æˆ·ç«¯ä¸å†æ¨é€ã€‚
+	std::map<unsigned long long,ST_UDP_INFO*>					m_mapPushClient;			// éœ€è¦ç»´æŠ¤å¿ƒè·³åŒ…ï¼Œé•¿æ—¶é—´æ²¡åé¦ˆï¼Œä¸å†æ¨é€
 public:
 	static volatile long long							m_lPushPackCrowded;
 };
 
-// U ´ú±í UnionºÏ²¢½Ó¿ÚµÄÉı¼¶ÒâË¼
+// U ä»£è¡¨ Unionåˆå¹¶æ¥å£çš„å‡çº§æ„æ€
 namespace JSONBINRPC
 {	
-	// ¶Ôhandle½øĞĞ¸ÄÔì£¬Ö§³Ö·şÎñ¶Ë´Ó¾ßÌå¿Í»§¶Ë·´ÏòRPC
-// DLL ¶ÔÍâ HANDLE µÄÕæÊµ½á¹¹£¬Í³Ò»°ü×°·şÎñÊµÀı»ò¾ßÌå¿Í»§¶Ë´úÀí¡£
+	// å¯¹handleè¿›è¡Œæ”¹é€ ï¼Œæ”¯æŒæœåŠ¡ç«¯ä»å…·ä½“å®¢æˆ·ç«¯åå‘RPC
+// DLL å¯¹å¤– HANDLE çš„çœŸå®ç»“æ„ï¼Œç»Ÿä¸€åŒ…è£…æœåŠ¡å®ä¾‹æˆ–å…·ä½“å®¢æˆ·ç«¯ä»£ç†ã€‚
 	struct ST_JSON_BIN_HANDLE
 	{
-		// HANDLE °ü×°¶ÔÏóÒıÓÃ¼ÆÊı£¬Òì²½ÍÆËÍÆÚ¼äÍ¨¹ı Ref/ReleaseIt ±£»¤ÉúÃüÖÜÆÚ¡£
-		long						lRef;		// ÒıÓÃ¼ÆÊıÆ÷£¬¼õµ½0¾Í±»É¾³ı
-		// ¾ä±úÀàĞÍ£¬Çø·Ö RPC ÊµÀı¾ä±úºÍ·şÎñ¶Ë±£´æµÄ¾ßÌå¿Í»§¶Ë¾ä±ú¡£
-		int							iType;		// 0==CJsonBinRPCImp   1==¾ßÌå¿Í»§¶Ë
-		// ¹ØÁªµÄ RPC ÊµÀı£¬¿Í»§¶Ë¾ä±úÒ²Í¨¹ıËü·ÃÎÊ¸¸¶ÔÏó×´Ì¬¡£
-		class CJsonBinRPCImp	*	pRpc;		// ×÷Îª¿Í»§¶Ë£¬Ò²ÓĞ
-		// ¶©ÔÄ¹¦ÄÜºÅ×´Ì¬£¬·şÎñ¶ËÍÆËÍÊ±°´ p_lReqNo ¹ıÂËÄ¿±ê¿Í»§¶Ë¡£
-		std::map<DWORD,int>			mapSubId;		// ¶©ÔÄĞÅÏ¢ 1=¶©ÔÄ  0=²»¶©ÔÄ
-		// Ö÷¶¯ÏòÏÂÓÎÍÆËÍ£¬¹ÜÀíµÄclientĞÅÏ¢
-// Ice 3.8 ´úÀí¿ÉÄÜÎª¿Õ£¬ÓÃ optional ±í´ïÁ¬½Ó/×¢²áÎ´Íê³É×´Ì¬¡£
+		// HANDLE åŒ…è£…å¯¹è±¡å¼•ç”¨è®¡æ•°ï¼Œå¼‚æ­¥æ¨é€æœŸé—´é€šè¿‡ Ref/ReleaseIt ä¿æŠ¤ç”Ÿå‘½å‘¨æœŸã€‚
+		long						lRef;		// å¼•ç”¨è®¡æ•°å™¨ï¼Œå‡åˆ°0å°±è¢«åˆ é™¤
+		// å¥æŸ„ç±»å‹ï¼ŒåŒºåˆ† RPC å®ä¾‹å¥æŸ„å’ŒæœåŠ¡ç«¯ä¿å­˜çš„å…·ä½“å®¢æˆ·ç«¯å¥æŸ„ã€‚
+		int							iType;		// 0==CJsonBinRPCImp   1==å…·ä½“å®¢æˆ·ç«¯
+		// å…³è”çš„ RPC å®ä¾‹ï¼Œå®¢æˆ·ç«¯å¥æŸ„ä¹Ÿé€šè¿‡å®ƒè®¿é—®çˆ¶å¯¹è±¡çŠ¶æ€ã€‚
+		class CJsonBinRPCImp	*	pRpc;		// ä½œä¸ºå®¢æˆ·ç«¯ï¼Œä¹Ÿæœ‰
+		// è®¢é˜…åŠŸèƒ½å·çŠ¶æ€ï¼ŒæœåŠ¡ç«¯æ¨é€æ—¶æŒ‰ p_lReqNo è¿‡æ»¤ç›®æ ‡å®¢æˆ·ç«¯ã€‚
+		std::map<DWORD,int>			mapSubId;		// è®¢é˜…ä¿¡æ¯ï¼šå€¼ 1 è¡¨ç¤ºè®¢é˜…ï¼Œé”® 0 è¡¨ç¤ºæ¥æ”¶å…¨éƒ¨é€šçŸ¥ã€‚
+		// ä¸»åŠ¨å‘ä¸‹æ¸¸æ¨é€ï¼Œç®¡ç†çš„clientä¿¡æ¯
+// Ice 3.8 ä»£ç†å¯èƒ½ä¸ºç©ºï¼Œç”¨ optional è¡¨è¾¾è¿æ¥/æ³¨å†Œæœªå®ŒæˆçŠ¶æ€ã€‚
 		std::optional<JSONBINRPC::IJsonBinRPCPrx> refProxy;
-		// ¿Í»§¶Ë×¢²á±êÊ¶£¬ÓÃÓÚĞøÔ¼¡¢×¢ÏúºÍÉú³É·şÎñ¶Ë±£´æ key¡£
+		// å®¢æˆ·ç«¯æ³¨å†Œæ ‡è¯†ï¼Œç”¨äºç»­çº¦ã€æ³¨é”€å’Œç”ŸæˆæœåŠ¡ç«¯ä¿å­˜ keyã€‚
 		std::string					strGuid;
-		std::string					strRet;		// ÓÃÓÚ·µ»ØµÄÁÙÊ±±äÁ¿
-		int						iLastErrorCode;	// ×î½üÒ»´Î½Ó¿Ú´íÎóÂë£¬¹©ÉÏ²ã²éÑ¯¡£
-		std::string					strLastError;	// ×î½üÒ»´Î½Ó¿ÚÏêÏ¸Ó¢ÎÄ´íÎóÃèÊö¡£
-		time_t						tmLive;		// ´æ»î°ü
+		std::string					strRet;		// ç”¨äºè¿”å›çš„ä¸´æ—¶å˜é‡
+		int						iLastErrorCode;	// æœ€è¿‘ä¸€æ¬¡æ¥å£é”™è¯¯ç ï¼Œä¾›ä¸Šå±‚æŸ¥è¯¢ã€‚
+		std::string					strLastError;	// æœ€è¿‘ä¸€æ¬¡æ¥å£è¯¦ç»†è‹±æ–‡é”™è¯¯æè¿°ã€‚
+		time_t						tmLive;		// å­˜æ´»åŒ…
 		DWORD						dwCount;
-// ·µ»Ø¿Éµ÷ÓÃµÄÔ¶¶Ë´úÀí£»·şÎñ¶Ë¾ßÌå¿Í»§¶Ë¾ä±ú»á×ß×ÔÉí refProxy¡£
+// è¿”å›å¯è°ƒç”¨çš„è¿œç«¯ä»£ç†ï¼›æœåŠ¡ç«¯å…·ä½“å®¢æˆ·ç«¯å¥æŸ„ä¼šèµ°è‡ªèº« refProxyã€‚
 		JSONBINRPC::IJsonBinRPCPrx	ClientIO();
 		ST_JSON_BIN_HANDLE*				Ref();
 		bool						ReleaseIt();
 		ST_JSON_BIN_HANDLE();
-		// BKDRHash : ¹Ì¶¨±ê×¼hashËã·¨
+		// BKDRHash : å›ºå®šæ ‡å‡†hashç®—æ³•
 		static unsigned int GenHash(const char* p_szText, unsigned int p_uLen,unsigned int p_uSeed)
 		{
 			//unsigned int uSeed = 131; /* 31 131 1313 13131 131313 etc.. */
@@ -291,7 +302,7 @@ namespace JSONBINRPC
 			return hash;
 		}
 
-		// Í³Ò»Ó²±àÂë  p_ulKey = GenKey(Code)
+		// ç»Ÿä¸€ç¡¬ç¼–ç   p_ulKey = GenKey(Code)
 		static unsigned long long GenKey(const char* p_szText)
 		{
 			ST_UNI_KEY	uk;
@@ -311,11 +322,11 @@ namespace JSONBINRPC
 
 	};
 
-// ÖØÁ¬ locator Ê±±£´æĞÂÔö m_refCommunicator/m_refAdapter£¬±ÜÃâ¾ÉÁ¬½ÓÍ¨ĞÅÖĞ±»¹Ø±Õ¡£
+// é‡è¿ locator æ—¶ä¿å­˜æ–°å¢ m_refCommunicator/m_refAdapterï¼Œé¿å…æ—§è¿æ¥é€šä¿¡ä¸­è¢«å…³é—­ã€‚
 	struct ST_ADDED_CONN_INFO 
 	{
-		Ice::CommunicatorPtr												refCommunicator;	// ĞÂ½¨Á¬½ÓÊ¹ÓÃµÄ Communicator£¬ÀÏÁ¬½ÓÊÍ·ÅÇ°±£³Ö´æ»î¡£
-		Ice::ObjectAdapterPtr											refAdapter;		// ĞÂ½¨Á¬½ÓÊ¹ÓÃµÄ Adapter£¬±ÜÃâ»Øµ÷Í¨µÀÌáÇ°¹Ø±Õ¡£
+		Ice::CommunicatorPtr												refCommunicator;	// æ–°å»ºè¿æ¥ä½¿ç”¨çš„ Communicatorï¼Œè€è¿æ¥é‡Šæ”¾å‰ä¿æŒå­˜æ´»ã€‚
+		Ice::ObjectAdapterPtr											refAdapter;		// æ–°å»ºè¿æ¥ä½¿ç”¨çš„ Adapterï¼Œé¿å…å›è°ƒé€šé“æå‰å…³é—­ã€‚
 
 		ST_ADDED_CONN_INFO()
 		{
@@ -324,7 +335,7 @@ namespace JSONBINRPC
 		}
 	};
 
-// ICE Slice ½Ó¿ÚµÄÊµÏÖ£¬¸ºÔğ°Ñµ¼³ö API¡¢Ice RPC ºÍÍÆËÍÍ¨µÀ´®ÆğÀ´¡£
+// ICE Slice æ¥å£çš„å®ç°ï¼Œè´Ÿè´£æŠŠå¯¼å‡º APIã€Ice RPC å’Œæ¨é€é€šé“ä¸²èµ·æ¥ã€‚
 class CJsonBinRPCImp : 	public IJsonBinRPC
 {
 public:
@@ -334,53 +345,62 @@ public:
 	static	void	DeleteIt(CJsonBinRPCImp * p_pThis);
 	//static	DWORD	WINAPI	s_PushThread(void * p_pParam);
 	//DWORD	PushThread();
-public:	// ÍøÂç½Ó¿Ú
-	// ×¢²áÍøÂç»Øµ÷ÍÆËÍ½Ó¿Ú Ice::Identity idguid, Ö±½ÓÓÃµ±Ç°»·¾³µÄ
-// Ice 3.5 AMD ×¢²áÈë¿Ú£¬Ç¨ÒÆÆÚ±£Áô¸ø¾É´úÂëÂ·¾¶²Î¿¼¡£
+public:	// ç½‘ç»œæ¥å£
+	// æ³¨å†Œç½‘ç»œå›è°ƒæ¨é€æ¥å£ Ice::Identity idguid, ç›´æ¥ç”¨å½“å‰ç¯å¢ƒçš„
+// Ice 3.5 AMD æ³¨å†Œå…¥å£ï¼Œè¿ç§»æœŸä¿ç•™ç»™æ—§ä»£ç è·¯å¾„å‚è€ƒã€‚
 	void	RegisterStockPushIO_async(const ::JSONBINRPC::AMD_IJsonBinRPC_RegisterStockPushIOPtr& p_pCallback, const ::std::string& p_strGuid, const ::Ice::Identity& p_stIdent, const ::Ice::Current& = ::Ice::Current());
-	// ½Ó¿Úµ÷ÓÃ²ÎÊıÊÇjson¸ñÊ½£¬·µ»ØÊ±¶ş½øÖÆ£¬ÔõÃ´½âÎö£¬×ÔĞĞÔ¼¶¨
-	// ·şÎñ¶Ë¶ËÈ«²¿²ÉÓÃÒì²½£¬µ÷ÓÃend_JsonBinRPC·µ»ØÊı¾İ
+	// æ¥å£è°ƒç”¨å‚æ•°æ˜¯jsonæ ¼å¼ï¼Œè¿”å›æ—¶äºŒè¿›åˆ¶ï¼Œæ€ä¹ˆè§£æï¼Œè‡ªè¡Œçº¦å®š
+	// æœåŠ¡ç«¯ç«¯å…¨éƒ¨é‡‡ç”¨å¼‚æ­¥ï¼Œè°ƒç”¨end_JsonBinRPCè¿”å›æ•°æ®
 	void	JsonBinRPC_async(const ::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr& p_pCallback, long long p_lSynId, long long p_lFuncId,long long p_lSetCode,const ::JSONBINRPC::AByte& p_stJsonReq, const ::Ice::Current& = ::Ice::Current());
-	// Ô¶³ÌĞ´ÈëµÄ½Ó¿Ú£¬Ğ´ÈëÃèÊöĞÅÏ¢ÊÇjson£¬Ğ´µÄÄÚÈİÊÇ×Ö·û´®
-	// Òì²½ÊäÈë²ÎÊı£¬ËùÓĞÊä³öµ÷ÓÃend_xxxx²¿·Ö
+	// è¿œç¨‹å†™å…¥çš„æ¥å£ï¼Œå†™å…¥æè¿°ä¿¡æ¯æ˜¯jsonï¼Œå†™çš„å†…å®¹æ˜¯å­—ç¬¦ä¸²
+	// å¼‚æ­¥è¾“å…¥å‚æ•°ï¼Œæ‰€æœ‰è¾“å‡ºè°ƒç”¨end_xxxxéƒ¨åˆ†
 	void	JsonBinPUT_async(const ::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr& p_pCallback, long long p_lSynId, long long p_lFuncId,long long p_lSetCode,const ::JSONBINRPC::AByte& p_stJsonReq, 
 									long long p_lParam, const ::JSONBINRPC::AByte& p_stLParam, long long p_lWParam, const ::JSONBINRPC::AByte& p_stWParam,const ::Ice::Current& = ::Ice::Current());
-	// ×¢Ïú
+	// æ³¨é”€
 	void	UnRegisterStockPushIO_async(const ::JSONBINRPC::AMD_IJsonBinRPC_UnRegisterStockPushIOPtr& p_pCallback, const ::std::string&, const ::Ice::Current& = ::Ice::Current());
-	// ÍÆËÍ½Ó¿Ú
-	void	ProcessPackage_async(const ::JSONBINRPC::AMD_IJsonBinRPC_ProcessPackagePtr& p_pCallback, long long p_lReqNo, const ::JSONBINRPC::AByte& p_stAByte, const ::Ice::Current& = ::Ice::Current());
+	// æ¨é€æ¥å£
+	void	ProcessPackage_async(const ::JSONBINRPC::AMD_IJsonBinRPC_ProcessPackagePtr& p_pCallback, long long p_lReqNo, const ::JSONBINRPC::BinaryPayload& p_stPayload, const ::Ice::Current& = ::Ice::Current());
 	
 	
 	void	RegisterStockPushIO2_async(const ::JSONBINRPC::AMD_IJsonBinRPC_RegisterStockPushIO2Ptr& p_pCallback, const ::std::string& p_strGuid, const ::std::string& p_strSubInfo, const ::Ice::Identity& p_stIdent, const ::Ice::Current& p_stCurrent = ::Ice::Current());
 	void	UnRegisterStockPushIO2_async(const ::JSONBINRPC::AMD_IJsonBinRPC_UnRegisterStockPushIO2Ptr& p_pCallback, const ::std::string& p_strGuid, const ::std::string& p_strSubInfo, const ::Ice::Identity& p_stIdent, const ::Ice::Current& p_stCurrent = ::Ice::Current());
-	// ¶¯Ì¬¸üĞÂ×¢²áµÄ»Øµ÷º¯Êı
+	// åŠ¨æ€æ›´æ–°æ³¨å†Œçš„å›è°ƒå‡½æ•°
 	//void	UpdateCallBack(func_JsonICEPushClientPack p_pfnCallback,void * p_pParam,bool p_bIsDel=false);
-	// Ice 3.8 Éú³É½Ó¿ÚÒªÇóµÄÒì²½×¢²áÈë¿Ú£¬ÄÚ²¿×ª½Ó¾É AMD ´¦ÀíÁ÷³Ì¡£
+	// Ice 3.8 ç”Ÿæˆæ¥å£è¦æ±‚çš„å¼‚æ­¥æ³¨å†Œå…¥å£ï¼Œå†…éƒ¨è½¬æ¥æ—§ AMD å¤„ç†æµç¨‹ã€‚
 	void	RegisterStockPushIOAsync(std::string p_strGuid, ::Ice::Identity p_stIdent, std::function<void(std::int64_t)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent) override;
 	void	JsonBinRPCAsync(std::int64_t p_lSynId, std::int64_t p_lFuncId, std::int64_t p_lSetCode, ::JSONBINRPC::AByte p_stReqJson, std::function<void(std::int64_t, std::int64_t, const ::JSONBINRPC::AByte&, std::int64_t, const ::JSONBINRPC::AByte&, std::string_view)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent) override;
 	void	JsonBinPUTAsync(std::int64_t p_lSynId, std::int64_t p_lFuncId, std::int64_t p_lSetCode, ::JSONBINRPC::AByte p_stPutJson, std::int64_t p_lParam, ::JSONBINRPC::AByte p_stLParam, std::int64_t p_lWParam, ::JSONBINRPC::AByte p_stWParam, std::function<void(std::int64_t, std::int64_t, const ::JSONBINRPC::AByte&, std::int64_t, const ::JSONBINRPC::AByte&, std::string_view)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent) override;
+	// Ice 3.8 äºŒè¿›åˆ¶ RPC å…¥å£ï¼Œè¯·æ±‚è¿›å…¥ç‹¬ç«‹æœ‰ç•Œé˜Ÿåˆ—åç”±å·¥ä½œçº¿ç¨‹å¤„ç†ã€‚
+	void	BinaryRPCAsync(::JSONBINRPC::BinaryRequest p_stRequest, std::function<void(const ::JSONBINRPC::BinaryResponse&)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent) override;
+	// Ice 3.8 äºŒè¿›åˆ¶ PUT å…¥å£ï¼Œå’Œ BinaryRPC å…±ç”¨å‹ç¼©ã€é™æµå’Œåº”ç­”æµç¨‹ã€‚
+	void	BinaryPUTAsync(::JSONBINRPC::BinaryRequest p_stRequest, std::function<void(const ::JSONBINRPC::BinaryResponse&)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent) override;
 	void	UnRegisterStockPushIOAsync(std::string p_strGuid, std::function<void(std::int64_t)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent) override;
-	void	ProcessPackageAsync(std::int64_t p_lReqNo, ::JSONBINRPC::AByte p_pBuf, std::function<void()> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent) override;
+	void	ProcessPackageAsync(std::int64_t p_lReqNo, ::JSONBINRPC::BinaryPayload p_stPayload, std::function<void()> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent) override;
 	void	RegisterStockPushIO2Async(std::string p_strGuid, std::string p_strSubInfo, ::Ice::Identity p_stIdent, std::function<void(std::string_view)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent) override;
 	void	UnRegisterStockPushIO2Async(std::string p_strGuid, std::string p_strSubInfo, ::Ice::Identity p_stIdent, std::function<void(std::string_view)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent) override;
 void	TTLive();
-public:	// »¥¶¯½Ó¿Ú
-// ·şÎñ¶ËÖ÷¶¯ÍÆËÍÈë¿Ú£¬¸ù¾İ¶©ÔÄºÍÍøÂçÄ£Ê½Ñ¡Ôñ Ice/TCP/UDP Í¨µÀ¡£
+public:	// äº’åŠ¨æ¥å£
+// æœåŠ¡ç«¯ä¸»åŠ¨æ¨é€å…¥å£ï¼Œæ ¹æ®è®¢é˜…å’Œç½‘ç»œæ¨¡å¼é€‰æ‹© Ice/TCP/UDP é€šé“ã€‚
 	long long	ProcessPackage(long long p_lReqNo,const char * p_pBuf,long p_lBufLen,bool p_bIsAsync=true);
-// ÒÔ·şÎñ¶ËÄ£Ê½Æô¶¯ Ice m_refCommunicator ºÍ m_refAdapter£¬²¢³õÊ¼»¯ÍÆËÍ·şÎñ¡£
+// ä»¥æœåŠ¡ç«¯æ¨¡å¼å¯åŠ¨ Ice m_refCommunicator å’Œ m_refAdapterï¼Œå¹¶åˆå§‹åŒ–æ¨é€æœåŠ¡ã€‚
 	bool	StartByServer(const char * p_szCfgFile,const char * p_szEndpointName,HANDLE & p_hSem,bool p_bSnappyCompress);
-	// ÇáÁ¿¼¶
-// ´ÓÅäÖÃÎÄ¼şÆô¶¯¿Í»§¶Ë£¬²¢Ö§³Ö locator/m_refProxy ÊôĞÔ½âÎö¡£
-	bool	StartByClientWithLocator(const char * p_szCfgFile,const char * p_szProxyProperty,HANDLE & p_hSem);
-// ´Óµ÷ÓÃ·½´«ÈëµÄ key/value ÊôĞÔÆô¶¯¿Í»§¶Ë£¬±ÜÃâÒÀÀµÅäÖÃÎÄ¼ş¡£
-	bool    StartByClientWithProperty(int p_iNum,const char * p_aPropertyKey[],const char * p_aProperty[],const char * p_szProxyProperty,HANDLE & p_hSem);
-	// ·µ»ØµÄ¿Í»§¶Ë£¬¿ÉÒÔÕı³£²Ù×÷ÈÎºÎº¯Êı
-// ×¢²á¿Í»§¶ËÍÆËÍ»Øµ÷£¬±ØÒªÊ±´´½¨Ë«Ïò Ice callback m_refAdapter¡£
+	// è½»é‡çº§
+// ä»é…ç½®æ–‡ä»¶å¯åŠ¨å®¢æˆ·ç«¯ï¼Œå¹¶åœ¨åˆå§‹åŒ– Communicator å‰åº”ç”¨å¯é€‰å®¢æˆ·ç«¯çº¿ç¨‹æ± å¤§å°ã€‚
+	bool	StartByClientWithLocator(const char * p_szCfgFile,const char * p_szProxyProperty,HANDLE & p_hSem,int p_iThreadPool);
+// ä»è°ƒç”¨æ–¹ä¼ å…¥çš„ key/value å±æ€§å¯åŠ¨å®¢æˆ·ç«¯ï¼Œå¹¶åœ¨åˆå§‹åŒ– Communicator å‰åº”ç”¨å¯é€‰å®¢æˆ·ç«¯çº¿ç¨‹æ± å¤§å°ã€‚
+	bool    StartByClientWithProperty(int p_iNum,const char * p_aPropertyKey[],const char * p_aProperty[],const char * p_szProxyProperty,HANDLE & p_hSem,int p_iThreadPool);
+	// è¿”å›çš„å®¢æˆ·ç«¯ï¼Œå¯ä»¥æ­£å¸¸æ“ä½œä»»ä½•å‡½æ•°
+// æ³¨å†Œå®¢æˆ·ç«¯æ¨é€å›è°ƒï¼Œå¿…è¦æ—¶åˆ›å»ºåŒå‘ Ice callback m_refAdapterã€‚
 	JSONBINRPC::CJsonBinRPCImp *	RegisterClient(std::string& p_strRet,const char * p_strGuid,const char *p_strSubInfo,func_JsonICEPushClientPack p_pfnCallback,int p_iIsReg=1,void * p_pParam=NULL);
-// Í£Ö¹ Ice¡¢SocketServer ºÍºóÌ¨Ïß³Ì£¬ÊÍ·Å DLL ÄÚ²¿×ÊÔ´¡£
+// åœæ­¢ Iceã€SocketServer å’Œåå°çº¿ç¨‹ï¼Œé‡Šæ”¾ DLL å†…éƒ¨èµ„æºã€‚
 	void	UnInit();
 	void	DeleteAddedConn();
 	const char * GetEndPoint();
+	// è¿”å›æœ€è¿‘ä¸€æ¬¡åˆå§‹åŒ–æˆ– Binary ç¼–è§£ç å¤±è´¥è¯¦æƒ…ï¼Œä¾› DLL è¾¹ç•Œè½¬æ¢ä¸ºç»Ÿä¸€é”™è¯¯ã€‚
+	const std::string& LastError() const
+	{
+		return m_strError;
+	}
 	JSONBINRPC::IJsonBinRPCPrx	ClientIO()
 	{
 		return *m_refStockIo;
@@ -406,77 +426,171 @@ public:	// »¥¶¯½Ó¿Ú
 	{
 		return m_bAsyncWaitCompleted;
 	}
+	// æ³¨å†ŒäºŒè¿›åˆ¶æœåŠ¡ç«¯å›è°ƒï¼Œå¹¶æŒ‰é…ç½®å¯åŠ¨å·¥ä½œçº¿ç¨‹ã€‚
+	void	RegisterBinaryServerCallback(func_IceBinaryServerCallback p_pfnCallback, void* p_pParam);
+	// æ³¨å†Œæ”¯æŒå»¶è¿Ÿåº”ç­”å’Œæ§åˆ¶ä¼˜å…ˆçº§çš„äºŒè¿›åˆ¶æœåŠ¡ç«¯å›è°ƒã€‚
+	void	RegisterBinaryServerCallbackEx(func_IceBinaryServerCallbackEx p_pfnCallback,
+		func_IceBinaryPriorityClassifier p_pfnPriorityClassifier, void* p_pParam);
+	// å®ŒæˆæœåŠ¡ç«¯äºŒè¿›åˆ¶è¯·æ±‚ï¼Œç»“æœä¼šåœ¨å›è°ƒè¿”å›åç»Ÿä¸€ç¼–ç å¹¶å“åº”ã€‚
+	bool	CompleteBinaryResponse(HANDLE p_hResponse, const ST_BINARY_RESULT* p_pResult);
+	// æ ¹æ®å›åŒ…å¥æŸ„å®šä½æ‰€å±æœåŠ¡å®ä¾‹ï¼Œä¾› DLL C å¯¼å‡ºå…¥å£è°ƒç”¨ã€‚
+	static bool	CompleteBinaryResponseTask(HANDLE p_hResponse, const ST_BINARY_RESULT* p_pResult);
+	// æ‰§è¡ŒåŒæ­¥äºŒè¿›åˆ¶ RPC æˆ– PUTï¼Œå¹¶è¿”å› DLL æŒæœ‰çš„ç»“æœå¯¹è±¡ã€‚
+	ST_BINARY_RESULT*	BinaryCall(const ST_BINARY_CALL* p_pCall, bool p_bPut);
+	// æ‰§è¡Œå¼‚æ­¥äºŒè¿›åˆ¶ RPC æˆ– PUTï¼Œæäº¤æˆåŠŸåç”±å›è°ƒæ¥æ”¶ç»“æœã€‚
+	long long	BinaryCallAsync(const ST_BINARY_CALL* p_pCall, bool p_bPut,
+		LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam,
+		int p_iTimeoutMs = 0, bool p_bExplicitTimeout = false);
+	// å¼‚æ­¥è°ƒç”¨ä¿æŒ BinaryPayload ç¼–ç çŠ¶æ€å¹¶æŠŠç»“æœæ‰€æœ‰æƒäº¤ç»™è°ƒç”¨æ–¹ã€‚
+	long long	BinaryCallAsyncEncoded(const ST_BINARY_CALL* p_pCall,
+		bool p_bPut, LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam,
+		int p_iTimeoutMs, bool p_bExplicitTimeout);
+	// é‡Šæ”¾ç¼–ç ç»“æœå†…éƒ¨ç§»åŠ¨å¾—åˆ°çš„ Ice å­—èŠ‚å®¹å™¨ã€‚
+	static void	FreeBinaryEncodedResult(
+		ST_BINARY_ENCODED_RESULT* p_pResult);
 protected:
-// µ±Ç°Á¬½ÓÊÇ·ñ°´ snappy Ñ¹ËõÍÆËÍ°ü£¬ÓÉ×¢²á·µ»ØÖµ»òÅäÖÃ¾ö¶¨¡£
+	struct ST_BINARY_SERVER_TASK;
+	struct ST_BINARY_RESPONSE_CONTEXT;
+	// è¯»å–äºŒè¿›åˆ¶åè®®é…ç½®ï¼Œå¹¶å¯¹éæ³•å€¼ä½¿ç”¨å®‰å…¨é»˜è®¤å€¼ã€‚
+	void	LoadBinaryConfig(const ST_XML_CONFIG_DATA* p_pConfig, const char* p_szCfgFile);
+	// ç¼–ç ä¸€æ®µä¸šåŠ¡è½½è·ï¼Œè¾¾åˆ°é˜ˆå€¼ä¸”å‹ç¼©æœ‰æ•ˆæ—¶ä½¿ç”¨ Snappyã€‚
+	bool	EncodeBinaryPayload(const ST_BINARY_VIEW& p_refView, ::JSONBINRPC::BinaryPayload& p_refPayload, std::string& p_refError) const;
+	// è§£ç å¹¶æ ¡éªŒä¸€æ®µä¼ è¾“è½½è·ï¼Œè¿”å›ä¸šåŠ¡å¯ç›´æ¥è¯»å–çš„åŸå§‹å­—èŠ‚ã€‚
+	bool	DecodeBinaryPayload(const ::JSONBINRPC::BinaryPayload& p_refPayload, std::vector<unsigned char>& p_refBuffer, std::string& p_refError) const;
+	// æ ¡éªŒå¹¶æ„é€  Ice BinaryRequestã€‚
+	bool	BuildBinaryRequest(const ST_BINARY_CALL* p_pCall, ::JSONBINRPC::BinaryRequest& p_refRequest, std::string& p_refError) const;
+	// æŠŠ Ice BinaryResponse æ·±æ‹·è´ä¸º DLL å…¬å…±ç»“æœã€‚
+	ST_BINARY_RESULT*	BuildBinaryResult(const ::JSONBINRPC::BinaryResponse& p_refResponse, void* p_pParam, std::string& p_refError) const;
+	// ç§»åŠ¨ Ice BinaryResponse çš„ BinaryPayload æ‰€æœ‰æƒï¼Œä¸è§£å‹ä¹Ÿä¸å¤åˆ¶æ­£æ–‡ã€‚
+	ST_BINARY_ENCODED_RESULT*	BuildBinaryEncodedResult(
+		::JSONBINRPC::BinaryResponse&& p_refResponse,
+		ST_BINARY_ENCODED_RESULT* p_pPreparedResult, void* p_pParam,
+		std::string& p_refError) const;
+	// åˆ›å»ºç»Ÿä¸€é”™è¯¯åº”ç­”ï¼Œä¾›åè®®æ ¡éªŒã€é˜Ÿåˆ—æ‹¥å¡å’Œå›è°ƒå¼‚å¸¸è·¯å¾„ä½¿ç”¨ã€‚
+	::JSONBINRPC::BinaryResponse	MakeBinaryErrorResponse(int p_iErrorCode, const std::string& p_strError) const;
+	// å°† Binary è¯·æ±‚æ”¾å…¥æœ‰ç•Œé˜Ÿåˆ—ï¼Œé˜Ÿåˆ—æ»¡æ—¶ç›´æ¥å“åº”é”™è¯¯ã€‚
+	void	QueueBinaryTask(bool p_bPut, ::JSONBINRPC::BinaryRequest p_stRequest, std::function<void(const ::JSONBINRPC::BinaryResponse&)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException);
+	// å¯åœæœåŠ¡ç«¯äºŒè¿›åˆ¶å·¥ä½œçº¿ç¨‹ã€‚
+	void	StartBinaryWorkers();
+	void	StopBinaryWorkers();
+	void	BinaryWorker();
+	// ä¸ºä»»åŠ¡åˆ›å»º DLL å†…éƒ¨å¼•ç”¨è®¡æ•°ä¸Šä¸‹æ–‡ï¼›å…¬å…± ABI åªé€ä¼ ä¸é€æ˜æŒ‡é’ˆã€‚
+	static HANDLE	RegisterBinaryResponseTask(
+		const std::shared_ptr<ST_BINARY_SERVER_TASK>& p_refTask);
+	// å°†å·²æ‹¥æœ‰ç»“æœçš„ä¸Šä¸‹æ–‡æäº¤ç»™åº”ç­”çº¿ç¨‹ï¼ŒæˆåŠŸåè½¬ç§»åŸå§‹å¥æŸ„æ‰€æœ‰æƒã€‚
+	bool	QueueBinaryResponseTask(ST_BINARY_RESPONSE_CONTEXT* p_pContext);
+	// åº”ç­”çº¿ç¨‹è´Ÿè´£ Snappy ç¼–ç å’Œ Ice å›è°ƒï¼Œç¦æ­¢æ‰§è¡Œä¸šåŠ¡æˆ–å¥æŸ„åŒ¹é…ã€‚
+	void	BinaryResponseWorker();
+	// å›æ”¶çº¿ç¨‹è´Ÿè´£æœ€ç»ˆé‡Šæ”¾ä¸Šä¸‹æ–‡å’Œå¤§ç¼“å†²ï¼Œç¦æ­¢æ‰§è¡Œä¸šåŠ¡æˆ–å›åŒ…ã€‚
+	void	BinaryReclaimWorker();
+	void	QueueBinaryReclaimTask(ST_BINARY_RESPONSE_CONTEXT* p_pContext);
+	static void	RetainBinaryResponseContext(ST_BINARY_RESPONSE_CONTEXT* p_pContext);
+	static void	ReleaseBinaryResponseContext(ST_BINARY_RESPONSE_CONTEXT* p_pContext);
+	static void	CompleteStoppedBinaryTasks(CJsonBinRPCImp* p_pOwner);
+// æ—§ TCP/UDP å¿«é€Ÿé€šé“çš„æ³¨å†Œåå•†çŠ¶æ€ï¼›Ice BinaryPayload ä¸ä¾èµ–è¯¥è¿æ¥çº§å¼€å…³ã€‚
 	bool											m_bSnappy;
 	bool											m_bRegisterOk;
 	bool											m_bNeedReconnect;
 	std::string										m_strCfgFile;
-	// ×÷Îª·şÎñ¶Ë¼ÇÂ¼×¢²áµÄ¿Í»§¶Ëproxy£¬ÓÃÓÚÖ÷¶¯ÍÆËÍÊı¾İ¸ø¿Í»§¶Ë
-// ·şÎñ¶Ë±£´æÒÑ×¢²á¿Í»§¶Ë£¬key ÓÉ p_strGuid hash Éú³É¡£
+	// ä½œä¸ºæœåŠ¡ç«¯è®°å½•æ³¨å†Œçš„å®¢æˆ·ç«¯proxyï¼Œç”¨äºä¸»åŠ¨æ¨é€æ•°æ®ç»™å®¢æˆ·ç«¯
+// æœåŠ¡ç«¯ä¿å­˜å·²æ³¨å†Œå®¢æˆ·ç«¯ï¼Œkey ç”± p_strGuid hash ç”Ÿæˆã€‚
 	std::map<unsigned long long,ST_JSON_BIN_HANDLE*>		m_mapClients;
 	CRITICAL_SECTION								m_csLock;
-	// ×÷Îª·şÎñ¶ËµÄ½ÓÊÕÇëÇó¶ÓÁĞºÍĞÅºÅµÆ
+	// ä½œä¸ºæœåŠ¡ç«¯çš„æ¥æ”¶è¯·æ±‚é˜Ÿåˆ—å’Œä¿¡å·ç¯
 	CDataQueue<ST_JSON_INPUT_EX>						m_aReqMsg;
 	HANDLE											m_semMiddle;
-	// ·şÎñ¶ËÁ¬½ÓĞÅÏ¢
-// ·şÎñ¶Ë Ice m_refCommunicator£¬ÉúÃüÖÜÆÚËæ·şÎñ HANDLE¡£
+	// æœåŠ¡ç«¯è¿æ¥ä¿¡æ¯
+// æœåŠ¡ç«¯ Ice m_refCommunicatorï¼Œç”Ÿå‘½å‘¨æœŸéšæœåŠ¡ HANDLEã€‚
 	Ice::CommunicatorPtr							m_refCommunicator;
 	Ice::ObjectAdapterPtr							m_refAdapter,m_refLastAdapter;
 	Ice::Identity									m_stObjectSrvId;
 	std::string										m_strEndpointSrvName;
 	std::string										m_strEndpointSrv;
-// Ice 3.8 locator ´úÀí¿ÉÄÜ²»´æÔÚ£¬Ê¹ÓÃ optional ±ÜÃâ¾É¿ÕÖ¸ÕëÓïÒå¡£
+// Ice 3.8 locator ä»£ç†å¯èƒ½ä¸å­˜åœ¨ï¼Œä½¿ç”¨ optional é¿å…æ—§ç©ºæŒ‡é’ˆè¯­ä¹‰ã€‚
 	std::optional<Ice::LocatorPrx> m_refLocator;
-	std::map<Ice::CommunicatorPtr,ST_ADDED_CONN_INFO>	m_mapReconLocator;	// ĞÂµÄÁ´½ÓÔö¼Ó£¬ÀÏµÄÁ´½Ó²»¶Ï¿ª£¬·ÀÖ¹Ô­ÓĞÁ´½ÓÍ¨ĞÅÖĞ
+	std::map<Ice::CommunicatorPtr,ST_ADDED_CONN_INFO>	m_mapReconLocator;	// æ–°çš„é“¾æ¥å¢åŠ ï¼Œè€çš„é“¾æ¥ä¸æ–­å¼€ï¼Œé˜²æ­¢åŸæœ‰é“¾æ¥é€šä¿¡ä¸­
 
-	// Èç¹û×÷Îª¿Í»§¶ËÆô¶¯µÄproxyÇé¿ö
-// ¿Í»§¶Ë Ice m_refCommunicator£¬¸ºÔğ·¢Æğ RPC/PUT ºÍË«Ïò»Øµ÷Á¬½Ó¡£
+	// å¦‚æœä½œä¸ºå®¢æˆ·ç«¯å¯åŠ¨çš„proxyæƒ…å†µ
+// å®¢æˆ·ç«¯ Ice m_refCommunicatorï¼Œè´Ÿè´£å‘èµ· RPC/PUT å’ŒåŒå‘å›è°ƒè¿æ¥ã€‚
 	Ice::CommunicatorPtr							m_refCommunicatorClient;
 	Ice::ObjectAdapterPtr							m_refAdapterClient;
-// ¿Í»§¶ËÔ¶¶Ë·şÎñ´úÀí£¬Î´Á¬½Ó»ò³õÊ¼»¯Ê§°ÜÊ±Îª¿Õ¡£
+// å®¢æˆ·ç«¯è¿œç«¯æœåŠ¡ä»£ç†ï¼Œæœªè¿æ¥æˆ–åˆå§‹åŒ–å¤±è´¥æ—¶ä¸ºç©ºã€‚
 	std::optional<JSONBINRPC::IJsonBinRPCPrx> m_refStockIo;
 	std::string										m_strProxyProperty,m_strClientGuid;
 
 	CJsonBinRPCImp*									m_pStockPushIo;
 	std::string										m_strError,m_strProgramName;
-	// ×÷Îª¿Í»§¶Ë£¬×¢²ánewµÄÊµÀı£¬·¢ÏÖÓĞ¸¸Àà£¬¿ÉÒÔ°ÑĞÅºÅµÆ´«µİ¸ø¸¸Àà£¬²»ÓÃÉÏ²ãÔÙ´ÎÒı³öĞÅºÅµÆ
+	// ä½œä¸ºå®¢æˆ·ç«¯ï¼Œæ³¨å†Œnewçš„å®ä¾‹ï¼Œå‘ç°æœ‰çˆ¶ç±»ï¼Œå¯ä»¥æŠŠä¿¡å·ç¯ä¼ é€’ç»™çˆ¶ç±»ï¼Œä¸ç”¨ä¸Šå±‚å†æ¬¡å¼•å‡ºä¿¡å·ç¯
 	CJsonBinRPCImp*									m_pParentImp;
 	//CDataQueue<ST_PACK_QUEUE>							m_clPackQueue;
 	//HANDLE										m_hPushPack;
 	//HANDLE										m_hSemPush;
-	// ÏûÏ¢¶©ÔÄ·şÎñ
+	// æ¶ˆæ¯è®¢é˜…æœåŠ¡
 	std::string										m_strPushBindPort,m_strPushBindIp,m_strPushPort,m_strPushIp,m_strPushPass;
 	bool											m_bOpenTcp,m_bOpenTcpOk;
 	int												m_iUdpThread;
 	std::string										m_strPushUdpBindPort,m_strPushUdpBindIp,m_strPushUdpPort,m_strPushUdpIp,m_strPushUdpMulPort,m_strPushUdpMulIp;
 	bool											m_bOpenUdp,m_bOpenUdpOk,m_bOpenMul,m_bOpenMulOk;
-// ÊÇ·ñµÈ´ıÒì²½ RPC Íê³É£¬Ä¬ÈÏ±£Áô¾É°æ×èÈûĞĞÎª£¬XML ¿ÉÅäÖÃÎª 0 ÌáÉıÍÌÍÂ¡£
+// æ˜¯å¦ç­‰å¾…å¼‚æ­¥ RPC å®Œæˆï¼Œé»˜è®¤ä¿ç•™æ—§ç‰ˆé˜»å¡è¡Œä¸ºï¼ŒXML å¯é…ç½®ä¸º 0 æå‡ååã€‚
 	bool											m_bAsyncWaitCompleted;
-// TCP ÍÆËÍ·şÎñ¾ä±ú£¬Ö»ÓĞ¿ªÆô¾É TCP ÍÆËÍÊ±ÓĞĞ§¡£
+	int											m_iBinaryProtocolVersion;		// äºŒè¿›åˆ¶ä¼ è¾“åè®®ç‰ˆæœ¬ã€‚
+	int											m_iBinaryCompressionThresholdBytes;	// Snappy æœ€å°å‹ç¼©å­—èŠ‚æ•°ã€‚
+	int											m_iBinaryMaxPayloadBytes;		// å•æ¬¡è¯·æ±‚æˆ–åº”ç­”å…è®¸çš„æœ€å¤§åŸå§‹å­—èŠ‚æ•°ã€‚
+	int											m_iBinaryCallTimeoutMs;		// äºŒè¿›åˆ¶åŒæ­¥è°ƒç”¨è¶…æ—¶æ¯«ç§’æ•°ã€‚
+	int											m_iBinaryServerWorkerThreads;	// æœåŠ¡ç«¯äºŒè¿›åˆ¶å·¥ä½œçº¿ç¨‹æ•°ã€‚
+	int											m_iBinaryServerQueueCapacity;	// æœåŠ¡ç«¯äºŒè¿›åˆ¶ç­‰å¾…é˜Ÿåˆ—å®¹é‡ã€‚
+	int											m_iBinaryMaxPendingAsync;		// å®¢æˆ·ç«¯å…è®¸çš„æœ€å¤§å¼‚æ­¥ç§¯å‹æ•°ã€‚
+	std::atomic<long long>						m_lBinaryPendingAsync;		// å½“å‰å®¢æˆ·ç«¯äºŒè¿›åˆ¶å¼‚æ­¥ç§¯å‹æ•°ã€‚
+	std::atomic<long long>						m_lBinaryPendingResponses;	// å½“å‰æœåŠ¡å®ä¾‹å°šæœªç§»é™¤çš„æœåŠ¡ç«¯åº”ç­”å¥æŸ„æ•°ã€‚
+	std::atomic<bool>							m_bBinaryWorkerStop;		// äºŒè¿›åˆ¶å·¥ä½œçº¿ç¨‹é€€å‡ºæ ‡è®°ã€‚
+	std::mutex								m_clBinaryQueueMutex;		// äºŒè¿›åˆ¶æœåŠ¡ç«¯é˜Ÿåˆ—äº’æ–¥é”ã€‚
+	std::condition_variable					m_clBinaryQueueCondition;	// äºŒè¿›åˆ¶æœåŠ¡ç«¯é˜Ÿåˆ—å”¤é†’æ¡ä»¶ã€‚
+	std::deque<std::shared_ptr<ST_BINARY_SERVER_TASK>> m_dequeBinaryTasks;	// å¾…å¤„ç†æ™®é€šäºŒè¿›åˆ¶è¯·æ±‚é˜Ÿåˆ—ã€‚
+	std::deque<std::shared_ptr<ST_BINARY_SERVER_TASK>> m_dequeBinaryControlTasks; // ä¼˜å…ˆå¤„ç†çš„æ§åˆ¶è¯·æ±‚é˜Ÿåˆ—ã€‚
+	std::vector<std::thread>					m_vecBinaryWorkers;		// äºŒè¿›åˆ¶æœåŠ¡ç«¯å·¥ä½œçº¿ç¨‹é›†åˆã€‚
+	int										m_iBinaryResponseWorkerThreads; // Snappy ç¼–ç å’Œ Ice å›è°ƒçº¿ç¨‹æ•°ã€‚
+	int										m_iBinaryResponseQueueCapacity; // å·²å®Œæˆç»“æœçš„åº”ç­”é˜Ÿåˆ—å®¹é‡ã€‚
+	int										m_iBinaryReclaimWorkerThreads; // æœ€ç»ˆé‡Šæ”¾è¯·æ±‚å’Œåº”ç­”èµ„æºçš„çº¿ç¨‹æ•°ã€‚
+	std::atomic<bool>						m_bBinaryResponseWorkerStop; // åº”ç­”çº¿ç¨‹é€€å‡ºæ ‡è®°ã€‚
+	std::mutex							m_clBinaryResponseQueueMutex; // å·²å®Œæˆç»“æœé˜Ÿåˆ—é”ã€‚
+	std::condition_variable					m_clBinaryResponseQueueCondition; // åº”ç­”é˜Ÿåˆ—å”¤é†’æ¡ä»¶ã€‚
+	std::deque<ST_BINARY_RESPONSE_CONTEXT*>	m_dequeBinaryResponses; // ç›´ç»‘å®šä¸Šä¸‹æ–‡åº”ç­”ä»»åŠ¡ã€‚
+	std::vector<std::thread>					m_vecBinaryResponseWorkers; // åº”ç­”çº¿ç¨‹é›†åˆã€‚
+	std::atomic<bool>						m_bBinaryReclaimWorkerStop; // å›æ”¶çº¿ç¨‹é€€å‡ºæ ‡è®°ã€‚
+	std::mutex							m_clBinaryReclaimQueueMutex; // æœ€ç»ˆé‡Šæ”¾é˜Ÿåˆ—é”ã€‚
+	std::condition_variable					m_clBinaryReclaimQueueCondition; // å›æ”¶é˜Ÿåˆ—å”¤é†’æ¡ä»¶ã€‚
+	std::deque<ST_BINARY_RESPONSE_CONTEXT*>	m_dequeBinaryReclaims; // ç­‰å¾…æœ€ç»ˆé‡Šæ”¾çš„ä¸Šä¸‹æ–‡ã€‚
+	std::vector<std::thread>					m_vecBinaryReclaimWorkers; // é»˜è®¤ä¸¤ä¸ªå›æ”¶çº¿ç¨‹ã€‚
+	std::mutex							m_clBinaryPendingContextMutex; // åªç”¨äºå®¹é‡å’Œåœæœºæ”¶æ•›ã€‚
+	std::set<ST_BINARY_RESPONSE_CONTEXT*>	m_setBinaryPendingContexts; // å°šæœªè½¬ç§»åˆ°åº”ç­”é˜Ÿåˆ—çš„ä¸Šä¸‹æ–‡ã€‚
+// TCP æ¨é€æœåŠ¡å¥æŸ„ï¼Œåªæœ‰å¼€å¯æ—§ TCP æ¨é€æ—¶æœ‰æ•ˆã€‚
 	HS												m_hSocketServer;
-	SOCKET											m_hMulSocket;		// ·Ö×éÍÆËÍ£¬30~50Î¢Ãî
+	SOCKET											m_hMulSocket;		// åˆ†ç»„æ¨é€ï¼Œ30~50å¾®å¦™
 	struct sockaddr_in								m_stAddrSend;
 protected:
-	// ×¢²áµÄ»Øµ÷º¯ÊıÇé¿ö
+	// æ³¨å†Œçš„å›è°ƒå‡½æ•°æƒ…å†µ
 	//CRITICAL_SECTION								m_csPush;
 	//std::map<func_JsonICEPushClientPack,void*>	m_mapPackCallback;
 	//volatile long long								m_lPushPackCrowded;
 	bool											m_bStop;
 	CRITICAL_SECTION								m_csMem;
-// ÍÆËÍ°üÁÙÊ±ÄÚ´æ³Ø£¬½µµÍ¸ßÆµÍÆËÍÊ±µÄ¶Ñ·ÖÅä³É±¾¡£
+// æ¨é€åŒ…ä¸´æ—¶å†…å­˜æ± ï¼Œé™ä½é«˜é¢‘æ¨é€æ—¶çš„å †åˆ†é…æˆæœ¬ã€‚
 	CSimplePool									m_clMemMng; 
 public:
 	func_JsonICEServerCallBsack						m_pfnServerCallback;
 	void								*			m_pServerParam;
+	func_IceBinaryServerCallback					m_pfnBinaryServerCallback;	// äºŒè¿›åˆ¶æœåŠ¡ç«¯ä¸šåŠ¡å›è°ƒã€‚
+	func_IceBinaryServerCallbackEx				m_pfnBinaryServerCallbackEx; // æ”¯æŒå»¶è¿Ÿåº”ç­”çš„å›è°ƒã€‚
+	func_IceBinaryPriorityClassifier			m_pfnBinaryPriorityClassifier; // æ§åˆ¶è¯·æ±‚åˆ†ç±»å™¨ã€‚
+	void								*			m_pBinaryServerParam;		// äºŒè¿›åˆ¶å›è°ƒé€ä¼ å‚æ•°ã€‚
 };
 
 
 
 };
 
-// Í³Ò»Ñ¹Ëõ¸¨Öúº¯Êı£¬Òş²Ø snappy Óë Ice AByte ×Ö½ÚÀàĞÍ²îÒì¡£
+// ç»Ÿä¸€å‹ç¼©è¾…åŠ©å‡½æ•°ï¼Œéšè— snappy ä¸ Ice AByte å­—èŠ‚ç±»å‹å·®å¼‚ã€‚
 int	CompressAByte(::JSONBINRPC::AByte & p_refOutByte,const char * p_pSrc,long p_lSrcLen);
-// Í³Ò»½âÑ¹¸¨Öúº¯Êı£¬·µ»Ø½âÑ¹ºóµÄÓĞĞ§×Ö½ÚÊı¡£
+// ç»Ÿä¸€è§£å‹è¾…åŠ©å‡½æ•°ï¼Œè¿”å›è§£å‹åçš„æœ‰æ•ˆå­—èŠ‚æ•°ã€‚
 int	UnCompressAByte(::JSONBINRPC::AByte & p_refOutByte,const char * p_pSrc,long p_lSrcLen);
 

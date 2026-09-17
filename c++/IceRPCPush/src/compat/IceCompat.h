@@ -672,11 +672,11 @@ namespace icecompat
 
 	// Ice 3.5 begin_ProcessPackage 兼容入口。
 	template <typename CallbackPtr>
-	Ice::AsyncResultPtr begin_ProcessPackage(const JSONBINRPC::IJsonBinRPCPrx& p_refProxy, std::int64_t p_lReqNo, const JSONBINRPC::AByte& p_refBuf, const CallbackPtr& p_refCallback)
+	Ice::AsyncResultPtr begin_ProcessPackage(const JSONBINRPC::IJsonBinRPCPrx& p_refProxy, std::int64_t p_lReqNo, const JSONBINRPC::BinaryPayload& p_refPayload, const CallbackPtr& p_refCallback)
 	{
 		auto spPromise = std::make_shared<std::promise<void>>();
 		auto stFuture = spPromise->get_future();
-		p_refProxy.ProcessPackageAsync(p_lReqNo, p_refBuf,
+		p_refProxy.ProcessPackageAsync(p_lReqNo, p_refPayload,
 			[spPromise, p_refCallback]()
 			{
 				if (p_refCallback)

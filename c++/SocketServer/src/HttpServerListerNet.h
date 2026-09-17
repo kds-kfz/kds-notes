@@ -4,6 +4,8 @@
 #include "SocketInterface.h"
 #include "HPSocket.h"
 
+struct ST_HTTP_SERVER_RUNTIME;
+
 class CHttpServerListerNet : public IHttpServerListener
 {
 	// 开始解析 HTTP 报文时，向监听器发送该通知
@@ -52,8 +54,13 @@ class CHttpServerListerNet : public IHttpServerListener
 	EnHandleResult OnShutdown(ITcpServer* pSender) override;
 
 public:
-	CHttpServerListerNet() {}
+	// Listener 仅保存所属 HTTP 实例上下文，回调热路径不查询工厂登记表。
+	explicit CHttpServerListerNet(ST_HTTP_SERVER_RUNTIME* p_pRuntime)
+		: m_pRuntime(p_pRuntime) {}
 	~CHttpServerListerNet() {}
+
+private:
+	ST_HTTP_SERVER_RUNTIME* m_pRuntime; // 不拥有；由 CHttpSockServerObj 保证生命周期。
 };
 
 #endif

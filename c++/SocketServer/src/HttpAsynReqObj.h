@@ -9,17 +9,35 @@
 #include "SocketServer.h"
 #include "SocketInterface.h"
 
+struct ST_HTTP_SERVER_RUNTIME;
+
+// HTTP query 解析结果只描述网络层错误，不包含任何业务参数含义。
+enum EN_HTTP_QUERY_PARSE_RESULT
+{
+	HTTP_QUERY_PARSE_OK = 0,
+	HTTP_QUERY_PARSE_RAW_URL_TOO_LONG,
+	HTTP_QUERY_PARSE_PARAM_TOO_MANY,
+	HTTP_QUERY_PARSE_DECODED_NUL
+};
+
 class CHttpAsynReqObj : public CHttpAsynReq
 {
 public:
 	// 构造一个空的 HTTP 异步请求对象，初始化默认请求和响应状态。
-	CHttpAsynReqObj();
+	// 创建并绑定所属 HTTP 实例；异步回包始终回到同一运行上下文。
+	explicit CHttpAsynReqObj(ST_HTTP_SERVER_RUNTIME* p_pRuntime);
 	// 销毁请求对象；实际资源回收主要依赖成员对象和上层释放流程。
 	virtual ~CHttpAsynReqObj();
 
 public:
 	// 返回请求 URL；如果尚未设置则返回 nullptr。
 	virtual const char* GetUrl() override;
+	// 返回请求行原始 URL；兼容 GET 参数读取，未设置时返回 nullptr。
+	virtual const char* GetRawUrl() override;
+	// 返回 URL 中的原始 query；没有 query 时返回 nullptr。
+	virtual const char* GetQueryString() override;
+	// 返回 URL 解码后的 query 参数值；不存在时返回 nullptr。
+	virtual const char* GetParam(const char* p_szName) override;
 	// 返回 HTTP 请求方法；如果尚未设置则返回 nullptr。
 	virtual const char* GetMethodType() override;
 	// 返回当前已累计的请求 BODY 长度。
@@ -55,8 +73,20 @@ public:
 	void SetMethod(const char* p_szMethod);
 	// 写入请求 URL / PATH。
 	void SetUrl(const char* p_szUrl);
+	// 写入请求行原始 URL，并优先使用 HP-Socket 已拆分的 query 做一次通用解析。
+	EN_HTTP_QUERY_PARSE_RESULT SetRequestUrl(const char* p_szRawUrl, const char* p_szQuery,
+		size_t p_uiMaxRawUrlBytes, size_t p_uiMaxQueryParamCount,
+		size_t& p_refUiObservedRawUrlBytes, size_t& p_refUiObservedQueryParamCount);
 	// 写入客户端 IP 和端口信息。
 	void SetAddress(const char* p_szClientIp, unsigned short p_unClientPort);
+	// 标记网络层拒绝原因；继续完成 HTTP 解析后统一回包，避免 HPR_ERROR 提前丢弃响应。
+	void SetRequestReject(HttpStatusType p_enStatus, const char* p_szReason);
+	// 查询当前请求是否已被网络层标记拒绝。
+	bool HasRequestReject() const;
+	// 返回网络层拒绝状态码。
+	HttpStatusType GetRequestRejectStatus() const;
+	// 返回网络层拒绝文本。
+	const char* GetRequestRejectReason() const;
 	// 追加请求头，并按数量和字节数上限做限制校验。
 	bool AddRequestHead(const char* p_szName, const char* p_szValue, size_t p_uiMaxHeadCount, size_t p_uiMaxHeadBytes);
 	// 追加一段请求 BODY，并按累计总大小上限做限制校验。
@@ -84,11 +114,21 @@ private:
 		std::string strName;	// 响应头名称
 		std::string strValue;	// 响应头值
 	};
+	// query 参数按 URL 原始顺序连续保存，避免 std::map 的逐节点分配。
+	struct ST_HTTP_QUERY_PARAM
+	{
+		std::string strName;	// URL 解码后的参数名
+		std::string strValue;	// URL 解码后的参数值
+	};
 
 	// 统一把头名转换成小写，避免请求头大小写差异导致查找失败。
 	static std::string NormalizeHeaderName(const char* p_szName);
+	// 使用单遍状态机解析 query；同名参数保留原顺序，由 GetParam 返回第一个值。
+	EN_HTTP_QUERY_PARSE_RESULT ParseQueryString(size_t p_uiMaxQueryParamCount,
+		size_t& p_refUiObservedQueryParamCount);
 
 private:
+	ST_HTTP_SERVER_RUNTIME* m_pRuntime;              // 不拥有；停服先解除 transport 并等待回调退出。
 	IHttpServer* m_pSender;							// 当前请求绑定的底层 HTTP 服务对象，断连或停服后会被置空
 	CONNID m_dwConnID;								// 当前请求所属连接 ID
 	unsigned long long m_ullReqID;					// 库内分配的异步请求号
@@ -97,13 +137,19 @@ private:
 	bool m_bDispatched;								// 是否已经从解析线程切换到上层异步处理阶段
 	bool m_bKeepAlive;								// 当前请求完成后是否允许复用连接
 	bool m_bResponseSent;							// 是否已经成功向底层提交过响应
+	bool m_bRequestRejected;						// 是否由网络层在业务派发前拒绝
 	char m_szClientIp[STR_IP_LEN];					// 客户端 IP 字符串缓存
 	std::string m_strUrl;							// 请求 URL 或 PATH
+	std::string m_strRawUrl;						// 请求行原始 URL，保留 query 供业务层兼容旧 GET 入参
+	std::string m_strQueryString;					// 原始 query 字符串，不包含问号
 	std::string m_strMethod;						// HTTP 请求方法
 	std::string m_strContent;						// 按片段累计后的请求 BODY
+	std::string m_strRequestRejectReason;			// 网络层拒绝原因，不包含请求参数内容
+	HttpStatusType m_enRequestRejectStatus;			// 网络层拒绝使用的 HTTP 状态码
 	size_t m_uiRequestHeadCount;					// 已接收请求头数量
 	size_t m_uiRequestHeadBytes;					// 已接收请求头累计字节数
 	std::map<std::string, std::string> m_mapRequestHead;	// 请求头表，key 为归一化后的小写头名
+	std::vector<ST_HTTP_QUERY_PARAM> m_vecQueryParam;		// URL query 参数表，保持原始顺序且只在派发前写入
 	std::vector<HttpHeaderItem> m_vecResponseHead;	// 待发送的响应头列表，保持添加顺序
 };
 

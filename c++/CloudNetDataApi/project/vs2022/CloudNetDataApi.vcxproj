@@ -159,7 +159,7 @@
     <ResourceCompile Include="CloudNetDataApi.rc" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\IceRPCPush.xml" />
+    <None Include="..\..\conf\IceRPCPush.xml" />
     <None Include="..\..\include\CloudNetDataApi.def" />
   </ItemGroup>
   <ItemGroup>

@@ -1,39 +1,20 @@
 ﻿#include "HttpSockServerObj.h"
 #include "publicGlobalvar.h"
+#include "ServerRuntimeContext.h"
 #include "publicfunc.h"
 #include "Log.h"
 
 namespace
 {
-	bool g_bHttpMutexInit = false;
-
-	// wyl 2026-04-07：HTTP 服务当前只需要保护请求对象表和连接解析映射。
-	void InitHttpMutexes()
-	{
-		if (g_bHttpMutexInit)
-			return;
-
-		pthread_mutex_init(&g_mutexHttpReq, nullptr);
-		g_bHttpMutexInit = true;
-	}
-
-	void DestroyHttpMutexes()
-	{
-		if (!g_bHttpMutexInit)
-			return;
-
-		pthread_mutex_destroy(&g_mutexHttpReq);
-		g_bHttpMutexInit = false;
-	}
-
 	// wyl 2026-04-07：统一清空 HTTP 异步请求对象和当前连接解析状态，避免旧状态残留到下一次启动。
-	void ClearHttpRuntimeData()
+	void ClearHttpRuntimeData(ST_HTTP_SERVER_RUNTIME* p_pRuntime)
 	{
-		if (!g_bHttpMutexInit)
+		if (p_pRuntime == nullptr)
+		{
 			return;
-
-		pthread_mutex_lock(&g_mutexHttpReq);
-		foreach(g_mapHttpReq, it_req)
+		}
+		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		foreach(p_pRuntime->mapRequest, it_req)
 		{
 			if (nullptr == it_req->second)
 				continue;
@@ -48,78 +29,118 @@ namespace
 				delete it_req->second;
 			}
 		}
-		g_mapHttpReq.clear();
-		g_mapHttpConnReq.clear();
-		g_mapHttpConnActiveReq.clear();
-		pthread_mutex_unlock(&g_mutexHttpReq);
+		p_pRuntime->mapRequest.clear();
+		p_pRuntime->mapParsingRequest.clear();
+		p_pRuntime->mapActiveRequest.clear();
+		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+	}
+
+	// 停服只释放指定 HTTP 实例，其他同协议实例继续独立运行。
+	void DeleteHttpObj(ST_HTTP_SERVER_RUNTIME* p_pRuntime)
+	{
+		if (p_pRuntime == nullptr)
+		{
+			return;
+		}
+		p_pRuntime->bServerStatus.store(false);
+		p_pRuntime->clIdentity.MarkStopped();
+		if (p_pRuntime->pPackServer != nullptr)
+		{
+			p_pRuntime->pPackServer->Stop();
+		}
+		p_pRuntime->clThreadPool->Stop();
+		ClearHttpRuntimeData(p_pRuntime);
+		if (p_pRuntime->pPackServer != nullptr)
+		{
+			HP_Destroy_HttpServer(p_pRuntime->pPackServer);
+			p_pRuntime->pPackServer = nullptr;
+		}
+		if (p_pRuntime->pListener != nullptr)
+		{
+			delete p_pRuntime->pListener;
+			p_pRuntime->pListener = nullptr;
+		}
+		p_pRuntime->pNotifyHandler = nullptr;
+		p_pRuntime->ullAsyncRequestId = 0;
 	}
 }
 
-void DeleteHttpObj(void)
+CHttpSockServerObj::CHttpSockServerObj(const std::string& p_refServiceName,
+	std::uint64_t p_ullInstanceId)
+	: m_ptrRuntime(new ST_HTTP_SERVER_RUNTIME(
+		p_refServiceName, p_ullInstanceId))
 {
-	// wyl 2026-04-07：停服时先拉低 Http 运行状态，再停止服务和线程池，避免回调继续进入无效状态。
-	g_bHttpServerStatus = false;
-
-	if (nullptr != g_CHttpPackServer)
-	{
-		g_CHttpPackServer->Stop();
-	}
-
-	// wyl 2026-04-07：先等待 HTTP 业务回调自然退出，再销毁底层服务对象，避免上层回包访问悬空指针。
-	g_CHttpHPThreadPool->Stop();
-
-	// wyl 2026-04-07：线程池停稳后清理运行态，请求对象里的 sender 仍然有效，可安全断开 transport。
-	ClearHttpRuntimeData();
-
-	if (nullptr != g_CHttpPackServer)
-	{
-		HP_Destroy_HttpServer(g_CHttpPackServer);
-		g_CHttpPackServer = nullptr;
-	}
-
-	if (nullptr != g_CHttpServerListerNet)
-	{
-		delete g_CHttpServerListerNet;
-		g_CHttpServerListerNet = nullptr;
-	}
-	DestroyHttpMutexes();
-
-	g_pHttpHandle = nullptr;
-	g_ullHttpAsynReqID = 0;
-
-	CHttpLog::Release();
-}
-
-CHttpSockServerObj::CHttpSockServerObj()
-{
-
+	m_ptrRuntime->pOwner = this;
 }
 
 CHttpSockServerObj::~CHttpSockServerObj()
 {
-	DeleteHttpObj();
+	DeleteHttpObj(m_ptrRuntime.get());
+}
+
+bool CHttpSockServerObj::FillRuntimeInfo(
+	ST_SOCKET_SERVER_RUNTIME_INFO& p_refInfo) const
+{
+	if (m_ptrRuntime == nullptr)
+	{
+		return false;
+	}
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
+	if (!m_ptrRuntime->clIdentity.Snapshot(p_refInfo))
+	{
+		return false;
+	}
+	if (m_ptrRuntime->pPackServer != nullptr)
+	{
+		p_refInfo.uiMaxConnectionCount =
+			m_ptrRuntime->pPackServer->GetMaxConnectionCount();
+		p_refInfo.uiAcceptSocketCount =
+			m_ptrRuntime->pPackServer->GetAcceptSocketCount();
+		p_refInfo.uiSocketListenQueue =
+			m_ptrRuntime->pPackServer->GetSocketListenQueue();
+	}
+	return true;
+}
+
+bool CHttpSockServerObj::SetSocketListenQueue(
+	unsigned int p_uiSocketListenQueue)
+{
+	if (m_ptrRuntime == nullptr || p_uiSocketListenQueue == 0 ||
+		p_uiSocketListenQueue > 65535U)
+	{
+		return false;
+	}
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
+	if (m_ptrRuntime->bServerStatus.load() ||
+		m_ptrRuntime->pPackServer != nullptr)
+	{
+		return false;
+	}
+	m_ptrRuntime->uiSocketListenQueue = p_uiSocketListenQueue;
+	return true;
 }
 
 bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unPort, unsigned int p_uiRBufLen, unsigned int p_uiMaxConnectNum, unsigned int p_uiMaxAcceptNum,
 	HTTP_NOTIFY_PROC p_httpHandle, unsigned int p_uiThreadNum, unsigned int p_uiQueueNum, char* p_szErr, const char* p_szLogFold)
 {
-	pthread_mutex_lock(&g_mutexServiceLifecycle);
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
 
 	if (nullptr == p_szErr)
 	{
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
 	if (nullptr == p_szIp || 7 > strlen(p_szIp))
 	{
 		_snprintf(p_szErr, 1024, "code=-1,msg=init param err");
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
 		return false;
 	}
 
 	// wyl 2026-04-07：启动前先清理旧实例残留，避免重复启动时复用脏状态。
-	DeleteHttpObj();
+	DeleteHttpObj(m_ptrRuntime.get());
 
 	int iRet = 0;
 
@@ -135,8 +156,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 		else
 		{
 			_snprintf(p_szErr, 1024, "code=-2,msg=log init fail");
-			DeleteHttpObj();
-			pthread_mutex_unlock(&g_mutexServiceLifecycle);
+			DeleteHttpObj(m_ptrRuntime.get());
 			return false;
 		}
 		// 设置日志等级
@@ -144,81 +164,84 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 	}
 
 	// 设置任务回调
-	g_pHttpHandle = p_httpHandle;
-
-	// wyl 2026-04-07：先初始化锁和线程池，再启动网络监听，减少启动窗口期竞态。
-	InitHttpMutexes();
+	m_ptrRuntime->pNotifyHandler = p_httpHandle;
 
 	//2.设置线程池
-	g_CHttpHPThreadPool->AdjustThreadCount(p_uiThreadNum);
-	if (!g_CHttpHPThreadPool->Start(p_uiThreadNum, p_uiQueueNum, TRP_CALL_FAIL, 0))
+	m_ptrRuntime->clThreadPool->AdjustThreadCount(p_uiThreadNum);
+	if (!m_ptrRuntime->clThreadPool->Start(p_uiThreadNum,
+		p_uiQueueNum, TRP_CALL_FAIL, 0))
 	{
 		_snprintf(p_szErr, 1024, "code=%d,msg=thread pool start fail", SYS_GetLastError());
-		DeleteHttpObj();
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
+		DeleteHttpObj(m_ptrRuntime.get());
 		return false;
 	}
 
 	//3.创建服务监听器
-	if (nullptr == g_CHttpServerListerNet)
+	if (nullptr == m_ptrRuntime->pListener)
 	{
-		g_CHttpServerListerNet = new CHttpServerListerNet();
+		m_ptrRuntime->pListener = new (std::nothrow)
+			CHttpServerListerNet(m_ptrRuntime.get());
 	}
 
-	if (nullptr == g_CHttpServerListerNet)
+	if (nullptr == m_ptrRuntime->pListener)
 	{
 		iRet = SYS_GetLastError();
 		_snprintf(p_szErr, 1024, "code=%d,msg=create http server listener fail", iRet);
-		DeleteHttpObj();
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
+		DeleteHttpObj(m_ptrRuntime.get());
 		return false;
 	}
 
 	//4.创建服务
-	if (nullptr == g_CHttpPackServer)
+	if (nullptr == m_ptrRuntime->pPackServer)
 	{
-		g_CHttpPackServer = HP_Create_HttpServer(g_CHttpServerListerNet);
+		m_ptrRuntime->pPackServer = HP_Create_HttpServer(
+			m_ptrRuntime->pListener);
 	}
 
-	if (nullptr == g_CHttpPackServer)
+	if (nullptr == m_ptrRuntime->pPackServer)
 	{
 		_snprintf(p_szErr, 1024, "code=%d,msg=create http server fail", SYS_GetLastError());
-		DeleteHttpObj();
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
+		DeleteHttpObj(m_ptrRuntime.get());
 		return false;
 	}
 
 	//5.设置超时心跳
-	g_CHttpPackServer->SetKeepAliveTime(2000);
-	g_CHttpPackServer->SetKeepAliveInterval(1000);
+	m_ptrRuntime->pPackServer->SetKeepAliveTime(2000);
+	m_ptrRuntime->pPackServer->SetKeepAliveInterval(1000);
 
 	//6.设置缓存大小
-	g_CHttpPackServer->SetSocketBufferSize(p_uiRBufLen);
+	m_ptrRuntime->pPackServer->SetSocketBufferSize(p_uiRBufLen);
 
 	//7.设置最大连接数
-	g_CHttpPackServer->SetMaxConnectionCount(p_uiMaxConnectNum);
+	m_ptrRuntime->pPackServer->SetMaxConnectionCount(p_uiMaxConnectNum);
 
 	// wyl 2026-04-07：这里设置的是底层 Accept 预分配数量，不是“同一 IP 最大连接数”限流。
 	//8.设置Accept大小
-	g_CHttpPackServer->SetAcceptSocketCount(p_uiMaxAcceptNum);
+	m_ptrRuntime->pPackServer->SetAcceptSocketCount(p_uiMaxAcceptNum);
+	// TCP listen 队列与 Accept 预投递数量语义独立；未显式设置时保留 HPSocket 默认值。
+	if (m_ptrRuntime->uiSocketListenQueue != 0)
+	{
+		m_ptrRuntime->pPackServer->SetSocketListenQueue(
+			m_ptrRuntime->uiSocketListenQueue);
+	}
 
 	// wyl 2026-04-07：资源准备完成后再标记 Http 服务可运行，供回调路径做状态保护。
-	g_bHttpServerStatus = true;
+	m_ptrRuntime->bServerStatus.store(true);
 
 	//9.启动服务
-	if (!g_CHttpPackServer->Start(p_szIp, p_unPort))
+	if (!m_ptrRuntime->pPackServer->Start(p_szIp, p_unPort))
 	{
 		char szErrDesc[256] = { 0 };
-		SafeCopyCString(szErrDesc, sizeof(szErrDesc), g_CHttpPackServer->GetLastErrorDesc());
+		SafeCopyCString(szErrDesc, sizeof(szErrDesc),
+			m_ptrRuntime->pPackServer->GetLastErrorDesc());
 		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
-			g_CHttpPackServer->GetLastError(), szErrDesc);
-		DeleteHttpObj();
-		pthread_mutex_unlock(&g_mutexServiceLifecycle);
+			m_ptrRuntime->pPackServer->GetLastError(), szErrDesc);
+		DeleteHttpObj(m_ptrRuntime.get());
 		return false;
 	}
 
+	m_ptrRuntime->clIdentity.MarkStarted(p_szIp, p_unPort);
 	HTTP_INFO("server started");
-	pthread_mutex_unlock(&g_mutexServiceLifecycle);
 	return true;
 }
 
@@ -238,40 +261,45 @@ bool CHttpSockServerObj::CreateHttpsSock(const char*, unsigned short, unsigned i
 
 void CHttpSockServerObj::StopHttpSock()
 {
-	pthread_mutex_lock(&g_mutexServiceLifecycle);
-	DeleteHttpObj();
-	pthread_mutex_unlock(&g_mutexServiceLifecycle);
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
+	DeleteHttpObj(m_ptrRuntime.get());
 }
 
 bool CHttpSockServerObj::DelHttpAsynReq(unsigned long long p_lluReqId)
 {
-	if (!g_bHttpMutexInit)
+	if (m_ptrRuntime == nullptr)
 		return false;
 
 	CHttpAsynReqObj* pReqObj = nullptr;
-	pthread_mutex_lock(&g_mutexHttpReq);
-	std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq = g_mapHttpReq.find(p_lluReqId);
-	if (itReq == g_mapHttpReq.end())
+	pthread_mutex_lock(&m_ptrRuntime->mutexRequest);
+	std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq =
+		m_ptrRuntime->mapRequest.find(p_lluReqId);
+	if (itReq == m_ptrRuntime->mapRequest.end())
 	{
-		pthread_mutex_unlock(&g_mutexHttpReq);
+		pthread_mutex_unlock(&m_ptrRuntime->mutexRequest);
 		return false;
 	}
 
 	pReqObj = itReq->second;
-	std::map<CONNID, unsigned long long>::iterator itConnReq = g_mapHttpConnReq.find((CONNID)pReqObj->GetConnId());
-	if (itConnReq != g_mapHttpConnReq.end() && itConnReq->second == p_lluReqId)
+	std::map<CONNID, unsigned long long>::iterator itConnReq =
+		m_ptrRuntime->mapParsingRequest.find((CONNID)pReqObj->GetConnId());
+	if (itConnReq != m_ptrRuntime->mapParsingRequest.end() &&
+		itConnReq->second == p_lluReqId)
 	{
-		g_mapHttpConnReq.erase(itConnReq);
+		m_ptrRuntime->mapParsingRequest.erase(itConnReq);
 	}
 
-	std::map<CONNID, unsigned long long>::iterator itActiveReq = g_mapHttpConnActiveReq.find((CONNID)pReqObj->GetConnId());
-	if (itActiveReq != g_mapHttpConnActiveReq.end() && itActiveReq->second == p_lluReqId)
+	std::map<CONNID, unsigned long long>::iterator itActiveReq =
+		m_ptrRuntime->mapActiveRequest.find((CONNID)pReqObj->GetConnId());
+	if (itActiveReq != m_ptrRuntime->mapActiveRequest.end() &&
+		itActiveReq->second == p_lluReqId)
 	{
-		g_mapHttpConnActiveReq.erase(itActiveReq);
+		m_ptrRuntime->mapActiveRequest.erase(itActiveReq);
 	}
 
-	g_mapHttpReq.erase(itReq);
-	pthread_mutex_unlock(&g_mutexHttpReq);
+	m_ptrRuntime->mapRequest.erase(itReq);
+	pthread_mutex_unlock(&m_ptrRuntime->mutexRequest);
 
 	if (nullptr != pReqObj)
 	{

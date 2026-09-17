@@ -72,6 +72,9 @@
     <ClInclude Include="..\..\..\src\WebSockServerObj.h">
       <Filter>include</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\WebSocketSendCoordinator.h">
+      <Filter>include</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\..\src\Base64.h">
       <Filter>public</Filter>
     </ClInclude>
@@ -83,6 +86,9 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\publicGlobalvar.h">
       <Filter>public</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\ServerRuntimeContext.h">
+      <Filter>include</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\Thread.h">
       <Filter>public</Filter>
@@ -121,6 +127,9 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\publicGlobalvar.cpp">
       <Filter>public</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\ServerRuntimeContext.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\Thread.cpp">
       <Filter>public</Filter>

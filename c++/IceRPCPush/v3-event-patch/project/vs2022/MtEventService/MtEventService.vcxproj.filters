@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup>
+		<Filter Include="include"><UniqueIdentifier>{11111111-1111-4111-8111-111111111111}</UniqueIdentifier></Filter>
+		<Filter Include="source"><UniqueIdentifier>{22222222-2222-4222-8222-222222222222}</UniqueIdentifier></Filter>
+		<Filter Include="resource"><UniqueIdentifier>{D0E4EC56-31E4-4DE7-9A2D-6D7F40F23480}</UniqueIdentifier></Filter>
+		<Filter Include="common"><UniqueIdentifier>{33333333-3333-4333-8333-333333333333}</UniqueIdentifier></Filter>
+		<Filter Include="common\protocol"><UniqueIdentifier>{44444444-4444-4444-8444-444444444444}</UniqueIdentifier></Filter>
+		<Filter Include="conf"><UniqueIdentifier>{55555555-5555-4555-8555-555555555555}</UniqueIdentifier></Filter>
+		<Filter Include="vender"><UniqueIdentifier>{66666666-6666-4666-8666-666666666666}</UniqueIdentifier></Filter>
+		<Filter Include="vender\CloudNetDataApi"><UniqueIdentifier>{77777777-7777-4777-8777-777777777777}</UniqueIdentifier></Filter>
+		<Filter Include="vender\tinyxml"><UniqueIdentifier>{88888888-8888-4888-8888-888888888888}</UniqueIdentifier></Filter>
+		<Filter Include="vender\nats"><UniqueIdentifier>{99999999-9999-4999-8999-999999999993}</UniqueIdentifier></Filter>
+	</ItemGroup>
+	<ItemGroup>
+		<ClCompile Include="..\..\..\services\MtEventService\source\main.cpp"><Filter>source</Filter></ClCompile>
+		<ClCompile Include="..\..\..\services\MtEventService\source\MtEventServiceApp.cpp"><Filter>source</Filter></ClCompile>
+		<ClCompile Include="..\..\..\services\MtEventService\source\MtEventConfig.cpp"><Filter>source</Filter></ClCompile>
+		<ClCompile Include="..\..\..\services\MtEventService\source\MtEventBroadcastBus.cpp"><Filter>source</Filter></ClCompile>
+		<ClCompile Include="..\..\..\services\MtEventService\source\MtMarketEventRelay.cpp"><Filter>source</Filter></ClCompile>
+		<ClCompile Include="..\..\..\services\MtEventService\source\MtReliableEventStore.cpp"><Filter>source</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\ServiceApplication.cpp"><Filter>common</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\ClusterCoordinator.cpp"><Filter>common</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\protocol\ClusterBinaryProtocol.cpp"><Filter>common\protocol</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\CrashHandler.cpp"><Filter>common</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\ProgramVersion.cpp"><Filter>common</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\CodeMsg.cpp"><Filter>common</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\Log.cpp"><Filter>common</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\LogConfig.cpp"><Filter>common</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\Thread.cpp"><Filter>common</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\protocol\ClientDataBinaryProtocol.cpp"><Filter>common\protocol</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\protocol\DeriveBinaryProtocol.cpp"><Filter>common\protocol</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\protocol\EventHeartbeatBinaryProtocol.cpp"><Filter>common\protocol</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\protocol\PluginBinaryProtocol.cpp"><Filter>common\protocol</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\protocol\QuoteBinaryProtocol.cpp"><Filter>common\protocol</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\protocol\QueryBinaryProtocol.cpp"><Filter>common\protocol</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\protocol\ReliableEventBinaryProtocol.cpp"><Filter>common\protocol</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\protocol\TradeBinaryProtocol.cpp"><Filter>common\protocol</Filter></ClCompile>
+		<ClCompile Include="..\..\..\common\protocol\TradingTerminalProtocol.cpp"><Filter>common\protocol</Filter></ClCompile>
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\..\services\MtEventService\include\MtEventServiceApp.h"><Filter>include</Filter></ClInclude>
+		<ClInclude Include="..\..\..\services\MtEventService\include\MtEventConfig.h"><Filter>include</Filter></ClInclude>
+		<ClInclude Include="..\..\..\services\MtEventService\include\MtEventBroadcastBus.h"><Filter>include</Filter></ClInclude>
+		<ClInclude Include="..\..\..\services\MtEventService\include\MtMarketEventRelay.h"><Filter>include</Filter></ClInclude>
+		<ClInclude Include="..\..\..\services\MtEventService\include\MtReliableEventStore.h"><Filter>include</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\ServiceApplication.h"><Filter>common</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\ClusterCoordinator.h"><Filter>common</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\protocol\ClusterBinaryProtocol.h"><Filter>common\protocol</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\CrashHandler.h"><Filter>common</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\ProgramVersion.h"><Filter>common</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\CodeMsg.h"><Filter>common</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\Log.h"><Filter>common</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\LogConfig.h"><Filter>common</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\Thread.h"><Filter>common</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\protocol\ClientDataBinaryProtocol.h"><Filter>common\protocol</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\protocol\DeriveBinaryProtocol.h"><Filter>common\protocol</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\protocol\EventHeartbeatBinaryProtocol.h"><Filter>common\protocol</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\protocol\PluginBinaryProtocol.h"><Filter>common\protocol</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\protocol\QuoteBinaryProtocol.h"><Filter>common\protocol</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\protocol\QueryBinaryProtocol.h"><Filter>common\protocol</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\protocol\ReliableEventBinaryProtocol.h"><Filter>common\protocol</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\protocol\TradeBinaryProtocol.h"><Filter>common\protocol</Filter></ClInclude>
+		<ClInclude Include="..\..\..\common\protocol\TradingTerminalProtocol.h"><Filter>common\protocol</Filter></ClInclude>
+		<ClInclude Include="..\..\..\vender\CloudNetDataApi\include\CloudNetDataApi.h"><Filter>vender\CloudNetDataApi</Filter></ClInclude>
+		<ClInclude Include="..\..\..\vender\tinyxml\include\tinystr.h"><Filter>vender\tinyxml</Filter></ClInclude>
+		<ClInclude Include="..\..\..\vender\tinyxml\include\tinyxml.h"><Filter>vender\tinyxml</Filter></ClInclude>
+		<ClInclude Include="..\..\..\vender\nats\include\nats\nats.h"><Filter>vender\nats</Filter></ClInclude>
+		<ClInclude Include="resource.h"><Filter>include</Filter></ClInclude>
+	</ItemGroup>
+	<ItemGroup>
+		<None Include="..\..\..\conf\MtEventService_dev.xml"><Filter>conf</Filter></None>
+		<None Include="..\..\..\conf\MtEventService_test.xml"><Filter>conf</Filter></None>
+	</ItemGroup>
+	<ItemGroup>
+		<ResourceCompile Include="MtEventService.rc"><Filter>resource</Filter></ResourceCompile>
+		<Image Include="res\MtEventService.ico"><Filter>resource</Filter></Image>
+	</ItemGroup>
+</Project>

@@ -35,6 +35,20 @@
 #   endif
 #endif
 
+std::ostream&
+JSONBINRPC::operator<<(std::ostream& os, BinaryCompression value)
+{
+    switch (value)
+    {
+        case BinaryCompression::BinaryCompressionNone:
+            return os << "BinaryCompressionNone";
+        case BinaryCompression::BinaryCompressionSnappy:
+            return os << "BinaryCompressionSnappy";
+        default:
+            return os << static_cast<std::int32_t>(value);
+    }
+}
+
 JSONBINRPC::IJsonBinRPCPrx::~IJsonBinRPCPrx() = default;
 
 std::int64_t
@@ -214,25 +228,25 @@ JSONBINRPC::IJsonBinRPCPrx::_iceI_UnRegisterStockPushIO(const std::shared_ptr<Ic
 }
 
 void
-JSONBINRPC::IJsonBinRPCPrx::ProcessPackage(std::int64_t iceP_reqno, const AByte& iceP_buf, const Ice::Context& context) const
+JSONBINRPC::IJsonBinRPCPrx::ProcessPackage(std::int64_t iceP_reqno, const BinaryPayload& iceP_payload, const Ice::Context& context) const
 {
-    IceInternal::makePromiseOutgoing<void>(true, this, &IJsonBinRPCPrx::_iceI_ProcessPackage, iceP_reqno, iceP_buf, context).get();
+    IceInternal::makePromiseOutgoing<void>(true, this, &IJsonBinRPCPrx::_iceI_ProcessPackage, iceP_reqno, iceP_payload, context).get();
 }
 
 std::future<void>
-JSONBINRPC::IJsonBinRPCPrx::ProcessPackageAsync(std::int64_t iceP_reqno, const AByte& iceP_buf, const Ice::Context& context) const
+JSONBINRPC::IJsonBinRPCPrx::ProcessPackageAsync(std::int64_t iceP_reqno, const BinaryPayload& iceP_payload, const Ice::Context& context) const
 {
-    return IceInternal::makePromiseOutgoing<void>(false, this, &IJsonBinRPCPrx::_iceI_ProcessPackage, iceP_reqno, iceP_buf, context);
+    return IceInternal::makePromiseOutgoing<void>(false, this, &IJsonBinRPCPrx::_iceI_ProcessPackage, iceP_reqno, iceP_payload, context);
 }
 
 std::function<void()>
-JSONBINRPC::IJsonBinRPCPrx::ProcessPackageAsync(std::int64_t iceP_reqno, const AByte& iceP_buf, std::function<void()> response, std::function<void(std::exception_ptr)> exception, std::function<void(bool)> sent, const Ice::Context& context) const
+JSONBINRPC::IJsonBinRPCPrx::ProcessPackageAsync(std::int64_t iceP_reqno, const BinaryPayload& iceP_payload, std::function<void()> response, std::function<void(std::exception_ptr)> exception, std::function<void(bool)> sent, const Ice::Context& context) const
 {
-    return IceInternal::makeLambdaOutgoing<void>(std::move(response), std::move(exception), std::move(sent), this, &JSONBINRPC::IJsonBinRPCPrx::_iceI_ProcessPackage, iceP_reqno, iceP_buf, context);
+    return IceInternal::makeLambdaOutgoing<void>(std::move(response), std::move(exception), std::move(sent), this, &JSONBINRPC::IJsonBinRPCPrx::_iceI_ProcessPackage, iceP_reqno, iceP_payload, context);
 }
 
 void
-JSONBINRPC::IJsonBinRPCPrx::_iceI_ProcessPackage(const std::shared_ptr<IceInternal::OutgoingAsyncT<void>>& outAsync, std::int64_t iceP_reqno, const AByte& iceP_buf, const Ice::Context& context) const
+JSONBINRPC::IJsonBinRPCPrx::_iceI_ProcessPackage(const std::shared_ptr<IceInternal::OutgoingAsyncT<void>>& outAsync, std::int64_t iceP_reqno, const BinaryPayload& iceP_payload, const Ice::Context& context) const
 {
     static constexpr std::string_view operationName = "ProcessPackage";
 
@@ -243,7 +257,7 @@ JSONBINRPC::IJsonBinRPCPrx::_iceI_ProcessPackage(const std::shared_ptr<IceIntern
         context,
         [&](Ice::OutputStream* ostr)
         {
-            ostr->writeAll(iceP_reqno, iceP_buf);
+            ostr->writeAll(iceP_reqno, iceP_payload);
         },
         nullptr);
 }
@@ -320,6 +334,78 @@ JSONBINRPC::IJsonBinRPCPrx::_iceI_UnRegisterStockPushIO2(const std::shared_ptr<I
         nullptr);
 }
 
+::JSONBINRPC::BinaryResponse
+JSONBINRPC::IJsonBinRPCPrx::BinaryRPC(const BinaryRequest& iceP_req, const Ice::Context& context) const
+{
+    return IceInternal::makePromiseOutgoing<BinaryResponse>(true, this, &IJsonBinRPCPrx::_iceI_BinaryRPC, iceP_req, context).get();
+}
+
+std::future<::JSONBINRPC::BinaryResponse>
+JSONBINRPC::IJsonBinRPCPrx::BinaryRPCAsync(const BinaryRequest& iceP_req, const Ice::Context& context) const
+{
+    return IceInternal::makePromiseOutgoing<BinaryResponse>(false, this, &IJsonBinRPCPrx::_iceI_BinaryRPC, iceP_req, context);
+}
+
+std::function<void()>
+JSONBINRPC::IJsonBinRPCPrx::BinaryRPCAsync(const BinaryRequest& iceP_req, std::function<void(::JSONBINRPC::BinaryResponse)> response, std::function<void(std::exception_ptr)> exception, std::function<void(bool)> sent, const Ice::Context& context) const
+{
+    return IceInternal::makeLambdaOutgoing<BinaryResponse>(std::move(response), std::move(exception), std::move(sent), this, &JSONBINRPC::IJsonBinRPCPrx::_iceI_BinaryRPC, iceP_req, context);
+}
+
+void
+JSONBINRPC::IJsonBinRPCPrx::_iceI_BinaryRPC(const std::shared_ptr<IceInternal::OutgoingAsyncT<BinaryResponse>>& outAsync, const BinaryRequest& iceP_req, const Ice::Context& context) const
+{
+    static constexpr std::string_view operationName = "BinaryRPC";
+
+    _checkTwowayOnly(operationName);
+    outAsync->invoke(
+        operationName,
+        Ice::OperationMode::Normal,
+        std::nullopt,
+        context,
+        [&](Ice::OutputStream* ostr)
+        {
+            ostr->writeAll(iceP_req);
+        },
+        nullptr);
+}
+
+::JSONBINRPC::BinaryResponse
+JSONBINRPC::IJsonBinRPCPrx::BinaryPUT(const BinaryRequest& iceP_req, const Ice::Context& context) const
+{
+    return IceInternal::makePromiseOutgoing<BinaryResponse>(true, this, &IJsonBinRPCPrx::_iceI_BinaryPUT, iceP_req, context).get();
+}
+
+std::future<::JSONBINRPC::BinaryResponse>
+JSONBINRPC::IJsonBinRPCPrx::BinaryPUTAsync(const BinaryRequest& iceP_req, const Ice::Context& context) const
+{
+    return IceInternal::makePromiseOutgoing<BinaryResponse>(false, this, &IJsonBinRPCPrx::_iceI_BinaryPUT, iceP_req, context);
+}
+
+std::function<void()>
+JSONBINRPC::IJsonBinRPCPrx::BinaryPUTAsync(const BinaryRequest& iceP_req, std::function<void(::JSONBINRPC::BinaryResponse)> response, std::function<void(std::exception_ptr)> exception, std::function<void(bool)> sent, const Ice::Context& context) const
+{
+    return IceInternal::makeLambdaOutgoing<BinaryResponse>(std::move(response), std::move(exception), std::move(sent), this, &JSONBINRPC::IJsonBinRPCPrx::_iceI_BinaryPUT, iceP_req, context);
+}
+
+void
+JSONBINRPC::IJsonBinRPCPrx::_iceI_BinaryPUT(const std::shared_ptr<IceInternal::OutgoingAsyncT<BinaryResponse>>& outAsync, const BinaryRequest& iceP_req, const Ice::Context& context) const
+{
+    static constexpr std::string_view operationName = "BinaryPUT";
+
+    _checkTwowayOnly(operationName);
+    outAsync->invoke(
+        operationName,
+        Ice::OperationMode::Normal,
+        std::nullopt,
+        context,
+        [&](Ice::OutputStream* ostr)
+        {
+            ostr->writeAll(iceP_req);
+        },
+        nullptr);
+}
+
 const char*
 JSONBINRPC::IJsonBinRPCPrx::ice_staticId() noexcept
 {
@@ -327,9 +413,71 @@ JSONBINRPC::IJsonBinRPCPrx::ice_staticId() noexcept
 }
 
 void
+JSONBINRPC::BinaryPayload::ice_printFields(std::ostream& os) const
+{
+    Ice::print(os << "version = ", this->version);
+    Ice::print(os << ", compression = ", this->compression);
+    Ice::print(os << ", rawSize = ", this->rawSize);
+    Ice::print(os << ", data = ", this->data);
+}
+
+std::ostream&
+JSONBINRPC::operator<<(std::ostream& os, const ::JSONBINRPC::BinaryPayload& value)
+{
+    os << "JSONBINRPC::BinaryPayload{";
+    value.ice_printFields(os);
+    os << '}';
+    return os;
+}
+
+void
+JSONBINRPC::BinaryRequest::ice_printFields(std::ostream& os) const
+{
+    Ice::print(os << "version = ", this->version);
+    Ice::print(os << ", syn = ", this->syn);
+    Ice::print(os << ", nFuncID = ", this->nFuncID);
+    Ice::print(os << ", routeCode = ", this->routeCode);
+    Ice::print(os << ", param = ", this->param);
+    Ice::print(os << ", payload = ", this->payload);
+    Ice::print(os << ", wparam = ", this->wparam);
+    Ice::print(os << ", extra = ", this->extra);
+}
+
+std::ostream&
+JSONBINRPC::operator<<(std::ostream& os, const ::JSONBINRPC::BinaryRequest& value)
+{
+    os << "JSONBINRPC::BinaryRequest{";
+    value.ice_printFields(os);
+    os << '}';
+    return os;
+}
+
+void
+JSONBINRPC::BinaryResponse::ice_printFields(std::ostream& os) const
+{
+    Ice::print(os << "version = ", this->version);
+    Ice::print(os << ", retVal = ", this->retVal);
+    Ice::print(os << ", errorCode = ", this->errorCode);
+    Ice::print(os << ", param = ", this->param);
+    Ice::print(os << ", payload = ", this->payload);
+    Ice::print(os << ", wparam = ", this->wparam);
+    Ice::print(os << ", extra = ", this->extra);
+    Ice::print(os << ", errInfo = ", this->errInfo);
+}
+
+std::ostream&
+JSONBINRPC::operator<<(std::ostream& os, const ::JSONBINRPC::BinaryResponse& value)
+{
+    os << "JSONBINRPC::BinaryResponse{";
+    value.ice_printFields(os);
+    os << '}';
+    return os;
+}
+
+void
 JSONBINRPC::IJsonBinRPC::dispatch(Ice::IncomingRequest& request, std::function<void(Ice::OutgoingResponse)> sendResponse)
 {
-    static constexpr std::array<std::string_view, 11> allOperations{"JsonBinPUT", "JsonBinRPC", "ProcessPackage", "RegisterStockPushIO", "RegisterStockPushIO2", "UnRegisterStockPushIO", "UnRegisterStockPushIO2", "ice_id", "ice_ids", "ice_isA", "ice_ping"};
+    static constexpr std::array<std::string_view, 13> allOperations{"BinaryPUT", "BinaryRPC", "JsonBinPUT", "JsonBinRPC", "ProcessPackage", "RegisterStockPushIO", "RegisterStockPushIO2", "UnRegisterStockPushIO", "UnRegisterStockPushIO2", "ice_id", "ice_ids", "ice_isA", "ice_ping"};
 
     const Ice::Current& current = request.current();
     auto r = std::equal_range(allOperations.begin(), allOperations.end(), current.operation); // NOLINT(modernize-use-ranges)
@@ -343,55 +491,65 @@ JSONBINRPC::IJsonBinRPC::dispatch(Ice::IncomingRequest& request, std::function<v
     {
         case 0:
         {
-            _iceD_JsonBinPUT(request, std::move(sendResponse));
+            _iceD_BinaryPUT(request, std::move(sendResponse));
             break;
         }
         case 1:
         {
-            _iceD_JsonBinRPC(request, std::move(sendResponse));
+            _iceD_BinaryRPC(request, std::move(sendResponse));
             break;
         }
         case 2:
         {
-            _iceD_ProcessPackage(request, std::move(sendResponse));
+            _iceD_JsonBinPUT(request, std::move(sendResponse));
             break;
         }
         case 3:
         {
-            _iceD_RegisterStockPushIO(request, std::move(sendResponse));
+            _iceD_JsonBinRPC(request, std::move(sendResponse));
             break;
         }
         case 4:
         {
-            _iceD_RegisterStockPushIO2(request, std::move(sendResponse));
+            _iceD_ProcessPackage(request, std::move(sendResponse));
             break;
         }
         case 5:
         {
-            _iceD_UnRegisterStockPushIO(request, std::move(sendResponse));
+            _iceD_RegisterStockPushIO(request, std::move(sendResponse));
             break;
         }
         case 6:
         {
-            _iceD_UnRegisterStockPushIO2(request, std::move(sendResponse));
+            _iceD_RegisterStockPushIO2(request, std::move(sendResponse));
             break;
         }
         case 7:
         {
-            _iceD_ice_id(request, std::move(sendResponse));
+            _iceD_UnRegisterStockPushIO(request, std::move(sendResponse));
             break;
         }
         case 8:
         {
-            _iceD_ice_ids(request, std::move(sendResponse));
+            _iceD_UnRegisterStockPushIO2(request, std::move(sendResponse));
             break;
         }
         case 9:
         {
-            _iceD_ice_isA(request, std::move(sendResponse));
+            _iceD_ice_id(request, std::move(sendResponse));
             break;
         }
         case 10:
+        {
+            _iceD_ice_ids(request, std::move(sendResponse));
+            break;
+        }
+        case 11:
+        {
+            _iceD_ice_isA(request, std::move(sendResponse));
+            break;
+        }
+        case 12:
         {
             _iceD_ice_ping(request, std::move(sendResponse));
             break;
@@ -557,13 +715,13 @@ JSONBINRPC::IJsonBinRPC::_iceD_ProcessPackage(
     auto istr = &request.inputStream();
     istr->startEncapsulation();
     std::int64_t iceP_reqno;
-    AByte iceP_buf;
-    istr->readAll(iceP_reqno, iceP_buf);
+    BinaryPayload iceP_payload;
+    istr->readAll(iceP_reqno, iceP_payload);
     istr->endEncapsulation();
     auto responseHandler = std::make_shared<IceInternal::AsyncResponseHandler>(std::move(sendResponse), request.current());
     try
     {
-        this->ProcessPackageAsync(iceP_reqno, std::move(iceP_buf), [responseHandler] { responseHandler->sendEmptyResponse(); }, [responseHandler](std::exception_ptr ex) { responseHandler->sendException(ex); }, responseHandler->current());
+        this->ProcessPackageAsync(iceP_reqno, std::move(iceP_payload), [responseHandler] { responseHandler->sendEmptyResponse(); }, [responseHandler](std::exception_ptr ex) { responseHandler->sendException(ex); }, responseHandler->current());
     }
     catch (...)
     {
@@ -635,6 +793,66 @@ JSONBINRPC::IJsonBinRPC::_iceD_UnRegisterStockPushIO2(
     }
 }
 
+void
+JSONBINRPC::IJsonBinRPC::_iceD_BinaryRPC(
+    Ice::IncomingRequest& request,
+    std::function<void(Ice::OutgoingResponse)> sendResponse)
+{
+    checkNonIdempotent(request.current());
+    auto istr = &request.inputStream();
+    istr->startEncapsulation();
+    BinaryRequest iceP_req;
+    istr->readAll(iceP_req);
+    istr->endEncapsulation();
+    auto responseHandler = std::make_shared<IceInternal::AsyncResponseHandler>(std::move(sendResponse), request.current());
+    auto responseCb = [responseHandler](const BinaryResponse& ret)
+    {
+        responseHandler->sendResponse(
+            [&](Ice::OutputStream* ostr)
+            {
+                ostr->writeAll(ret);
+            });
+    };
+    try
+    {
+        this->BinaryRPCAsync(std::move(iceP_req), std::move(responseCb), [responseHandler](std::exception_ptr ex) { responseHandler->sendException(ex); }, responseHandler->current());
+    }
+    catch (...)
+    {
+        responseHandler->sendException(std::current_exception());
+    }
+}
+
+void
+JSONBINRPC::IJsonBinRPC::_iceD_BinaryPUT(
+    Ice::IncomingRequest& request,
+    std::function<void(Ice::OutgoingResponse)> sendResponse)
+{
+    checkNonIdempotent(request.current());
+    auto istr = &request.inputStream();
+    istr->startEncapsulation();
+    BinaryRequest iceP_req;
+    istr->readAll(iceP_req);
+    istr->endEncapsulation();
+    auto responseHandler = std::make_shared<IceInternal::AsyncResponseHandler>(std::move(sendResponse), request.current());
+    auto responseCb = [responseHandler](const BinaryResponse& ret)
+    {
+        responseHandler->sendResponse(
+            [&](Ice::OutputStream* ostr)
+            {
+                ostr->writeAll(ret);
+            });
+    };
+    try
+    {
+        this->BinaryPUTAsync(std::move(iceP_req), std::move(responseCb), [responseHandler](std::exception_ptr ex) { responseHandler->sendException(ex); }, responseHandler->current());
+    }
+    catch (...)
+    {
+        responseHandler->sendException(std::current_exception());
+    }
+}
+
 const char*
 JSONBINRPC::IJsonBinRPC::ice_staticId() noexcept
 {
@@ -644,7 +862,7 @@ JSONBINRPC::IJsonBinRPC::ice_staticId() noexcept
 void
 JSONBINRPC::AsyncIJsonBinRPC::dispatch(Ice::IncomingRequest& request, std::function<void(Ice::OutgoingResponse)> sendResponse)
 {
-    static constexpr std::array<std::string_view, 11> allOperations{"JsonBinPUT", "JsonBinRPC", "ProcessPackage", "RegisterStockPushIO", "RegisterStockPushIO2", "UnRegisterStockPushIO", "UnRegisterStockPushIO2", "ice_id", "ice_ids", "ice_isA", "ice_ping"};
+    static constexpr std::array<std::string_view, 13> allOperations{"BinaryPUT", "BinaryRPC", "JsonBinPUT", "JsonBinRPC", "ProcessPackage", "RegisterStockPushIO", "RegisterStockPushIO2", "UnRegisterStockPushIO", "UnRegisterStockPushIO2", "ice_id", "ice_ids", "ice_isA", "ice_ping"};
 
     const Ice::Current& current = request.current();
     auto r = std::equal_range(allOperations.begin(), allOperations.end(), current.operation); // NOLINT(modernize-use-ranges)
@@ -658,55 +876,65 @@ JSONBINRPC::AsyncIJsonBinRPC::dispatch(Ice::IncomingRequest& request, std::funct
     {
         case 0:
         {
-            _iceD_JsonBinPUT(request, std::move(sendResponse));
+            _iceD_BinaryPUT(request, std::move(sendResponse));
             break;
         }
         case 1:
         {
-            _iceD_JsonBinRPC(request, std::move(sendResponse));
+            _iceD_BinaryRPC(request, std::move(sendResponse));
             break;
         }
         case 2:
         {
-            _iceD_ProcessPackage(request, std::move(sendResponse));
+            _iceD_JsonBinPUT(request, std::move(sendResponse));
             break;
         }
         case 3:
         {
-            _iceD_RegisterStockPushIO(request, std::move(sendResponse));
+            _iceD_JsonBinRPC(request, std::move(sendResponse));
             break;
         }
         case 4:
         {
-            _iceD_RegisterStockPushIO2(request, std::move(sendResponse));
+            _iceD_ProcessPackage(request, std::move(sendResponse));
             break;
         }
         case 5:
         {
-            _iceD_UnRegisterStockPushIO(request, std::move(sendResponse));
+            _iceD_RegisterStockPushIO(request, std::move(sendResponse));
             break;
         }
         case 6:
         {
-            _iceD_UnRegisterStockPushIO2(request, std::move(sendResponse));
+            _iceD_RegisterStockPushIO2(request, std::move(sendResponse));
             break;
         }
         case 7:
         {
-            _iceD_ice_id(request, std::move(sendResponse));
+            _iceD_UnRegisterStockPushIO(request, std::move(sendResponse));
             break;
         }
         case 8:
         {
-            _iceD_ice_ids(request, std::move(sendResponse));
+            _iceD_UnRegisterStockPushIO2(request, std::move(sendResponse));
             break;
         }
         case 9:
         {
-            _iceD_ice_isA(request, std::move(sendResponse));
+            _iceD_ice_id(request, std::move(sendResponse));
             break;
         }
         case 10:
+        {
+            _iceD_ice_ids(request, std::move(sendResponse));
+            break;
+        }
+        case 11:
+        {
+            _iceD_ice_isA(request, std::move(sendResponse));
+            break;
+        }
+        case 12:
         {
             _iceD_ice_ping(request, std::move(sendResponse));
             break;
@@ -872,13 +1100,13 @@ JSONBINRPC::AsyncIJsonBinRPC::_iceD_ProcessPackage(
     auto istr = &request.inputStream();
     istr->startEncapsulation();
     std::int64_t iceP_reqno;
-    AByte iceP_buf;
-    istr->readAll(iceP_reqno, iceP_buf);
+    BinaryPayload iceP_payload;
+    istr->readAll(iceP_reqno, iceP_payload);
     istr->endEncapsulation();
     auto responseHandler = std::make_shared<IceInternal::AsyncResponseHandler>(std::move(sendResponse), request.current());
     try
     {
-        this->ProcessPackageAsync(iceP_reqno, std::move(iceP_buf), [responseHandler] { responseHandler->sendEmptyResponse(); }, [responseHandler](std::exception_ptr ex) { responseHandler->sendException(ex); }, responseHandler->current());
+        this->ProcessPackageAsync(iceP_reqno, std::move(iceP_payload), [responseHandler] { responseHandler->sendEmptyResponse(); }, [responseHandler](std::exception_ptr ex) { responseHandler->sendException(ex); }, responseHandler->current());
     }
     catch (...)
     {
@@ -943,6 +1171,66 @@ JSONBINRPC::AsyncIJsonBinRPC::_iceD_UnRegisterStockPushIO2(
     try
     {
         this->UnRegisterStockPushIO2Async(std::move(iceP_guid), std::move(iceP_subinfo), std::move(iceP_ident), std::move(responseCb), [responseHandler](std::exception_ptr ex) { responseHandler->sendException(ex); }, responseHandler->current());
+    }
+    catch (...)
+    {
+        responseHandler->sendException(std::current_exception());
+    }
+}
+
+void
+JSONBINRPC::AsyncIJsonBinRPC::_iceD_BinaryRPC(
+    Ice::IncomingRequest& request,
+    std::function<void(Ice::OutgoingResponse)> sendResponse)
+{
+    checkNonIdempotent(request.current());
+    auto istr = &request.inputStream();
+    istr->startEncapsulation();
+    BinaryRequest iceP_req;
+    istr->readAll(iceP_req);
+    istr->endEncapsulation();
+    auto responseHandler = std::make_shared<IceInternal::AsyncResponseHandler>(std::move(sendResponse), request.current());
+    auto responseCb = [responseHandler](const BinaryResponse& ret)
+    {
+        responseHandler->sendResponse(
+            [&](Ice::OutputStream* ostr)
+            {
+                ostr->writeAll(ret);
+            });
+    };
+    try
+    {
+        this->BinaryRPCAsync(std::move(iceP_req), std::move(responseCb), [responseHandler](std::exception_ptr ex) { responseHandler->sendException(ex); }, responseHandler->current());
+    }
+    catch (...)
+    {
+        responseHandler->sendException(std::current_exception());
+    }
+}
+
+void
+JSONBINRPC::AsyncIJsonBinRPC::_iceD_BinaryPUT(
+    Ice::IncomingRequest& request,
+    std::function<void(Ice::OutgoingResponse)> sendResponse)
+{
+    checkNonIdempotent(request.current());
+    auto istr = &request.inputStream();
+    istr->startEncapsulation();
+    BinaryRequest iceP_req;
+    istr->readAll(iceP_req);
+    istr->endEncapsulation();
+    auto responseHandler = std::make_shared<IceInternal::AsyncResponseHandler>(std::move(sendResponse), request.current());
+    auto responseCb = [responseHandler](const BinaryResponse& ret)
+    {
+        responseHandler->sendResponse(
+            [&](Ice::OutputStream* ostr)
+            {
+                ostr->writeAll(ret);
+            });
+    };
+    try
+    {
+        this->BinaryPUTAsync(std::move(iceP_req), std::move(responseCb), [responseHandler](std::exception_ptr ex) { responseHandler->sendException(ex); }, responseHandler->current());
     }
     catch (...)
     {

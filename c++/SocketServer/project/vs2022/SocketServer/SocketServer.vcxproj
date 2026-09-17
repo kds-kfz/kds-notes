@@ -155,6 +155,7 @@
     <ClInclude Include="..\..\..\src\Log.h" />
     <ClInclude Include="..\..\..\src\publicfunc.h" />
     <ClInclude Include="..\..\..\src\publicGlobalvar.h" />
+    <ClInclude Include="..\..\..\src\ServerRuntimeContext.h" />
     <ClInclude Include="..\..\..\src\Struct.h" />
     <ClInclude Include="..\..\..\src\TcpPackServerObj.h" />
     <ClInclude Include="..\..\..\src\TcpServerListerNet.h" />
@@ -163,6 +164,7 @@
     <ClInclude Include="..\..\..\src\USER_SHA1.h" />
     <ClInclude Include="..\..\..\src\WebServerListerNet.h" />
     <ClInclude Include="..\..\..\src\WebSockServerObj.h" />
+    <ClInclude Include="..\..\..\src\WebSocketSendCoordinator.h" />
     <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket-SSL.h" />
     <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket.h" />
     <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket4C-SSL.h" />
@@ -183,6 +185,7 @@
     <ClCompile Include="..\..\..\src\HttpSockServerObj.cpp" />
     <ClCompile Include="..\..\..\src\Log.cpp" />
     <ClCompile Include="..\..\..\src\publicGlobalvar.cpp" />
+    <ClCompile Include="..\..\..\src\ServerRuntimeContext.cpp" />
     <ClCompile Include="..\..\..\src\SocketServer.cpp" />
     <ClCompile Include="..\..\..\src\TcpServerListerNet.cpp" />
     <ClCompile Include="..\..\..\src\TcpSockServerObj.cpp" />

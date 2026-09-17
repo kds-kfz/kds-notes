@@ -13,12 +13,30 @@ EXPORTS
 	PutSync
 	PutAsync
 	FreeResult
-	GetLastError
+	GetLastErrorDetail
 	LoadConfig
 	ReloadConfig
 	StartNetwork
+	StartBinaryNetwork
+	StartBinaryNetworkEx
 	StopNetwork
 	Publish
+	StartBinaryService
+	StartBinaryServiceEx
+	CallBinarySync
+	CallBinaryAsync
+	CallBinaryAsyncEx
+	PutBinarySync
+	PutBinaryAsync
+	PutBinaryAsyncEx
+	CallBinaryEncodedAsyncEx
+	PutBinaryEncodedAsyncEx
+	CompleteBinaryResponse
+	CancelBinaryResponse
+	FreeBinaryResult
+	DecodeBinaryEncodedBuffer
+	FreeBinaryBuffer
+	FreeBinaryEncodedResult
 
 	GetLastErrorCode
 	GetErrorMsg

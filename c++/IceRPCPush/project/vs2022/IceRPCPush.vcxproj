@@ -154,6 +154,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\include\IceRPCPush.h" />
     <ClInclude Include="..\..\src\AutoCS.h" />
+    <ClInclude Include="..\..\src\BinaryPayloadCodec.h" />
     <ClInclude Include="..\..\src\ClientThreadPool.h" />
     <ClInclude Include="..\..\src\compat\ByteCompat.h" />
     <ClInclude Include="..\..\src\compat\IceCompat.h" />
@@ -161,6 +162,7 @@
     <ClInclude Include="..\..\src\concurrentqueue.h" />
     <ClInclude Include="..\..\src\Corba\JSONBINRPCU.h" />
     <ClInclude Include="..\..\src\CJsonBinRPCImp.h" />
+    <ClInclude Include="..\..\src\CSubscriptionFilter.h" />
     <ClInclude Include="..\..\src\DQueue.h" />
     <ClInclude Include="..\..\src\Log.h" />
     <ClInclude Include="..\..\src\sexport.h" />
@@ -177,10 +179,12 @@
   <ItemGroup>
     <ClCompile Include="..\..\src\AutoCS.cpp" />
     <ClCompile Include="..\..\src\base64.cc" />
+    <ClCompile Include="..\..\src\BinaryPayloadCodec.cpp" />
     <ClCompile Include="..\..\src\ClientThreadPool.cpp" />
     <ClCompile Include="..\..\src\compat\SocketServerCompat.cpp" />
     <ClCompile Include="..\..\src\Corba\JSONBINRPCU.cpp" />
     <ClCompile Include="..\..\src\CJsonBinRPCImp.cpp" />
+    <ClCompile Include="..\..\src\CSubscriptionFilter.cpp" />
     <ClCompile Include="..\..\src\DQueue.cpp" />
     <ClCompile Include="..\..\src\IceRPCPush.cpp" />
     <ClCompile Include="..\..\src\Log.cpp" />

@@ -74,6 +74,13 @@ enum EN_JSON_INPUT_TYPE
 	EN_JSON_INPUT_PUT = 1,
 };
 
+// 二进制请求类型，和旧 JSON 请求类型使用不同取值，避免服务端回调误判。
+enum EN_BINARY_INPUT_TYPE
+{
+	EN_BINARY_INPUT_RPC = 2,
+	EN_BINARY_INPUT_PUT = 3,
+};
+
 // DLL 内部句柄类型，区分 RPC 对象和服务端保存的客户端对象。
 enum EN_JSON_HANDLE_TYPE
 {
@@ -142,10 +149,142 @@ struct ST_JSON_INPUT
 	}
 };
 
+// 二进制只读缓冲区；调用期间由调用方持有，DLL 不接管其内存。
+struct ST_BINARY_VIEW
+{
+	int lLen;                         // pBuffer 的有效字节数，允许为 0。
+	const unsigned char* pBuffer;     // 二进制数据起始地址，长度大于 0 时不能为空。
+	ST_BINARY_VIEW()
+	{
+		memset(this, 0, sizeof(ST_BINARY_VIEW));
+	}
+};
+
+// 二进制返回缓冲区；同步结果中的内存统一由 BinaryResultFree 释放。
+struct ST_BINARY_BUFFER
+{
+	int lLen;                         // pBuffer 的有效字节数，允许为 0。
+	unsigned char* pBuffer;           // 二进制数据起始地址，所有权由结果对象持有。
+	ST_BINARY_BUFFER()
+	{
+		memset(this, 0, sizeof(ST_BINARY_BUFFER));
+	}
+};
+
+// 客户端通用二进制调用参数；RPC 使用主载荷，PUT 还可以使用扩展载荷和整型参数。
+struct ST_BINARY_CALL
+{
+	int iVersion;                     // 调用结构版本，当前固定为 1。
+	long long lSynId;                 // 调用方生成的请求序号，用于日志跟踪和响应匹配。
+	long long lFuncId;                // 业务功能号，由共享业务协议定义。
+	long long lRouteCode;             // 路由编码，可表示服务器、市场或业务分片。
+	long long lParam;                 // 第一组业务整型参数，RPC 不需要时保持为 0。
+	ST_BINARY_VIEW stPayload;         // 主请求载荷，允许包含任意二进制字节。
+	long long wParam;                 // 第二组业务整型参数，RPC 不需要时保持为 0。
+	ST_BINARY_VIEW stExtra;           // 可选扩展载荷，主要供 PUT 使用。
+	ST_BINARY_CALL()
+	{
+		memset(this, 0, sizeof(ST_BINARY_CALL));
+		iVersion = 1;
+	}
+};
+
+// 二进制调用结果；主载荷和扩展载荷均为解压后的原始数据。
+struct ST_BINARY_RESULT
+{
+	int iVersion;                     // 结果结构版本，当前固定为 1。
+	long long lRetVal;                // 业务返回值，0 或正数表示业务成功，负数表示失败。
+	int iErrorCode;                   // 网络库错误码，0 表示网络层处理成功。
+	long long lParam;                 // 第一组业务整型返回参数。
+	ST_BINARY_BUFFER stPayload;       // 解压后的主返回载荷。
+	long long wParam;                 // 第二组业务整型返回参数。
+	ST_BINARY_BUFFER stExtra;         // 解压后的扩展返回载荷。
+	char szErrInfo[256];              // 详细英文错误描述，最多保存 255 字节。
+	void* pParam;                     // 异步调用方透传上下文，回调时原样返回。
+	ST_BINARY_RESULT()
+	{
+		memset(this, 0, sizeof(ST_BINARY_RESULT));
+		iVersion = 1;
+	}
+};
+
+// BinaryPayload 编码缓冲；正文仍保持 Ice 收到的原始或 Snappy 状态。
+// pBuffer 由所属 ST_BINARY_ENCODED_RESULT 持有，调用方只能读取且不得单独释放。
+struct ST_BINARY_ENCODED_BUFFER
+{
+	int iVersion;                     // BinaryPayload 协议版本，当前固定为 1。
+	int iCompression;                 // 0 表示原始二进制，1 表示 Snappy。
+	int iRawSize;                     // 解压后的原始字节数。
+	int iWireSize;                    // pBuffer 的有效编码字节数。
+	int iMaxPayloadBytes;             // 接收连接允许的最大原始载荷，用于延迟解压校验。
+	const unsigned char* pBuffer;     // 编码正文，只在所属结果释放前有效。
+	ST_BINARY_ENCODED_BUFFER()
+	{
+		memset(this, 0, sizeof(ST_BINARY_ENCODED_BUFFER));
+	}
+};
+
+// 异步拥有型编码结果；回调取得所有权，必须交给 BinaryEncodedResultFree 释放。
+// 该结构只运输 BinaryPayload，不解释任何插件业务协议。
+struct ST_BINARY_ENCODED_RESULT
+{
+	int iVersion;                     // 结果结构版本，当前固定为 1。
+	long long lRetVal;                // 业务返回值，语义与 ST_BINARY_RESULT 一致。
+	int iErrorCode;                   // 网络层错误码，0 表示运输成功。
+	long long lParam;                 // 第一组业务整型返回参数。
+	ST_BINARY_ENCODED_BUFFER stPayload; // 仍保持编码状态的主返回载荷。
+	long long wParam;                 // 第二组业务整型返回参数。
+	ST_BINARY_ENCODED_BUFFER stExtra; // 仍保持编码状态的扩展返回载荷。
+	char szErrInfo[256];              // 详细英文错误描述。
+	void* pParam;                     // 异步调用方透传上下文。
+	void* pInternalOwner;             // DLL 私有所有权对象，调用方禁止访问。
+	ST_BINARY_ENCODED_RESULT()
+	{
+		memset(this, 0, sizeof(ST_BINARY_ENCODED_RESULT));
+		iVersion = 1;
+	}
+};
+
+// 服务端收到的二进制请求；所有缓冲仅在服务端回调期间有效。
+struct ST_BINARY_REQUEST
+{
+	int iVersion;                     // 请求结构版本，当前固定为 1。
+	long long lSynId;                 // 客户端请求序号，服务端回包时由底层自动保持。
+	long long lFuncId;                // 业务功能号，服务端据此分发业务处理器。
+	long long lRouteCode;             // 客户端传入的路由编码。
+	long long lParam;                 // 第一组业务整型输入参数。
+	ST_BINARY_VIEW stPayload;         // 已解压的主请求载荷。
+	long long wParam;                 // 第二组业务整型输入参数。
+	ST_BINARY_VIEW stExtra;           // 已解压的扩展请求载荷。
+	short chMode;                     // 请求类型，取值为 EN_BINARY_INPUT_RPC 或 EN_BINARY_INPUT_PUT。
+	HANDLE hResponse;                 // DLL 内部引用计数上下文，只能原样传给 BinaryResponseData，完成后不得复用。
+	ST_BINARY_REQUEST()
+	{
+		memset(this, 0, sizeof(ST_BINARY_REQUEST));
+		iVersion = 1;
+	}
+};
+
 #pragma pack(pop)
 
 // 服务端直回调模式使用，绕过队列以降低延迟，但回调内必须尽快返回。
 typedef void(*func_JsonICEServerCallBsack)(void* p_pParam, short p_chMode, long long p_lSetCode, ST_JSON_M_RESULT_TOP* p_pResult);
+// 二进制服务端回调；处理完成前必须调用 BinaryResponseData，回调返回后请求缓冲立即失效。
+typedef void(*func_IceBinaryServerCallback)(void* p_pParam, const ST_BINARY_REQUEST* p_pRequest);
+
+// Ex 服务端回调返回值；COMPLETED 要求回调内已经应答，DEFERRED 允许回调返回后使用句柄应答。
+enum EN_BINARY_SERVER_CALLBACK_RESULT
+{
+	EN_BINARY_SERVER_CALLBACK_COMPLETED = 0,
+	EN_BINARY_SERVER_CALLBACK_DEFERRED = 1
+};
+
+// 延迟应答服务端回调。请求缓冲仍只在回调期间有效，hResponse 可保存到异步上下文。
+typedef int(*func_IceBinaryServerCallbackEx)(void* p_pParam,
+	const ST_BINARY_REQUEST* p_pRequest);
+// 传输优先级分类器；返回非零表示控制请求，底层不解释业务 FuncId。
+typedef int(*func_IceBinaryPriorityClassifier)(void* p_pParam,
+	long long p_lFuncId);
 
 // 返回服务端实际 Endpoint 字符串，主要用于启动后确认配置解析结果。
 ICERPCPUSH_API const char* JsonGetEndPoint(HANDLE p_hHandle);
@@ -172,6 +311,8 @@ ICERPCPUSH_API const char* RegisterJsonICEClient2(HANDLE p_hHandle, const char* 
 // 同步 RPC 调用，返回结果必须由 IJsonMutiResultFree 释放。
 ICERPCPUSH_API ST_JSON_M_RESULT_LEVEL* JsonBinClientRPC(HANDLE p_hHandle, long long p_lSynId, long long p_lFuncId, long long p_lSetCode, const char* p_szJsonReq, long p_lBufLen);
 // 异步 RPC 调用，回调参数为 ST_JSON_M_RESULT_LEVEL*，回调内或之后必须释放结果。
+ICERPCPUSH_API long long JsonBinClientRPCAsync(HANDLE p_hHandle, long long p_lSynId, long long p_lFuncId, long long p_lSetCode, const char* p_szJsonReq, long p_lBufLen, LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam);
+// 兼容旧版 ABI 的异步 RPC 导出名，行为与 JsonBinClientRPCAsync 完全一致。
 ICERPCPUSH_API long long JsonBinClientRPC_async(HANDLE p_hHandle, long long p_lSynId, long long p_lFuncId, long long p_lSetCode, const char* p_szJsonReq, long p_lBufLen, LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam);
 // 预提交 RPC 请求，必须和 EndPreJsonBinClientRPC 成对调用。
 ICERPCPUSH_API ST_JSON_M_RESULT_LEVEL* PreJsonBinClientRPC(HANDLE p_hHandle, long long p_lSynId, long long p_lFuncId, long long p_lSetCode, const char* p_szJsonReq, long p_lBufLen);
@@ -183,6 +324,8 @@ ICERPCPUSH_API void IJsonMutiResultFree(ST_JSON_M_RESULT_LEVEL* p_pResult);
 // 同步 PUT 调用，p_pPutData 中的内部缓冲区由调用方管理生命周期。
 ICERPCPUSH_API ST_JSON_M_RESULT_LEVEL* JsonBinClientPUT(HANDLE p_hHandle, long long p_lSynId, long long p_lFuncId, long long p_lSetCode, const char* p_szJsonReq, long p_lBufLen, const ST_JSON_M_RESULT_TOP* p_pPutData);
 // 异步 PUT 调用，回调参数为 ST_JSON_M_RESULT_TOP*。
+ICERPCPUSH_API long long JsonBinClientPUTAsync(HANDLE p_hHandle, long long p_lSynId, long long p_lFuncId, long long p_lSetCode, const char* p_szJsonReq, long p_lBufLen, const ST_JSON_M_RESULT_TOP* p_pPutData, LPTHREAD_START_ROUTINE p_pfnPutCallback, void* p_pParam);
+// 兼容旧版 ABI 的异步 PUT 导出名，行为与 JsonBinClientPUTAsync 完全一致。
 ICERPCPUSH_API long long JsonBinClientPUT_async(HANDLE p_hHandle, long long p_lSynId, long long p_lFuncId, long long p_lSetCode, const char* p_szJsonReq, long p_lBufLen, const ST_JSON_M_RESULT_TOP* p_pPutData, LPTHREAD_START_ROUTINE p_pfnPutCallback, void* p_pParam);
 // 预提交 PUT 请求，必须和 EndPreJsonBinClientPUT 成对调用。
 ICERPCPUSH_API ST_JSON_M_RESULT_LEVEL* PreJsonBinClientPUT(HANDLE p_hHandle, long long p_lSynId, long long p_lFuncId, long long p_lSetCode, const char* p_szJsonReq, long p_lBufLen, const ST_JSON_M_RESULT_TOP* p_pPutData);
@@ -193,6 +336,53 @@ ICERPCPUSH_API long long EndPreJsonBinClientPUT(HANDLE p_hHandle, ST_JSON_M_RESU
 ICERPCPUSH_API void DeleteJsonICERPC(HANDLE p_hHandle);
 // 服务端完成异步请求时主动回包，p_pResultCallback 内部缓冲区仍由调用方维护生命周期。
 ICERPCPUSH_API void JsonICEResponseData(HANDLE p_hHandle, ST_JSON_M_RESULT_TOP* p_pResultCallback);
+// 注册独立二进制服务端回调，并按 XML 配置启动有界工作线程。
+ICERPCPUSH_API void RegBinaryServerCallBackFunc(HANDLE p_hHandle, func_IceBinaryServerCallback p_pfnCallback, void* p_pParam);
+// 注册支持延迟应答和控制优先级的服务端回调；与旧注册接口互斥。
+ICERPCPUSH_API void RegBinaryServerCallBackFuncEx(HANDLE p_hHandle,
+	func_IceBinaryServerCallbackEx p_pfnCallback,
+	func_IceBinaryPriorityClassifier p_pfnPriorityClassifier,
+	void* p_pParam);
+// 同步二进制 RPC；返回结果必须使用 BinaryResultFree 释放。
+ICERPCPUSH_API ST_BINARY_RESULT* BinaryClientRPC(HANDLE p_hHandle, const ST_BINARY_CALL* p_pCall);
+// 异步二进制 RPC；提交成功后回调参数为 ST_BINARY_RESULT*，回调方必须释放结果。
+ICERPCPUSH_API long long BinaryClientRPCAsync(HANDLE p_hHandle, const ST_BINARY_CALL* p_pCall, LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam);
+// 单次超时覆盖的异步 RPC；0 表示无限等待，正数为毫秒，不修改句柄全局配置。
+ICERPCPUSH_API long long BinaryClientRPCAsyncEx(HANDLE p_hHandle,
+	const ST_BINARY_CALL* p_pCall, int p_iTimeoutMs,
+	LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam);
+// 拥有型编码异步 RPC；回调取得 ST_BINARY_ENCODED_RESULT 所有权，不提前解压正文。
+ICERPCPUSH_API long long BinaryClientRPCAsyncEncodedEx(HANDLE p_hHandle,
+	const ST_BINARY_CALL* p_pCall, int p_iTimeoutMs,
+	LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam);
+// 同步二进制 PUT；返回结果必须使用 BinaryResultFree 释放。
+ICERPCPUSH_API ST_BINARY_RESULT* BinaryClientPUT(HANDLE p_hHandle, const ST_BINARY_CALL* p_pCall);
+// 异步二进制 PUT；提交成功后回调参数为 ST_BINARY_RESULT*，回调方必须释放结果。
+ICERPCPUSH_API long long BinaryClientPUTAsync(HANDLE p_hHandle, const ST_BINARY_CALL* p_pCall, LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam);
+// 单次超时覆盖的异步 PUT；0 表示无限等待。
+ICERPCPUSH_API long long BinaryClientPUTAsyncEx(HANDLE p_hHandle,
+	const ST_BINARY_CALL* p_pCall, int p_iTimeoutMs,
+	LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam);
+// 拥有型编码异步 PUT；行为与编码 RPC 一致，额外保留 PUT 参数和 extra。
+ICERPCPUSH_API long long BinaryClientPUTAsyncEncodedEx(HANDLE p_hHandle,
+	const ST_BINARY_CALL* p_pCall, int p_iTimeoutMs,
+	LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam);
+// 服务端二进制回包入口；同步和延迟回调都只能对同一句柄应答一次。
+ICERPCPUSH_API void BinaryResponseData(HANDLE p_hResponse, const ST_BINARY_RESULT* p_pResult);
+// 同步或延迟应答的可检查入口；成功返回 1，重复、过期或非法句柄返回 0。
+ICERPCPUSH_API int BinaryResponseDataEx(HANDLE p_hResponse,
+	const ST_BINARY_RESULT* p_pResult);
+// 释放 BinaryClientRPC/BinaryClientPUT 以及异步回调返回的结果。
+ICERPCPUSH_API void BinaryResultFree(ST_BINARY_RESULT* p_pResult);
+// 在最终消费线程校验并解码一个拥有型 BinaryPayload；成功后缓冲由 BinaryBufferFree 释放。
+ICERPCPUSH_API int BinaryDecodeEncodedBuffer(
+	const ST_BINARY_ENCODED_BUFFER* p_pEncoded,
+	ST_BINARY_BUFFER* p_pDecoded, char* p_szError, int p_iErrorCapacity);
+// 释放 BinaryDecodeEncodedBuffer 分配的原始缓冲并清空视图。
+ICERPCPUSH_API void BinaryBufferFree(ST_BINARY_BUFFER* p_pBuffer);
+// 释放编码异步回调取得的结果及其 payload/extra 所有权。
+ICERPCPUSH_API void BinaryEncodedResultFree(
+	ST_BINARY_ENCODED_RESULT* p_pResult);
 // 获取指定句柄最后一次错误码；句柄为空时读取当前线程错误。
 ICERPCPUSH_API int IceRPCPushGetLastErrorCode(HANDLE p_hHandle);
 // 获取指定句柄最后一次详细英文错误描述；句柄为空时读取当前线程错误。

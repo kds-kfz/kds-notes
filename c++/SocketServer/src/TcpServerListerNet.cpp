@@ -1,5 +1,6 @@
 ﻿#include "publicGlobalvar.h"
 #include "publicfunc.h"
+#include "ServerRuntimeContext.h"
 #include "Log.h"
 
 namespace
@@ -10,14 +11,15 @@ namespace
 	const unsigned long long g_ullTcpMaxPendingBytesPerConn = 4ULL * 1024 * 1024;
 
 	// wyl 2026-03-30：为单连接的 TCP 原始数据通知做轻量配额控制，避免小包洪泛把任务队列和内存持续顶满。
-	bool ReserveTcpPendingQuota(CONNID dwConnID, unsigned int uiDataLen)
+	bool ReserveTcpPendingQuota(ST_TCP_SERVER_RUNTIME* p_pRuntime,
+		CONNID dwConnID, unsigned int uiDataLen)
 	{
-		if (0 == uiDataLen)
+		if (p_pRuntime == nullptr || uiDataLen == 0)
 			return true;
 
 		bool bReserved = false;
-		pthread_mutex_lock(&g_mutexReq);
-		ReqCacheData *&refReqCacheData = g_mapQueue[dwConnID];
+		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		ReqCacheData *&refReqCacheData = p_pRuntime->mapRequest[dwConnID];
 		if (nullptr == refReqCacheData)
 		{
 			refReqCacheData = new ReqCacheData();
@@ -32,16 +34,22 @@ namespace
 			refReqCacheData->ullTcpPendingBytes += uiDataLen;
 			bReserved = true;
 		}
-		pthread_mutex_unlock(&g_mutexReq);
+		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
 		return bReserved;
 	}
 
 	// wyl 2026-03-30：数据通知完成后归还配额，空闲时顺手移除统计对象，避免无效状态长期残留。
-	void ReleaseTcpPendingQuota(CONNID dwConnID, unsigned int uiDataLen)
+	void ReleaseTcpPendingQuota(ST_TCP_SERVER_RUNTIME* p_pRuntime,
+		CONNID dwConnID, unsigned int uiDataLen)
 	{
-		pthread_mutex_lock(&g_mutexReq);
-		std::map<CONNID, ReqCacheData*>::iterator itReq = g_mapQueue.find(dwConnID);
-		if (itReq != g_mapQueue.end() && nullptr != itReq->second)
+		if (p_pRuntime == nullptr)
+		{
+			return;
+		}
+		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		std::map<CONNID, ReqCacheData*>::iterator itReq =
+			p_pRuntime->mapRequest.find(dwConnID);
+		if (itReq != p_pRuntime->mapRequest.end() && nullptr != itReq->second)
 		{
 			ReqCacheData *pReqCacheData = itReq->second;
 			if (pReqCacheData->uiTcpPendingTaskCount > 0)
@@ -64,10 +72,10 @@ namespace
 				&& 0 == pReqCacheData->ulCapacity)
 			{
 				delete pReqCacheData;
-				g_mapQueue.erase(itReq);
+				p_pRuntime->mapRequest.erase(itReq);
 			}
 		}
-		pthread_mutex_unlock(&g_mutexReq);
+		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
 	}
 }
 
@@ -78,35 +86,44 @@ void ThreadNotifyTask(LPTSocketTask socketTask)
 	if (nullptr == socketTask || nullptr == socketTask->buf)
 		return;
 
-	ITcpServer *pSender = (ITcpServer *)socketTask->sender;
+	ST_TCP_SERVER_RUNTIME* pRuntime =
+		static_cast<ST_TCP_SERVER_RUNTIME*>(socketTask->sender);
+	if (pRuntime == nullptr)
+	{
+		return;
+	}
+	ITcpServer *pSender = pRuntime->pPackServer;
 	NotifyTask *pstTask = (NotifyTask *)socketTask->buf;
 
 	ClientData stClientData;
-	pthread_mutex_lock(&g_mutexConnet);
-	std::map<CONNID, ClientData>::iterator itClient = g_mapClient.find(pstTask->ullConnID);
-	if (itClient != g_mapClient.end())
+	pthread_mutex_lock(&pRuntime->mutexConnection);
+	std::map<CONNID, ClientData>::iterator itClient =
+		pRuntime->mapClient.find(pstTask->ullConnID);
+	if (itClient != pRuntime->mapClient.end())
 	{
 		stClientData = itClient->second;
 	}
 	if (enTcpClose == pstTask->enNotifyType)
 	{
-		g_mapClient.erase(pstTask->ullConnID);
+		pRuntime->mapClient.erase(pstTask->ullConnID);
 	}
-	pthread_mutex_unlock(&g_mutexConnet);
+	pthread_mutex_unlock(&pRuntime->mutexConnection);
 
 	if (enTcpClose == pstTask->enNotifyType)
 	{
-		pthread_mutex_lock(&g_mutexReq);
-		if (g_mapQueue.find(pstTask->ullConnID) != g_mapQueue.end())
+		pthread_mutex_lock(&pRuntime->mutexRequest);
+		if (pRuntime->mapRequest.find(pstTask->ullConnID) !=
+			pRuntime->mapRequest.end())
 		{
-			delete g_mapQueue[pstTask->ullConnID];
-			g_mapQueue.erase(pstTask->ullConnID);
+			delete pRuntime->mapRequest[pstTask->ullConnID];
+			pRuntime->mapRequest.erase(pstTask->ullConnID);
 		}
-		pthread_mutex_unlock(&g_mutexReq);
+		pthread_mutex_unlock(&pRuntime->mutexRequest);
 	}
 
 	// wyl 2026-03-30：只有服务仍处于运行状态时，才继续向上层派发通知。
-	if (nullptr != g_pTcpHandle && g_bServerStatus)
+	if (pRuntime->pNotifyHandler != nullptr &&
+		pRuntime->bServerStatus.load())
 	{
 		switch (pstTask->enNotifyType)
 		{
@@ -114,27 +131,27 @@ void ThreadNotifyTask(LPTSocketTask socketTask)
 			// wyl 2026-03-30：不再按字符串打印原始 TCP 数据，避免二进制数据越界读取。
 			TCP_INFO("ip=%s,port=%d,type=%d,len=%u",
 				stClientData.szIp, stClientData.unPort, pstTask->enNotifyType, pstTask->uiLen);
-			g_pTcpHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, (void*)pstTask->pBuf, pstTask->uiLen,
+			pRuntime->pNotifyHandler((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, (void*)pstTask->pBuf, pstTask->uiLen,
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		case enTcpClose:
 			_snprintf(pstTask->szErrMsg, sizeof(pstTask->szErrMsg), "client close");
 			TCP_INFO("ip=%s,port=%d,type=%d,len=%d,msg=%s",
 				stClientData.szIp, stClientData.unPort, pstTask->enNotifyType, (int)strlen(pstTask->szErrMsg), pstTask->szErrMsg);
-			g_pTcpHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, nullptr, 0,
+			pRuntime->pNotifyHandler((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, nullptr, 0,
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		case enTcpConnect:
 			_snprintf(pstTask->szErrMsg, sizeof(pstTask->szErrMsg), "client connect");
 			TCP_INFO("ip=%s,port=%d,type=%d,len=%d,msg=%s",
 				stClientData.szIp, stClientData.unPort, pstTask->enNotifyType, (int)strlen(pstTask->szErrMsg), pstTask->szErrMsg);
-			g_pTcpHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, nullptr, 0,
+			pRuntime->pNotifyHandler((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, nullptr, 0,
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		case enTcpError:
 			TCP_INFO("ip=%s,port=%d,type=%d,len=%d,msg=%s",
 				stClientData.szIp, stClientData.unPort, pstTask->enNotifyType, (int)strlen(pstTask->szErrMsg), pstTask->szErrMsg);
-			g_pTcpHandle((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, nullptr, 0,
+			pRuntime->pNotifyHandler((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, nullptr, 0,
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		default:
@@ -144,48 +161,52 @@ void ThreadNotifyTask(LPTSocketTask socketTask)
 
 	if (enTcpData == pstTask->enNotifyType)
 	{
-		ReleaseTcpPendingQuota(pstTask->ullConnID, pstTask->uiLen);
+		ReleaseTcpPendingQuota(pRuntime, pstTask->ullConnID, pstTask->uiLen);
 	}
 
-	pthread_mutex_lock(&g_mutexTask);
-	if (g_mapTask.find(pstTask->ullTaskID) != g_mapTask.end())
+	pthread_mutex_lock(&pRuntime->mutexTask);
+	if (pRuntime->mapTask.find(pstTask->ullTaskID) !=
+		pRuntime->mapTask.end())
 	{
-		delete g_mapTask[pstTask->ullTaskID];
-		g_mapTask.erase(pstTask->ullTaskID);
+		delete pRuntime->mapTask[pstTask->ullTaskID];
+		pRuntime->mapTask.erase(pstTask->ullTaskID);
 	}
-	pthread_mutex_unlock(&g_mutexTask);
+	pthread_mutex_unlock(&pRuntime->mutexTask);
 }
 
 namespace
 {
 	// wyl 2026-03-30：统一封装 TCP 通知任务提交流程，避免重复代码和失败路径遗漏清理。
-	bool SubmitTcpNotifyTask(ITcpServer* pSender, CONNID dwConnID, NotifyTask* pNotifyTask)
+	bool SubmitTcpNotifyTask(ST_TCP_SERVER_RUNTIME* p_pRuntime,
+		ITcpServer* pSender, CONNID dwConnID, NotifyTask* pNotifyTask)
 	{
-		if (nullptr == pSender || nullptr == pNotifyTask)
+		if (p_pRuntime == nullptr || pSender == nullptr || pNotifyTask == nullptr)
 			return false;
 
 		unsigned long long ullTaskID = 0;
-		pthread_mutex_lock(&g_mutexTask);
-		pNotifyTask->ullTaskID = ++g_ullTaskID;
+		pthread_mutex_lock(&p_pRuntime->mutexTask);
+		pNotifyTask->ullTaskID = ++p_pRuntime->ullTaskId;
 		ullTaskID = pNotifyTask->ullTaskID;
-		g_mapTask[ullTaskID] = pNotifyTask;
-		pthread_mutex_unlock(&g_mutexTask);
+		p_pRuntime->mapTask[ullTaskID] = pNotifyTask;
+		pthread_mutex_unlock(&p_pRuntime->mutexTask);
 
-		LPTSocketTask task = HP_Create_SocketTaskObj((Fn_SocketTaskProc)ThreadNotifyTask, pSender, dwConnID, (const BYTE*)pNotifyTask, sizeof(NotifyTask));
+		LPTSocketTask task = HP_Create_SocketTaskObj(
+			(Fn_SocketTaskProc)ThreadNotifyTask, p_pRuntime,
+			dwConnID, (const BYTE*)pNotifyTask, sizeof(NotifyTask));
 		if (task == nullptr)
 		{
-			pthread_mutex_lock(&g_mutexTask);
-			g_mapTask.erase(ullTaskID);
-			pthread_mutex_unlock(&g_mutexTask);
+			pthread_mutex_lock(&p_pRuntime->mutexTask);
+			p_pRuntime->mapTask.erase(ullTaskID);
+			pthread_mutex_unlock(&p_pRuntime->mutexTask);
 			delete pNotifyTask;
 			return false;
 		}
 
-		if (!g_CTcpHPThreadPool->Submit(task, 1000 * 5))
+		if (!p_pRuntime->clThreadPool->Submit(task, 1000 * 5))
 		{
-			pthread_mutex_lock(&g_mutexTask);
-			g_mapTask.erase(ullTaskID);
-			pthread_mutex_unlock(&g_mutexTask);
+			pthread_mutex_lock(&p_pRuntime->mutexTask);
+			p_pRuntime->mapTask.erase(ullTaskID);
+			pthread_mutex_unlock(&p_pRuntime->mutexTask);
 			delete pNotifyTask;
 			HP_Destroy_SocketTaskObj(task);
 			return false;
@@ -194,6 +215,14 @@ namespace
 		return true;
 	}
 }
+
+// 以下别名只在 Listener 成员函数内展开为当前实例字段。
+#define g_bServerStatus (m_pRuntime->bServerStatus.load())
+#define g_mutexConnet (m_pRuntime->mutexConnection)
+#define g_mapClient (m_pRuntime->mapClient)
+#define g_setTcpLocalClosing (m_pRuntime->setLocalClosing)
+#define g_mutexReq (m_pRuntime->mutexRequest)
+#define g_mapQueue (m_pRuntime->mapRequest)
 
 // 客户端连接事件 监听成功时触发
 EnHandleResult CTcpServerListerNet::OnPrepareListen(ITcpServer* pSender, SOCKET soListen)
@@ -244,7 +273,8 @@ EnHandleResult CTcpServerListerNet::OnAccept(ITcpServer* pSender, CONNID dwConnI
 	pNotifyTask->enNotifyType = enTcpConnect;
 	pNotifyTask->ullConnID = dwConnID;
 
-	return SubmitTcpNotifyTask(pSender, dwConnID, pNotifyTask) ? HR_OK : HR_ERROR;
+	return SubmitTcpNotifyTask(m_pRuntime, pSender,
+		dwConnID, pNotifyTask) ? HR_OK : HR_ERROR;
 }
 
 // 客户端关闭事件
@@ -302,7 +332,8 @@ EnHandleResult CTcpServerListerNet::OnClose(ITcpServer* pSender, CONNID dwConnID
 		NotifyTask *pNotifyTask = new NotifyTask();
 		pNotifyTask->enNotifyType = enTcpClose;
 		pNotifyTask->ullConnID = dwConnID;
-		return SubmitTcpNotifyTask(pSender, dwConnID, pNotifyTask) ? HR_OK : HR_ERROR;
+		return SubmitTcpNotifyTask(m_pRuntime, pSender,
+			dwConnID, pNotifyTask) ? HR_OK : HR_ERROR;
 	}
 	return HR_OK;
 }
@@ -333,7 +364,8 @@ EnHandleResult CTcpServerListerNet::OnReceive(ITcpServer* pSender, CONNID dwConn
 	}
 	pthread_mutex_unlock(&g_mutexConnet);
 
-	if (!ReserveTcpPendingQuota(dwConnID, (unsigned int)iLength))
+	if (!ReserveTcpPendingQuota(m_pRuntime, dwConnID,
+		(unsigned int)iLength))
 	{
 		TCP_ERROR("ConnID=%llu,PendingTcpNotifyOverflow,len=%d", (unsigned long long)dwConnID, iLength);
 		return HR_ERROR;
@@ -346,9 +378,10 @@ EnHandleResult CTcpServerListerNet::OnReceive(ITcpServer* pSender, CONNID dwConn
 	pNotifyTask->pBuf = new char[iLength];
 	memcpy(pNotifyTask->pBuf, pData, iLength);
 
-	if (!SubmitTcpNotifyTask(pSender, dwConnID, pNotifyTask))
+	if (!SubmitTcpNotifyTask(m_pRuntime, pSender, dwConnID, pNotifyTask))
 	{
-		ReleaseTcpPendingQuota(dwConnID, (unsigned int)iLength);
+		ReleaseTcpPendingQuota(m_pRuntime, dwConnID,
+			(unsigned int)iLength);
 		return HR_ERROR;
 	}
 

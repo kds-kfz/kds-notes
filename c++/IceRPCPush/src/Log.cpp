@@ -544,6 +544,8 @@ CIceRPCPushLog::CIceRPCPushLog()
 {
 	m_bOpened = false;
 	m_enLevel = EN_LOG_LEVEL_INFO;
+	// 日志单例首次使用时立即打开默认文件，确保 Ice 初始化早期失败也能写入 PushLog。
+	Open("JSONRPC");
 }
 
 CIceRPCPushLog::~CIceRPCPushLog()
@@ -558,7 +560,7 @@ CIceRPCPushLog& CIceRPCPushLog::Instance()
 	return clLog;
 }
 
-// 使用本地复制的 SocketServer CBaseLog 初始化 Day_Logs 目录和日志文件前缀。
+// 使用本地复制的 SocketServer CBaseLog 初始化 PushLog 目录和按进程隔离的日志文件前缀。
 bool CIceRPCPushLog::Open(const char* p_szLogName)
 {
 	if (p_szLogName == NULL || p_szLogName[0] == '\0')
@@ -566,7 +568,21 @@ bool CIceRPCPushLog::Open(const char* p_szLogName)
 		p_szLogName = "JSONRPC";
 	}
 
-	m_strName = p_szLogName;
+	char szExePath[MAX_PATH] = {0};
+	DWORD uPathLen = GetModuleFileNameA(NULL, szExePath, static_cast<DWORD>(sizeof(szExePath)));
+	std::string strProcessName;
+	if (uPathLen > 0 && uPathLen < sizeof(szExePath))
+	{
+		std::string strExePath(szExePath, uPathLen);
+		std::string::size_type uNamePos = strExePath.find_last_of("\\/");
+		strProcessName = uNamePos == std::string::npos ? strExePath : strExePath.substr(uNamePos + 1);
+		std::string::size_type uExtensionPos = strProcessName.find_last_of('.');
+		if (uExtensionPos != std::string::npos)
+		{
+			strProcessName.erase(uExtensionPos);
+		}
+	}
+	m_strName = strProcessName.empty() ? p_szLogName : strProcessName + "IceRPCPush_";
 	m_bOpened = ReopenBaseLog();
 	if (m_bOpened)
 	{
@@ -705,7 +721,7 @@ bool CIceRPCPushLog::CanWrite(EN_LOG_LEVEL p_enLevel) const
 bool CIceRPCPushLog::ReopenBaseLog()
 {
 	std::string strPath(::GetRootPath());
-	strPath.append("\\Day_Logs");
+	strPath.append("\\PushLog");
 	int iRet = InitLog(strPath.c_str(), ConvertLogLevel(m_enLevel), m_strName.c_str());
 	if (iRet == MA_OK)
 	{

@@ -24,6 +24,9 @@
     <ClInclude Include="..\..\src\AutoCS.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\BinaryPayloadCodec.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\ClientThreadPool.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -43,6 +46,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\CJsonBinRPCImp.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\CSubscriptionFilter.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\DQueue.h">
@@ -89,6 +95,9 @@
     <ClCompile Include="..\..\src\AutoCS.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\BinaryPayloadCodec.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\src\base64.cc">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -102,6 +111,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\CJsonBinRPCImp.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\CSubscriptionFilter.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\DQueue.cpp">

@@ -12,6 +12,9 @@
 #include <time.h>
 #include <assert.h>
 #include <math.h>
+#include <cstdint>
+#include <cstdlib>
+#include <limits>
 
 #if defined( OS_IS_WINDOWS )
 #include <io.h>
@@ -36,18 +39,19 @@
 #include "exception_handler.h"
 #endif
 
-//ÄÚ²¿Ê¹ÓÃµÄºê
+//ï¿½Ú²ï¿½Ê¹ï¿½ÃµÄºï¿½
 #define NSDK_MAX_PATH 260
-#define COMPPREC		0.001 // RoundÊ¹ÓÃ
+#define COMPPREC		0.001 // RoundÊ¹ï¿½ï¿½
 
-//¼ÓÃÜ²¿·Ö
-//×¢Òâ±àÒë¸ø¿Í»§¶ËÊ±ÐèÒª°Ñ Aes Deaes Base64Encode Base64Decode È¥µô
-//#define SERVER_AUTH_FLAG //·þÎñ¶ËÈÏÖ¤ºê ¿Í»§¶ËÊÚÈ¨¿ØÖÆ
-#define AUTH_DAY	(0)//ÊÚÈ¨ÌìÊý 0µ±ÌìÓÐÐ§
+//ï¿½ï¿½ï¿½Ü²ï¿½ï¿½ï¿½
+//×¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í»ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Òªï¿½ï¿½ Aes Deaes Base64Encode Base64Decode È¥ï¿½ï¿½
+//#define SERVER_AUTH_FLAG //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½ ï¿½Í»ï¿½ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½ï¿½ï¿½
+#define AUTH_DAY	(0)//ï¿½ï¿½È¨ï¿½ï¿½ï¿½ï¿½ 0ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§
+#define NSDK_SECONDS_FEATURE_PREFIX "NSDK_SECONDS_V1|"
 
 std::string g_strAuthKey = "tjzt!@#$%^&*()_+<>?;";
-std::string g_strAuthIV = "gfdertfghjkuyrtg";   //ECB MODE²»ÐèÒª¹ØÐÄchain£¬¿ÉÒÔÌî¿Õ
-std::string g_strSignature = "TJZT";//Ç©Ãû
+std::string g_strAuthIV = "gfdertfghjkuyrtg";   //ECB MODEï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½chainï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+std::string g_strSignature = "TJZT";//Ç©ï¿½ï¿½
 
 static const std::string g_strBase64Chars =
 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -61,7 +65,7 @@ BGN_NAMESPACE_NSDK
 
 namespace
 {
-	// °´¹Ì¶¨8Î»ÈÕÆÚ×Ö¶Î½âÎöÊÚÈ¨ÈÕÆÚ£¬±ÜÃâsubstr²úÉúÁÙÊ±×Ö·û´®¡£
+	// ï¿½ï¿½ï¿½Ì¶ï¿½8Î»ï¿½ï¿½ï¿½ï¿½ï¿½Ö¶Î½ï¿½ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½ï¿½Ú£ï¿½ï¿½ï¿½ï¿½ï¿½substrï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½
 	int ParseAuthDate8(const char* p_szDate)
 	{
 		if (p_szDate == nullptr)
@@ -102,7 +106,7 @@ namespace
 		(void)p_pContext;
 		(void)p_pAssertion;
 
-		// wyl 2026-05-07£º±ÀÀ£ÏÖ³¡Ö»Ð´¼«¼ò±ê¼Ç£¬±ÜÃâµ÷ÓÃÒµÎñÈÕÖ¾¡¢µ¯´°¡¢ÍøÂçµÈ¸´ÔÓÂß¼­µ¼ÖÂ¶þ´ÎÒì³£¡£
+		// wyl 2026-05-07ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö³ï¿½Ö»Ð´ï¿½ï¿½ï¿½ï¿½ï¿½Ç£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òµï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¸ï¿½ï¿½ï¿½ï¿½ß¼ï¿½ï¿½ï¿½ï¿½Â¶ï¿½ï¿½ï¿½ï¿½ì³£ï¿½ï¿½
 		if (p_wszDumpPath != nullptr && p_wszDumpPath[0] != L'\0')
 		{
 			std::wstring strMarkerPath = p_wszDumpPath;
@@ -126,8 +130,8 @@ namespace
 					pExceptionAddress = p_pExInfo->ExceptionRecord->ExceptionAddress;
 				}
 
-				// wyl 2026-05-07£ºlast_crash.txt Ã¿ÐÐ×Ö¶ÎËµÃ÷£ºÊ±¼ä¡¢dumpÉú³É½á¹û¡¢µ±Ç°Ïß³ÌID¡¢Òì³£Âë¡¢Òì³£µØÖ·¡¢dump_id¡£
-				// succeeded=1 ±íÊ¾ Breakpad Ð´ dump ³É¹¦£»exception ÎªÒì³£Âë£»address ÎªÒì³£·¢ÉúµØÖ·£»dump_id ¶ÔÓ¦Éú³ÉµÄ dmp ÎÄ¼þÃû¡£
+				// wyl 2026-05-07ï¿½ï¿½last_crash.txt Ã¿ï¿½ï¿½ï¿½Ö¶ï¿½Ëµï¿½ï¿½ï¿½ï¿½Ê±ï¿½ä¡¢dumpï¿½ï¿½ï¿½É½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ß³ï¿½IDï¿½ï¿½ï¿½ì³£ï¿½ë¡¢ï¿½ì³£ï¿½ï¿½Ö·ï¿½ï¿½dump_idï¿½ï¿½
+				// succeeded=1 ï¿½ï¿½Ê¾ Breakpad Ð´ dump ï¿½É¹ï¿½ï¿½ï¿½exception Îªï¿½ì³£ï¿½ë£»address Îªï¿½ì³£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½dump_id ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½Éµï¿½ dmp ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
 				std::ostringstream ossCrashLine;
 				ossCrashLine << "[" << std::put_time(&tmNow, "%Y-%m-%d %H:%M:%S")
 					<< "." << std::setw(3) << std::setfill('0') << nMillisecond << std::setfill(' ')
@@ -147,7 +151,7 @@ namespace
 #endif
 }
 
-/******************** ÎÄ¼þ¼Ð´¦Àí ********************/
+/******************** ï¿½Ä¼ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ ********************/
 int FolderExists(const char* p_szFolderPath)
 {
 	if (p_szFolderPath == nullptr || strlen(p_szFolderPath) == 0)
@@ -217,8 +221,8 @@ int CreateFolder(const char* p_szFolderPath)
 			std::string curPath = fullPath.substr(0, i);
 			if (access(curPath.c_str(), F_OK) != 0)
 			{
-				//S_IRUSR ÓÃ»§¶ÁÈ¨ÏÞ S_IWUSR ÓÃ»§Ð´È¨ÏÞ S_IRGRP ÓÃ»§×é¶ÁÈ¨ÏÞ S_IWGRP ÓÃ»§×éÐ´È¨ÏÞ S_IROTH ÆäËû×é¶ÁÈ¨ÏÞ S_IWOTH ÆäËû×éÐ´È¨ÏÞ
-				//ÖÁÉÙ764²ÅÄÜ½øÈë²Ù×÷¶ÁÐ´
+				//S_IRUSR ï¿½Ã»ï¿½ï¿½ï¿½È¨ï¿½ï¿½ S_IWUSR ï¿½Ã»ï¿½Ð´È¨ï¿½ï¿½ S_IRGRP ï¿½Ã»ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½ S_IWGRP ï¿½Ã»ï¿½ï¿½ï¿½Ð´È¨ï¿½ï¿½ S_IROTH ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½ S_IWOTH ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´È¨ï¿½ï¿½
+				//ï¿½ï¿½ï¿½ï¿½764ï¿½ï¿½ï¿½Ü½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð´
 				if (mkdir(curPath.c_str(), S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH) == -1)
 				{
 					return -1;
@@ -367,7 +371,7 @@ int GetAllFiles(std::string p_strDir, std::vector<std::string>& p_vecFiles)
 			std::string(findData.cFileName).compare("..") == 0)continue;
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		{
-			//Èç¹ûÊÇÄ¿Â¼
+			//ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Â¼
 			std::string strDir1 = p_strDir + "\\";
 			strDir1.append(std::string(findData.cFileName).c_str());
 			GetAllFiles(strDir1, p_vecFiles);
@@ -386,7 +390,7 @@ int GetAllFiles(std::string p_strDir, std::vector<std::string>& p_vecFiles)
 	}
 
 	struct dirent* dp = NULL;
-	char szBasePath[NSDK_MAX_PATH] = { 0 };        //»ùÄ¿Â¼
+	char szBasePath[NSDK_MAX_PATH] = { 0 };        //ï¿½ï¿½Ä¿Â¼
 	while ((dp = readdir(dir)) != nullptr) {
 		if (0 == strncmp(dp->d_name, ".", 1) || 0 == strcmp(dp->d_name, ".."))
 		{
@@ -400,7 +404,7 @@ int GetAllFiles(std::string p_strDir, std::vector<std::string>& p_vecFiles)
 			strcat(szBasePath, dp->d_name);
 			p_vecFiles.push_back(szBasePath);
 		}
-		else if (10 == dp->d_type || 4 == dp->d_type)//Á´½ÓÎÄ¼þ //dir ÊÇÄ¿Â¼ÔòµÝ¹éµ÷ÓÃ
+		else if (10 == dp->d_type || 4 == dp->d_type)//ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ //dir ï¿½ï¿½Ä¿Â¼ï¿½ï¿½Ý¹ï¿½ï¿½ï¿½ï¿½
 		{
 			memset(szBasePath, '\0', NSDK_MAX_PATH);
 			strcpy(szBasePath, p_strDir.c_str());
@@ -430,7 +434,7 @@ int GetSubDirs(std::string p_strDir, std::vector<std::string>& p_vecFiles)
 			std::string(findData.cFileName).compare("..") == 0)continue;
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 		{
-			//Èç¹ûÊÇÄ¿Â¼
+			//ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Â¼
 			p_vecFiles.push_back(p_strDir + "\\" + std::string(findData.cFileName));
 		}
 		//else continue;
@@ -445,13 +449,13 @@ int GetSubDirs(std::string p_strDir, std::vector<std::string>& p_vecFiles)
 	}
 
 	struct dirent* dp = NULL;
-	char szBasePath[NSDK_MAX_PATH] = { 0 };        //»ùÄ¿Â¼
+	char szBasePath[NSDK_MAX_PATH] = { 0 };        //ï¿½ï¿½Ä¿Â¼
 	while ((dp = readdir(dir)) != nullptr) {
 		if (0 == strcmp(dp->d_name, ".") && 0 == strcmp(dp->d_name, ".."))
 		{
 			continue;
 		}
-		else if (10 == dp->d_type || 4 == dp->d_type)//Á´½ÓÎÄ¼þ //dir ÊÇÄ¿Â¼ÔòµÝ¹éµ÷ÓÃ
+		else if (10 == dp->d_type || 4 == dp->d_type)//ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ //dir ï¿½ï¿½Ä¿Â¼ï¿½ï¿½Ý¹ï¿½ï¿½ï¿½ï¿½
 		{
 			memset(szBasePath, '\0', NSDK_MAX_PATH);
 			strcpy(szBasePath, p_strDir.c_str());
@@ -501,7 +505,7 @@ bool DeleteDirectory(const char* p_szFilePath, const char* p_szExpath)
 	DIR* dir = opendir(p_szFilePath);
 	if (dir == nullptr)
 	{
-		// ´ò¿ªÄ¿Â¼Ê§°Ü
+		// ï¿½ï¿½Ä¿Â¼Ê§ï¿½ï¿½
 		return false;
 	}
 
@@ -509,13 +513,13 @@ bool DeleteDirectory(const char* p_szFilePath, const char* p_szExpath)
 	while ((entry = readdir(dir)) != nullptr) {
 		if (strncmp(entry->d_name, ".", 1) == 0 || strcmp(entry->d_name, "..") == 0)
 		{
-			// Ìø¹ýµ±Ç°Ä¿Â¼ºÍ¸¸Ä¿Â¼
+			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç°Ä¿Â¼ï¿½Í¸ï¿½Ä¿Â¼
 			continue;
 		}
 
 		if (entry->d_type == DT_DIR)
 		{
-			// Èç¹ûÊÇÎÄ¼þ¼Ð£¬µÝ¹éÉ¾³ý
+			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½Ð£ï¿½ï¿½Ý¹ï¿½É¾ï¿½ï¿½
 			if (strcmp(entry->d_name, p_szExpath) != 0)
 			{
 				char szFile[NSDK_MAX_PATH] = { 0 };
@@ -529,7 +533,7 @@ bool DeleteDirectory(const char* p_szFilePath, const char* p_szExpath)
 		}
 		else
 		{
-			// Èç¹ûÊÇÎÄ¼þ£¬Ö±½ÓÉ¾³ý
+			// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ö±ï¿½ï¿½É¾ï¿½ï¿½
 			char szFile[NSDK_MAX_PATH] = { 0 };
 			snprintf(szFile, sizeof(szFile) - 1, "%s/%s", p_szFilePath, entry->d_name);
 			if (remove(szFile) != 0)
@@ -540,17 +544,17 @@ bool DeleteDirectory(const char* p_szFilePath, const char* p_szExpath)
 		}
 	}
 
-	// ¹Ø±ÕÄ¿Â¼Á÷
+	// ï¿½Ø±ï¿½Ä¿Â¼ï¿½ï¿½
 	closedir(dir);
 
-	// É¾³ýµ±Ç°Ä¿Â¼
-	rmdir(p_szFilePath);//×îºóÒ»²ãÂ·¾¶²»É¾³ý,Ö»É¾³ý·Çp_szExpathµÄÄ¿Â¼
+	// É¾ï¿½ï¿½ï¿½ï¿½Ç°Ä¿Â¼
+	rmdir(p_szFilePath);//ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½,Ö»É¾ï¿½ï¿½ï¿½ï¿½p_szExpathï¿½ï¿½Ä¿Â¼
 
 #endif
 	return true;
 }
 
-/******************** ÎÄ¼þ´¦Àí ********************/
+/******************** ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ ********************/
 int FileExists(const char* p_szFilePath)
 {
 	if (p_szFilePath == nullptr || strlen(p_szFilePath) == 0)
@@ -570,7 +574,7 @@ int GetFileAttr(const char* p_szFilePath, int p_iMode)
 
 	if (p_iMode != F_OK && p_iMode != X_OK && p_iMode != W_OK &&
 		p_iMode != R_OK && p_iMode != RW_OK)
-		return -2;//ÊôÐÔ²»Ö§³Ö
+		return -2;//ï¿½ï¿½ï¿½Ô²ï¿½Ö§ï¿½ï¿½
 #if defined( OS_IS_WINDOWS )
 	if (_access(p_szFilePath, p_iMode) == 0)
 		return 0;
@@ -578,7 +582,7 @@ int GetFileAttr(const char* p_szFilePath, int p_iMode)
 	if (access(p_szFilePath, p_iMode) == 0)
 		return 0;
 #endif
-	return -3;//¶ÔÓ¦ÊôÐÔ²»´æÔÚ
+	return -3;//ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½Ô²ï¿½ï¿½ï¿½ï¿½ï¿½
 }
 
 unsigned long FileLength(FILE* p_pFile)
@@ -610,7 +614,7 @@ FILE* CreateAppendFile(const char* p_pszFile)
 	return fp;
 }
 
-/******************** ×Ö·û´®´¦Àí ********************/
+/******************** ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ********************/
 int unsigned StringSplit(const std::string p_strSrc, const std::string p_strSep, std::vector<std::string>& p_vecObj)
 {
 	std::string::size_type begin, end;
@@ -712,25 +716,25 @@ void TrimCharArraySelf(char* p_pzStr)
 {
 	char* src = p_pzStr;
 	char* end;
-	//È¥³ý¿ªÍ·¿Õ°××Ö·û
+	//È¥ï¿½ï¿½ï¿½ï¿½Í·ï¿½Õ°ï¿½ï¿½Ö·ï¿½
 	while (isspace(*p_pzStr))
 	{
 		p_pzStr++;
 	}
-	//Èç¹û×Ö·û´®È«ÊÇ¿Õ°×£¬ÔòÖ±½Ó·µ»Ø¿Õ×Ö·û´®
+	//ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½È«ï¿½Ç¿Õ°×£ï¿½ï¿½ï¿½Ö±ï¿½Ó·ï¿½ï¿½Ø¿ï¿½ï¿½Ö·ï¿½ï¿½ï¿½
 	if (*p_pzStr == '\0')
 	{
 		strcpy(src, p_pzStr);
 		return;
 	}
-	//È¥³ý×Ö·û´®½áÎ²µÄ¿Õ°××Ö·û
+	//È¥ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Î²ï¿½Ä¿Õ°ï¿½ï¿½Ö·ï¿½
 	end = p_pzStr + strlen(p_pzStr) - 1;
 	while (end > p_pzStr && isspace(*end))
 	{
 		end--;
 	}
 
-	//×Ö·û´®½áÎ²Ìí¼Ó½áÊø·û
+	//ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½Î²ï¿½ï¿½ï¿½Ó½ï¿½ï¿½ï¿½ï¿½ï¿½
 	*(end + 1) = '\0';
 	strcpy(src, p_pzStr);
 }
@@ -755,7 +759,7 @@ void TrimStr(std::string& p_refStr)
 
 void TrimStrByChar(std::string& p_refStr, char p_ch)
 {
-	//È¥³ý×Ö·û´®Ç°ºóµÄ×Ö·ûc
+	//È¥ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½Ö·ï¿½c
 	int s = p_refStr.find_first_not_of(p_ch);
 	int e = p_refStr.find_last_not_of(p_ch);
 
@@ -771,10 +775,10 @@ void TrimStrByChar(std::string& p_refStr, char p_ch)
 
 std::string FormatString(const char* p_szFormat, ...)
 {
-	char szBuffer[260]; // ×î´óÂ·¾¶³¤¶È
+	char szBuffer[260]; // ï¿½ï¿½ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	va_list args;
 	va_start(args, p_szFormat);
-	vsprintf(szBuffer, p_szFormat, args); //TODO ¶¯Ì¬²ÎÊý±ÈformatÉÙÊ±»áµ¼ÖÂ³ÌÐò±¨´í
+	vsprintf(szBuffer, p_szFormat, args); //TODO ï¿½ï¿½Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½formatï¿½ï¿½Ê±ï¿½áµ¼ï¿½Â³ï¿½ï¿½ò±¨´ï¿½
 	va_end(args);
 	std::string strRtn(szBuffer);
 	return strRtn;
@@ -839,14 +843,14 @@ void SafeCopyCString(char* p_szDst, size_t p_dwDstLen, const char* p_szSrc)
 	p_szDst[dwCopyLen] = '\0';
 }
 
-/******************** ÈÕÆÚÊ±¼ä´¦Àí ********************/
+/******************** ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ä´¦ï¿½ï¿½ ********************/
 
-// º¯ÊýÓÃÓÚ½«Ö¸¶¨ÈÕÆÚ°´ÕÕÆ«ÒÆÁ¿½øÐÐÆ«ÒÆ¼ÆËã
+// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½Ú°ï¿½ï¿½ï¿½Æ«ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ«ï¿½Æ¼ï¿½ï¿½ï¿½
 std::tm OffsetDays(std::tm& p_tmSpecified_date, int p_iOffset)
 {
-	// ¶ÔÈÕÆÚ½øÐÐÆ«ÒÆ
+	// ï¿½ï¿½ï¿½ï¿½ï¿½Ú½ï¿½ï¿½ï¿½Æ«ï¿½ï¿½
 	p_tmSpecified_date.tm_mday += p_iOffset;
-	// ¹æ·¶»¯ÈÕÆÚ£¬È·±£ÈÕÆÚµÄºÏÀíÐÔ
+	// ï¿½æ·¶ï¿½ï¿½ï¿½ï¿½ï¿½Ú£ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½ÚµÄºï¿½ï¿½ï¿½ï¿½ï¿½
 	mktime(&p_tmSpecified_date);
 	return p_tmSpecified_date;
 }
@@ -860,14 +864,14 @@ unsigned long GetNextDate(unsigned long p_ulDate, unsigned int p_uiDays)
 	lDate = cBack.GetYear() * 10000 + cBack.GetMonth() * 100 + cBack.GetDay();
 
 #else
-	// ÉèÖÃÆ«ÒÆºóÈÕÆÚ
+	// ï¿½ï¿½ï¿½ï¿½Æ«ï¿½Æºï¿½ï¿½ï¿½ï¿½ï¿½
 	tm tmSpecifiedDate;
 	tmSpecifiedDate.tm_year = (p_ulDate / 10000) - 1900;
 	tmSpecifiedDate.tm_mon = (p_ulDate % 10000 / 100) - 1;
 	tmSpecifiedDate.tm_mday = p_ulDate % 100;
 	tmSpecifiedDate.tm_hour = tmSpecifiedDate.tm_min = tmSpecifiedDate.tm_sec = 0;
 
-	// ¸ñÊ½»¯±¾µØÈÕÆÚ
+	// ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	time_t tmSpecifiedTime = mktime(&tmSpecifiedDate);
 	tm* ptmSpecifiedDate = localtime(&tmSpecifiedTime);
 
@@ -900,7 +904,7 @@ int GetCurDateTime(char* p_pDateTime, int p_iBufLen, int p_iType)
 
 	static char s_szDateTime[NSDK_MAX_PATH] = { 0 };
 #if defined( OS_IS_WINDOWS )
-	// Ê±¼ä
+	// Ê±ï¿½ï¿½
 	SYSTEMTIME stCurrTime = { 0 };
 	GetLocalTime(&stCurrTime);
 
@@ -942,7 +946,7 @@ int GetCurDateTime(char* p_pDateTime, int p_iBufLen, int p_iType)
 void GetLocalDateTime(int& p_iDate, int& p_iTime)
 {
 #if defined( OS_IS_WINDOWS )
-	// Ê±¼ä
+	// Ê±ï¿½ï¿½
 	SYSTEMTIME stCurrTime = { 0 };
 	GetLocalTime(&stCurrTime);
 
@@ -979,7 +983,7 @@ std::string GetTimes(const std::string& p_strFmt)
 	return strTime;
 }
 
-unsigned long GetFriday(unsigned long p_ulDate) // µÃµ½Ä³ÈÕµÄÐÇÆÚÎå
+unsigned long GetFriday(unsigned long p_ulDate) // ï¿½Ãµï¿½Ä³ï¿½Õµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 {
 	const static char aDaysOfMon[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
@@ -993,7 +997,7 @@ unsigned long GetFriday(unsigned long p_ulDate) // µÃµ½Ä³ÈÕµÄÐÇÆÚÎå
 	for (i = 1980; i < iYear; i++)
 	{
 		ulDays += 365;
-		if (i % 400 == 0 || (i % 4 == 0 && i % 100 != 0)) // ÈòÄê
+		if (i % 400 == 0 || (i % 4 == 0 && i % 100 != 0)) // ï¿½ï¿½ï¿½ï¿½
 		{
 			ulDays++;
 		}
@@ -1008,11 +1012,11 @@ unsigned long GetFriday(unsigned long p_ulDate) // µÃµ½Ä³ÈÕµÄÐÇÆÚÎå
 		}
 	}
 
-	ulDays += iDay - 1; // ´Ó1980ÄêÖÁµ±ÈÕ¹²ÓÐ¶àÉÙÌì
-	ulDays -= 3; // 1980Äê1ÔÂ1ÈÕÎªÐÇÆÚ¶þ£¬ÔòÀëÐÇÆÚÎåµÄÌìÊý»¹Òª¼õÈ¥3
+	ulDays += iDay - 1; // ï¿½ï¿½1980ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½
+	ulDays -= 3; // 1980ï¿½ï¿½1ï¿½ï¿½1ï¿½ï¿½Îªï¿½ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½È¥3
 	i = ulDays % 7;
 
-	if (i > 2) // µÃµ½µ±ÈÕËùÔÚÐÇÆÚµÄÐÇÆÚÎå¡£ÈôÎªÐÇÆÚÎå¡¢Áù¡¢ÈÕ£¬ÔòÎªµ±ÈÕ
+	if (i > 2) // ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½å¡£ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½å¡¢ï¿½ï¿½ï¿½ï¿½ï¿½Õ£ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½
 	{
 		iDay += (7 - i) % 7;
 	}
@@ -1045,7 +1049,7 @@ bool IsInWeekend(int p_iDate)
 	tmDate.tm_hour = 0;
 	tmDate.tm_min = 0;
 	tmDate.tm_sec = 0;
-	// µ÷ÓÃmktimeº¯ÊýÀ´±ê×¼»¯ÈÕÆÚ½á¹¹£¬ÕâÒ»²½ºÜ¹Ø¼ü£¬Ëü»á×Ô¶¯¸üÐÂtm_wdayµÈ³ÉÔ±
+	// ï¿½ï¿½ï¿½ï¿½mktimeï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¼ï¿½ï¿½ï¿½ï¿½ï¿½Ú½á¹¹ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ü¹Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½ï¿½tm_wdayï¿½È³ï¿½Ô±
 	std::mktime(&tmDate);
 
 	return tmDate.tm_wday == 0 || tmDate.tm_wday == 6;
@@ -1063,7 +1067,7 @@ std::tm SafeLocalTime(std::time_t p_ttNow)
 }
 
 
-/******************** Êý×Ö´¦Àí ********************/
+/******************** ï¿½ï¿½ï¿½Ö´ï¿½ï¿½ï¿½ ********************/
 bool IsEquals(double p_dData1, double p_dData2, int p_iXsFlag)
 {
 	if ((p_dData1 >= 0.0f && p_dData2 < 0.0f) || (p_dData1 <= 0.0f && p_dData2 > 0.0f))
@@ -1096,12 +1100,12 @@ int Double2Int(double p_dData)
 	return *(int*)&p_dData;
 }
 
-/******************** ²Ù×÷ÏµÍ³ ********************/
+/******************** ï¿½ï¿½ï¿½ï¿½ÏµÍ³ ********************/
 
 unsigned long GetSysError()
 {
 #if defined( OS_IS_WINDOWS )
-	// Ê±¼ä
+	// Ê±ï¿½ï¿½
 	return GetLastError();
 #else
 	return errno;
@@ -1116,12 +1120,12 @@ unsigned long GetNumberOfCores(bool p_bUsable)
 	return sysInfo.dwNumberOfProcessors;
 #else
 	return p_bUsable ? sysconf(_SC_NPROCESSORS_ONLN) : sysconf(_SC_NPROCESSORS_CONF);
-	//sysconf(_SC_NPROCESSORS_CONF);//·µ»ØÏµÍ³ËùÓÐµÄCPUºËÊý£¬Õâ¸öÖµÒ²°üÀ¨ÏµÍ³ÖÐ½ûÖ¹ÓÃ»§Ê¹ÓÃµÄCPU¸öÊý
-	//sysconf(_SC_NPROCESSORS_ONLN);//·µ»ØÏµÍ³ÖÐ¿ÉÓÃµÄCPUºËÊý
+	//sysconf(_SC_NPROCESSORS_CONF);//ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½Ðµï¿½CPUï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÖµÒ²ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½Ð½ï¿½Ö¹ï¿½Ã»ï¿½Ê¹ï¿½Ãµï¿½CPUï¿½ï¿½ï¿½ï¿½
+	//sysconf(_SC_NPROCESSORS_ONLN);//ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½Ð¿ï¿½ï¿½Ãµï¿½CPUï¿½ï¿½ï¿½ï¿½
 #endif
 }
 
-/******************** ¼ÓÃÜÈÏÖ¤´¦Àí ********************/
+/******************** ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¤ï¿½ï¿½ï¿½ï¿½ ********************/
 static bool IsBase64(unsigned char p_ch) {
 	return (isalnum(p_ch) || (p_ch == '+') || (p_ch == '/'));
 }
@@ -1235,16 +1239,16 @@ std::string Base64Decode(std::string const& p_strEncoded)
 	return strResult;
 }
 
-std::string Aes(const std::string& p_strSrc) //AES¼ÓÃÜ
+std::string Aes(const std::string& p_strSrc) //AESï¿½ï¿½ï¿½ï¿½
 {
 	size_t ullLength = p_strSrc.length();
 	int iBlockNum = ullLength / BLOCK_SIZE + 1;
-	//Ã÷ÎÄ
+	//ï¿½ï¿½ï¿½ï¿½
 	char* pszDataIn = new char[iBlockNum * BLOCK_SIZE + 1];
 	memset(pszDataIn, 0x00, iBlockNum * BLOCK_SIZE + 1);
 	strcpy(pszDataIn, p_strSrc.c_str());
 
-	//½øÐÐPKCS7PaddingÌî³ä¡£
+	//ï¿½ï¿½ï¿½ï¿½PKCS7Paddingï¿½ï¿½ä¡£
 	int k = ullLength % BLOCK_SIZE;
 	int j = ullLength / BLOCK_SIZE;
 	int iPadding = BLOCK_SIZE - k;
@@ -1254,11 +1258,11 @@ std::string Aes(const std::string& p_strSrc) //AES¼ÓÃÜ
 	}
 	pszDataIn[iBlockNum * BLOCK_SIZE] = '\0';
 
-	//¼ÓÃÜºóµÄÃÜÎÄ
+	//ï¿½ï¿½ï¿½Üºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	char* pszDataOut = new char[iBlockNum * BLOCK_SIZE + 1];
 	memset(pszDataOut, 0, iBlockNum * BLOCK_SIZE + 1);
 
-	//½øÐÐ½øÐÐAESµÄCBCÄ£Ê½¼ÓÃÜ
+	//ï¿½ï¿½ï¿½Ð½ï¿½ï¿½ï¿½AESï¿½ï¿½CBCÄ£Ê½ï¿½ï¿½ï¿½ï¿½
 	AES Aes;
 	Aes.MakeKey(g_strAuthKey.c_str(), g_strAuthIV.c_str(), 16, 16);
 	Aes.Encrypt(pszDataIn, pszDataOut, iBlockNum * BLOCK_SIZE, AES::CBC);
@@ -1270,25 +1274,25 @@ std::string Aes(const std::string& p_strSrc) //AES¼ÓÃÜ
 	return str;
 }
 
-std::string Deaes(const std::string& p_strSrc) //AES½âÃÜ
+std::string Deaes(const std::string& p_strSrc) //AESï¿½ï¿½ï¿½ï¿½
 {
 	string strData = Base64Decode(p_strSrc);
 	size_t ullLength = strData.length();
 
-	//ÃÜÎÄ
+	//ï¿½ï¿½ï¿½ï¿½
 	char* pszDataIn = new char[ullLength + 1];
 	memcpy(pszDataIn, strData.c_str(), ullLength + 1);
 
-	//Ã÷ÎÄ
+	//ï¿½ï¿½ï¿½ï¿½
 	char* pszDataOut = new char[ullLength + 1];
 	memcpy(pszDataOut, strData.c_str(), ullLength + 1);
 
-	//½øÐÐAESµÄCBCÄ£Ê½½âÃÜ
+	//ï¿½ï¿½ï¿½ï¿½AESï¿½ï¿½CBCÄ£Ê½ï¿½ï¿½ï¿½ï¿½
 	AES Aes;
 	Aes.MakeKey(g_strAuthKey.c_str(), g_strAuthIV.c_str(), 16, 16);
 	Aes.Decrypt(pszDataIn, pszDataOut, ullLength, AES::CBC);
 
-	//È¥PKCS7PaddingÌî³ä
+	//È¥PKCS7Paddingï¿½ï¿½ï¿½
 	if (0x00 < pszDataOut[ullLength - 1] <= 0x16)
 	{
 		int tmp = pszDataOut[ullLength - 1];
@@ -1297,7 +1301,7 @@ std::string Deaes(const std::string& p_strSrc) //AES½âÃÜ
 			if (pszDataOut[i] != tmp)
 			{
 				memset(pszDataOut, 0, ullLength);
-				//cout << "È¥Ìî³äÊ§°Ü£¡½âÃÜ³ö´í£¡£¡" << endl;
+				//cout << "È¥ï¿½ï¿½ï¿½Ê§ï¿½Ü£ï¿½ï¿½ï¿½ï¿½Ü³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½" << endl;
 				break;
 			}
 			else
@@ -1314,9 +1318,9 @@ std::string Deaes(const std::string& p_strSrc) //AES½âÃÜ
 
 std::string MakeFeatrue(const std::string p_strClientInfo)
 {
-	//p_strClientInfo£º¿Í»§ÐÅÏ¢£¬ÀýÈç£ºuserId
-	//·µ»Ø ¿Í»§ÐÅÏ¢ÃÜÎÄ¡£Éú³É·½Ê½£º¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ --> AES¼ÓÃÜ --> BASE64¼ÓÃÜ
-	string strClientInfo = "";//Ã÷ÎÄ
+	//p_strClientInfoï¿½ï¿½ï¿½Í»ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ç£ºuserId
+	//ï¿½ï¿½ï¿½ï¿½ ï¿½Í»ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ä¡ï¿½ï¿½ï¿½ï¿½É·ï¿½Ê½ï¿½ï¿½ï¿½ï¿½Ô¿+TJZT+ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ --> AESï¿½ï¿½ï¿½ï¿½ --> BASE64ï¿½ï¿½ï¿½ï¿½
+	string strClientInfo = "";//ï¿½ï¿½ï¿½ï¿½
 	strClientInfo.append(p_strClientInfo);
 	strClientInfo.append(g_strAuthKey);
 	strClientInfo.append(g_strSignature);
@@ -1328,7 +1332,7 @@ std::string MakeFeatrue(const std::string p_strClientInfo)
 #ifndef SERVER_AUTH_FLAG
 int BuildFeatrueByPlainClientInfo(const std::string& p_strClientInfo, int p_iAuthDay, std::string& p_strFeatrue)
 {
-	// ·þÎñ¶ËÒÑ¾­ÄÃµ½Ã÷ÎÄ¿Í»§ÐÅÏ¢Ê±£¬Ö±½Ó¹¹Ôì×îÖÕÊÚÈ¨Ã÷ÎÄ£¬¼õÉÙÒ»´ÎAES¼ÓÃÜºÍÒ»´ÎAES½âÃÜ¡£
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½Ãµï¿½ï¿½ï¿½ï¿½Ä¿Í»ï¿½ï¿½ï¿½Ï¢Ê±ï¿½ï¿½Ö±ï¿½Ó¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½AESï¿½ï¿½ï¿½Üºï¿½Ò»ï¿½ï¿½AESï¿½ï¿½ï¿½Ü¡ï¿½
 	p_strFeatrue.clear();
 	if (p_strClientInfo.empty())
 	{
@@ -1350,9 +1354,92 @@ int BuildFeatrueByPlainClientInfo(const std::string& p_strClientInfo, int p_iAut
 	return p_strFeatrue.empty() ? -2 : 0;
 }
 
+int BuildFeatrueByPlainClientInfoSeconds(const std::string& p_strClientInfo,
+	std::string& p_strFeatrue, int64_t p_i64AuthSeconds)
+{
+	p_strFeatrue.clear();
+	if (p_strClientInfo.empty() || p_i64AuthSeconds <= 0 ||
+		p_strClientInfo.size() > static_cast<size_t>((std::numeric_limits<unsigned int>::max)()))
+	{
+		return -1;
+	}
+
+	const int64_t i64IssuedAt = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+		std::chrono::system_clock::now().time_since_epoch()).count());
+	if (i64IssuedAt < 0 || p_i64AuthSeconds > (std::numeric_limits<int64_t>::max)() - i64IssuedAt)
+	{
+		return -1;
+	}
+	const int64_t i64ExpiresAt = i64IssuedAt + p_i64AuthSeconds;
+	const std::string strClientInfoBase64 = Base64Encode(
+		reinterpret_cast<const unsigned char*>(p_strClientInfo.data()),
+		static_cast<unsigned int>(p_strClientInfo.size()));
+	std::string strPayload = NSDK_SECONDS_FEATURE_PREFIX;
+	strPayload.append(strClientInfoBase64);
+	strPayload.push_back('|');
+	strPayload.append(g_strAuthKey);
+	strPayload.push_back('|');
+	strPayload.append(g_strSignature);
+	strPayload.push_back('|');
+	strPayload.append(std::to_string(i64IssuedAt));
+	strPayload.push_back('|');
+	strPayload.append(std::to_string(i64ExpiresAt));
+	p_strFeatrue = Aes(strPayload);
+	return p_strFeatrue.empty() ? -2 : 0;
+}
+
+static int AuthSecondsFeature(const std::string& p_strClientInfo,
+	const std::string& p_strFeatureInfo)
+{
+	const std::string strPrefix = NSDK_SECONDS_FEATURE_PREFIX;
+	if (p_strFeatureInfo.compare(0, strPrefix.size(), strPrefix) != 0)
+	{
+		return 1;
+	}
+
+	const std::string strBody = p_strFeatureInfo.substr(strPrefix.size());
+	const size_t iSeparator1 = strBody.find('|');
+	const size_t iSeparator2 = iSeparator1 == std::string::npos ? std::string::npos : strBody.find('|', iSeparator1 + 1);
+	const size_t iSeparator3 = iSeparator2 == std::string::npos ? std::string::npos : strBody.find('|', iSeparator2 + 1);
+	const size_t iSeparator4 = iSeparator3 == std::string::npos ? std::string::npos : strBody.find('|', iSeparator3 + 1);
+	if (iSeparator1 == std::string::npos || iSeparator2 == std::string::npos ||
+		iSeparator3 == std::string::npos || iSeparator4 == std::string::npos ||
+		strBody.find('|', iSeparator4 + 1) != std::string::npos)
+	{
+		return -3;
+	}
+
+	const std::string strClientInfoBase64 = strBody.substr(0, iSeparator1);
+	const std::string strAuthKey = strBody.substr(iSeparator1 + 1, iSeparator2 - iSeparator1 - 1);
+	const std::string strSignature = strBody.substr(iSeparator2 + 1, iSeparator3 - iSeparator2 - 1);
+	const std::string strIssuedValue = strBody.substr(iSeparator3 + 1, iSeparator4 - iSeparator3 - 1);
+	const std::string strExpiresValue = strBody.substr(iSeparator4 + 1);
+	if (strAuthKey != g_strAuthKey || strSignature != g_strSignature ||
+		Base64Decode(strClientInfoBase64) != p_strClientInfo)
+	{
+		return -4;
+	}
+
+	char* pIssuedEnd = nullptr;
+	char* pExpiresEnd = nullptr;
+	const long long i64IssuedAt = std::strtoll(strIssuedValue.c_str(), &pIssuedEnd, 10);
+	const long long i64ExpiresAt = std::strtoll(strExpiresValue.c_str(), &pExpiresEnd, 10);
+	if (pIssuedEnd == nullptr || *pIssuedEnd != '\0' || pExpiresEnd == nullptr || *pExpiresEnd != '\0' ||
+		i64IssuedAt < 0 || i64ExpiresAt <= i64IssuedAt)
+	{
+		return -3;
+	}
+	const int64_t i64Now = static_cast<int64_t>(std::chrono::duration_cast<std::chrono::seconds>(
+		std::chrono::system_clock::now().time_since_epoch()).count());
+	if (i64Now < i64IssuedAt || i64Now >= i64ExpiresAt)
+	{
+		return -7;
+	}
+	return 0;
+}
 int AuthFeatrueByPlainClientInfo(const std::string& p_strClientInfo, const std::string& p_strFeatrue, std::string& p_strFeatrueInfo)
 {
-	// ·µ»ØÂë±£³ÖÓëAuthFeatrueÒ»ÖÂ£¬½ö¼õÉÙÐ£Ñé¹ý³ÌÖÐµÄÁÙÊ±×Ö·û´®¡£
+	// ï¿½ï¿½ï¿½ï¿½ï¿½ë±£ï¿½ï¿½ï¿½ï¿½AuthFeatrueÒ»ï¿½Â£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½Ê±ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½
 	if (p_strFeatrue.empty())
 	{
 		return -1;
@@ -1361,6 +1448,11 @@ int AuthFeatrueByPlainClientInfo(const std::string& p_strClientInfo, const std::
 	if (p_strFeatrueInfo.empty())
 	{
 		return -2;
+	}
+	const int iSecondsRet = AuthSecondsFeature(p_strClientInfo, p_strFeatrueInfo);
+	if (iSecondsRet != 1)
+	{
+		return iSecondsRet;
 	}
 
 	const size_t szClientInfoLen = p_strClientInfo.length();
@@ -1417,57 +1509,57 @@ int AuthFeatrueByPlainClientInfo(const std::string& p_strClientInfo, const std::
 
 int BuildFeatrue(std::string p_strClientInfo, unsigned int p_uiClientInfoLen, int p_iAuthDay, std::string& p_strFeatrue)
 {
-	//p_iAuthDay ÊÚÈ¨ÌìÊý
-	//p_usClientInfoLen ¿Í»§ÐÅÏ¢³¤¶È£¬ÀýÈç£ºuserId£¬³¤¶ÈÊÇ6
-	//p_strClientInfo ¿Í»§ÐÅÏ¢ÃÜÎÄ¡£Éú³É·½Ê½£º¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ --> AES¼ÓÃÜ --> BASE64¼ÓÃÜ
-	//p_strFeatrue ·þÎñÆ÷ÊÚÈ¨ÃÜÎÄ¡£Éú³É·½Ê½£º¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ+½áÊøÈÕÆÚ --> AES¼ÓÃÜ --> BASE64¼ÓÃÜ
+	//p_iAuthDay ï¿½ï¿½È¨ï¿½ï¿½ï¿½ï¿½
+	//p_usClientInfoLen ï¿½Í»ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½È£ï¿½ï¿½ï¿½ï¿½ç£ºuserIdï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½6
+	//p_strClientInfo ï¿½Í»ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ä¡ï¿½ï¿½ï¿½ï¿½É·ï¿½Ê½ï¿½ï¿½ï¿½ï¿½Ô¿+TJZT+ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ --> AESï¿½ï¿½ï¿½ï¿½ --> BASE64ï¿½ï¿½ï¿½ï¿½
+	//p_strFeatrue ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½ï¿½Ä¡ï¿½ï¿½ï¿½ï¿½É·ï¿½Ê½ï¿½ï¿½ï¿½ï¿½Ô¿+TJZT+ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ --> AESï¿½ï¿½ï¿½ï¿½ --> BASE64ï¿½ï¿½ï¿½ï¿½
 
-	//1¡¢½âÃÜ£ºBASE64½âÃÜ --> AES½âÃÜ --> ¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ
+	//1ï¿½ï¿½ï¿½ï¿½ï¿½Ü£ï¿½BASE64ï¿½ï¿½ï¿½ï¿½ --> AESï¿½ï¿½ï¿½ï¿½ --> ï¿½ï¿½Ô¿+TJZT+ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
 	if (p_strClientInfo.empty())
 	{
-		//³¤¶ÈÊÇ0
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0
 		return -1;
 	}
 
 	std::string strAesData = Deaes(p_strClientInfo);
 	if (strAesData.empty())
 	{
-		//AES½âÃÜÊ§°Ü
+		//AESï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½
 		return -2;
 	}
 
-	//2¡¢Ð£Ñé£º¹«Ô¿+TJZT
+	//2ï¿½ï¿½Ð£ï¿½é£ºï¿½ï¿½Ô¿+TJZT
 	unsigned int uiClientInfoLen = p_uiClientInfoLen;
 	int iAuthKeyLength = g_strAuthKey.length();
 	int iSignatureLength = g_strSignature.length();
-	int iDateLength = 8;//ÄêÔÂÈÕ 20241219
+	int iDateLength = 8;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 20241219
 
 	if (strAesData.length() != uiClientInfoLen + iAuthKeyLength + iSignatureLength + iDateLength)
 	{
-		//³¤¶ÈÆ¥ÅäÊ§°Ü ¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ
+		//ï¿½ï¿½ï¿½ï¿½Æ¥ï¿½ï¿½Ê§ï¿½ï¿½ ï¿½ï¿½Ô¿+TJZT+ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
 		return -3;
 	}
 
 	std::string strAuthKey = strAesData.substr(uiClientInfoLen, iAuthKeyLength);
 	if (strAuthKey != g_strAuthKey)
 	{
-		//¹«Ô¿Æ¥ÅäÊ§°Ü
+		//ï¿½ï¿½Ô¿Æ¥ï¿½ï¿½Ê§ï¿½ï¿½
 		return -4;
 	}
 
 	std::string strSignature = strAesData.substr(uiClientInfoLen + iAuthKeyLength, iSignatureLength);
 	if (strSignature != g_strSignature)
 	{
-		//Ç©ÃûÆ¥ÅäÊ§°Ü
+		//Ç©ï¿½ï¿½Æ¥ï¿½ï¿½Ê§ï¿½ï¿½
 		return -5;
 	}
 
-	//3¡¢ÊÚÈ¨£º·þÎñÆ÷ÊÚÈ¨ÃÜÎÄ
+	//3ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½ï¿½ï¿½
 	std::string strDate = strAesData.substr(uiClientInfoLen +iAuthKeyLength + iSignatureLength, iDateLength);
 	int iDate = atoi(strDate.c_str());
 	int iCurDate = GetCurDate();
 	int iAuthDay = p_iAuthDay;
-	//ÊÚÈ¨ÌìÊýÔÚ-30µ½30ÌìÖ®¼ä
+	//ï¿½ï¿½È¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-30ï¿½ï¿½30ï¿½ï¿½Ö®ï¿½ï¿½
 	iAuthDay = nsdk_min(iAuthDay, 30);
 	iAuthDay = nsdk_max(iAuthDay, -30);
 	int iNextDate = GetNextDate(iDate, iAuthDay);
@@ -1479,56 +1571,56 @@ int BuildFeatrue(std::string p_strClientInfo, unsigned int p_uiClientInfoLen, in
 
 int AuthFeatrue(const std::string p_strClientInfo, std::string p_strFeatrue, std::string& p_strFeatrueInfo)
 {
-	//p_strFeatrue ·þÎñÆ÷ÊÚÈ¨ÃÜÎÄ¡£Éú³É·½Ê½£º¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ+½áÊøÈÕÆÚ --> AES¼ÓÃÜ --> BASE64¼ÓÃÜ
-	//p_strFeatrueInfo ½âÃÜÃ÷ÎÄ
+	//p_strFeatrue ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¨ï¿½ï¿½ï¿½Ä¡ï¿½ï¿½ï¿½ï¿½É·ï¿½Ê½ï¿½ï¿½ï¿½ï¿½Ô¿+TJZT+ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ --> AESï¿½ï¿½ï¿½ï¿½ --> BASE64ï¿½ï¿½ï¿½ï¿½
+	//p_strFeatrueInfo ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-	//1¡¢½âÃÜ£ºBASE64½âÃÜ --> AES½âÃÜ --> ¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ+½áÊøÈÕÆÚ
+	//1ï¿½ï¿½ï¿½ï¿½ï¿½Ü£ï¿½BASE64ï¿½ï¿½ï¿½ï¿½ --> AESï¿½ï¿½ï¿½ï¿½ --> ï¿½ï¿½Ô¿+TJZT+ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if (p_strFeatrue.empty())
 	{
-		//³¤¶ÈÊÇ0
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0
 		return -1;
 	}
 	p_strFeatrueInfo = Deaes(p_strFeatrue);
 	if (p_strFeatrueInfo.empty())
 	{
-		//AES½âÃÜÊ§°Ü
+		//AESï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½
 		return -2;
 	}
 
-	//2¡¢Ð£Ñé£º¹«Ô¿+TJZT
+	//2ï¿½ï¿½Ð£ï¿½é£ºï¿½ï¿½Ô¿+TJZT
 	unsigned int uiClientInfoLen = p_strClientInfo.length();
 	int iAuthKeyLength = g_strAuthKey.length();
 	int iSignatureLength = g_strSignature.length();
-	int iDateLength = 8 + 8;//¿ªÊ¼ÈÕÆÚ 20241219 ½áÊøÈÕÆÚ 20241220
+	int iDateLength = 8 + 8;//ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ 20241219 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 20241220
 
 	if (p_strFeatrueInfo.length() != uiClientInfoLen + iAuthKeyLength + iSignatureLength + iDateLength)
 	{
-		//³¤¶ÈÆ¥ÅäÊ§°Ü ¹«Ô¿+TJZT+¿ªÊ¼ÈÕÆÚ+½áÊøÈÕÆÚ
+		//ï¿½ï¿½ï¿½ï¿½Æ¥ï¿½ï¿½Ê§ï¿½ï¿½ ï¿½ï¿½Ô¿+TJZT+ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		return -3;
 	}
 
 	std::string strClientInfo = p_strFeatrueInfo.substr(0, uiClientInfoLen);
 	if (strClientInfo != p_strClientInfo)
 	{
-		//¿Í»§ÐÅÏ¢Æ¥ÅäÊ§°Ü
+		//ï¿½Í»ï¿½ï¿½ï¿½Ï¢Æ¥ï¿½ï¿½Ê§ï¿½ï¿½
 		return -4;
 	}
 
 	std::string strAuthKey = p_strFeatrueInfo.substr(uiClientInfoLen, iAuthKeyLength);
 	if (strAuthKey != g_strAuthKey)
 	{
-		//¹«Ô¿Æ¥ÅäÊ§°Ü
+		//ï¿½ï¿½Ô¿Æ¥ï¿½ï¿½Ê§ï¿½ï¿½
 		return -5;
 	}
 
 	std::string strSignature = p_strFeatrueInfo.substr(uiClientInfoLen + iAuthKeyLength, iSignatureLength);
 	if (strSignature != g_strSignature)
 	{
-		//Ç©ÃûÆ¥ÅäÊ§°Ü
+		//Ç©ï¿½ï¿½Æ¥ï¿½ï¿½Ê§ï¿½ï¿½
 		return -6;
 	}
 
-	//3¡¢¼ìÑé½áÊøÈÕÆÚÊ±¼ä
+	//3ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½
 	std::string strStartEndDate = p_strFeatrueInfo.substr(uiClientInfoLen + iAuthKeyLength + iSignatureLength, iDateLength);
 	int iStartDate = atoi(strStartEndDate.substr(0, 8).c_str());
 	int iEndDate = atoi(strStartEndDate.substr(8).c_str());
@@ -1536,26 +1628,31 @@ int AuthFeatrue(const std::string p_strClientInfo, std::string p_strFeatrue, std
 
 	if (iCurDate > iEndDate)
 	{
-		//½áÊøÈÕÆÚÊ§Ð§
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê§Ð§
 		return -7;
 	}
 
 	if (iStartDate > iEndDate)
 	{
-		//¿ªÊ¼½áÊøÈÕÆÚÊ±Ðò´íÎó
+		//ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½
 		return -8;
 	}
 
 	int iNextDate = GetNextDate(iStartDate, AUTH_DAY);
 	if (iNextDate != iEndDate)
 	{
-		//ÊÚÈ¨½áÊøÈÕÆÚ´íÎó Î´°´ÕÕÖÆ¶¨ÌìÊýÊÚÈ¨
+		//ï¿½ï¿½È¨ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½ï¿½ï¿½ Î´ï¿½ï¿½ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¨
 		return -9;
 	}
 
 	return 0;
 }
 #else
+int BuildFeatrueByPlainClientInfoSeconds(const std::string& p_strClientInfo,
+	std::string& p_strFeatrue, int64_t p_i64AuthSeconds)
+{
+	return -99;
+}
 int BuildFeatrueByPlainClientInfo(const std::string& p_strClientInfo, int p_iAuthDay, std::string& p_strFeatrue)
 {
 	return -99;

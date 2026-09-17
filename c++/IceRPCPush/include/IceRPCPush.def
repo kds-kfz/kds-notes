@@ -13,11 +13,13 @@ EXPORTS
 	PushJsonICEServerData
 
 	JsonBinClientRPC
+	JsonBinClientRPCAsync
 	JsonBinClientRPC_async
 	PreJsonBinClientRPC
 	EndPreJsonBinClientRPC
 
 	JsonBinClientPUT
+	JsonBinClientPUTAsync
 	JsonBinClientPUT_async
 	PreJsonBinClientPUT
 	EndPreJsonBinClientPUT
@@ -32,6 +34,22 @@ EXPORTS
 
 	RegServerCallBackFunc
 	JsonICEResponseData
+	RegBinaryServerCallBackFunc
+	RegBinaryServerCallBackFuncEx
+	BinaryClientRPC
+	BinaryClientRPCAsync
+	BinaryClientRPCAsyncEx
+	BinaryClientRPCAsyncEncodedEx
+	BinaryClientPUT
+	BinaryClientPUTAsync
+	BinaryClientPUTAsyncEx
+	BinaryClientPUTAsyncEncodedEx
+	BinaryResponseData
+	BinaryResponseDataEx
+	BinaryResultFree
+	BinaryDecodeEncodedBuffer
+	BinaryBufferFree
+	BinaryEncodedResultFree
 
 	IceRPCPushGetLastErrorCode
 	IceRPCPushGetLastError

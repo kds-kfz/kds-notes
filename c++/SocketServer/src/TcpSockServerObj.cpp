@@ -1,62 +1,40 @@
 ﻿#include "TcpSockServerObj.h"
 #include "publicGlobalvar.h"
 #include "publicfunc.h"
+#include "ServerRuntimeContext.h"
 #include "Log.h"
 #include <windows.h>
 
 namespace
 {
-	bool g_bTcpMutexInit = false;
-
-	// wyl 2026-03-30：集中管理 TCP 运行时锁，避免重复启停时出现未初始化或重复销毁。
-	void InitTcpMutexes()
-	{
-		if (g_bTcpMutexInit)
-			return;
-
-		pthread_mutex_init(&g_mutexConnet, nullptr);
-		pthread_mutex_init(&g_mutexTask, nullptr);
-		pthread_mutex_init(&g_mutexReq, nullptr);
-		g_bTcpMutexInit = true;
-	}
-
-	void DestroyTcpMutexes()
-	{
-		if (!g_bTcpMutexInit)
-			return;
-
-		pthread_mutex_destroy(&g_mutexConnet);
-		pthread_mutex_destroy(&g_mutexTask);
-		pthread_mutex_destroy(&g_mutexReq);
-		g_bTcpMutexInit = false;
-	}
-
 	// wyl 2026-03-30：统一清空连接、任务和请求缓存，避免旧状态残留到下一次启动。
-	void ClearTcpRuntimeData()
+	void ClearTcpRuntimeData(ST_TCP_SERVER_RUNTIME* p_pRuntime)
 	{
-		if (!g_bTcpMutexInit)
+		if (p_pRuntime == nullptr)
+		{
 			return;
+		}
 
-		pthread_mutex_lock(&g_mutexConnet);
-		g_mapClient.clear();
-		g_setTcpLocalClosing.clear();
-		pthread_mutex_unlock(&g_mutexConnet);
+		pthread_mutex_lock(&p_pRuntime->mutexConnection);
+		p_pRuntime->mapClient.clear();
+		p_pRuntime->setLocalClosing.clear();
+		pthread_mutex_unlock(&p_pRuntime->mutexConnection);
 
-		pthread_mutex_lock(&g_mutexTask);
-		foreach(g_mapTask, it_task)
+		pthread_mutex_lock(&p_pRuntime->mutexTask);
+		foreach(p_pRuntime->mapTask, it_task)
 		{
 			delete it_task->second;
 		}
-		g_mapTask.clear();
-		pthread_mutex_unlock(&g_mutexTask);
+		p_pRuntime->mapTask.clear();
+		pthread_mutex_unlock(&p_pRuntime->mutexTask);
 
-		pthread_mutex_lock(&g_mutexReq);
-		foreach(g_mapQueue, it_queue)
+		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		foreach(p_pRuntime->mapRequest, it_queue)
 		{
 			delete it_queue->second;
 		}
-		g_mapQueue.clear();
-		pthread_mutex_unlock(&g_mutexReq);
+		p_pRuntime->mapRequest.clear();
+		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
 	}
 
 	bool TcpSocketIsConnectedNoThrow(ITcpServer *pSender, CONNID dwConnID)
@@ -78,21 +56,24 @@ namespace
 		return bAlive ? true : false;
 	}
 
-	bool IsTcpSocketSendable(ITcpServer *pSender, CONNID dwConnID)
+	bool IsTcpSocketSendable(ST_TCP_SERVER_RUNTIME* p_pRuntime,
+		ITcpServer *pSender, CONNID dwConnID)
 	{
-		if (nullptr == pSender || !g_bTcpMutexInit)
+		if (p_pRuntime == nullptr || pSender == nullptr)
 			return false;
 
 		bool bMapAlive = false;
-		pthread_mutex_lock(&g_mutexConnet);
-		std::map<CONNID, ClientData>::iterator itClient = g_mapClient.find(dwConnID);
+		pthread_mutex_lock(&p_pRuntime->mutexConnection);
+		std::map<CONNID, ClientData>::iterator itClient =
+			p_pRuntime->mapClient.find(dwConnID);
 		// wyl 2026-05-19：发送前同时校验本地连接表和 HP-Socket 状态，避免关闭通知排队期间继续推送旧 ConnID。
-		bMapAlive = g_bServerStatus
-			&& pSender == g_CTcpPackServer
-			&& itClient != g_mapClient.end()
+		bMapAlive = p_pRuntime->bServerStatus.load()
+			&& pSender == p_pRuntime->pPackServer
+			&& itClient != p_pRuntime->mapClient.end()
 			&& itClient->second.bConnected
-			&& g_setTcpLocalClosing.find(dwConnID) == g_setTcpLocalClosing.end();
-		pthread_mutex_unlock(&g_mutexConnet);
+			&& p_pRuntime->setLocalClosing.find(dwConnID) ==
+				p_pRuntime->setLocalClosing.end();
+		pthread_mutex_unlock(&p_pRuntime->mutexConnection);
 
 		return bMapAlive && TcpSocketIsConnectedNoThrow(pSender, dwConnID);
 	}
@@ -138,47 +119,103 @@ namespace
 		}
 		return bOK ? true : false;
 	}
+
+	// 停服只释放指定 TCP 实例，其他同协议实例继续独立运行。
+	void DeleteObj(ST_TCP_SERVER_RUNTIME* p_pRuntime)
+	{
+		if (p_pRuntime == nullptr)
+		{
+			return;
+		}
+		p_pRuntime->bServerStatus.store(false);
+		p_pRuntime->clIdentity.MarkStopped();
+		if (p_pRuntime->pPackServer != nullptr)
+		{
+			p_pRuntime->pPackServer->Stop();
+			HP_Destroy_TcpServer(p_pRuntime->pPackServer);
+			p_pRuntime->pPackServer = nullptr;
+		}
+		p_pRuntime->clThreadPool->Stop();
+		if (p_pRuntime->pListener != nullptr)
+		{
+			delete p_pRuntime->pListener;
+			p_pRuntime->pListener = nullptr;
+		}
+		ClearTcpRuntimeData(p_pRuntime);
+		p_pRuntime->pNotifyHandler = nullptr;
+		p_pRuntime->ullTaskId = 0;
+	}
 }
 
-void DeleteObj(void)
+CTcpSockServerObj::CTcpSockServerObj(const std::string& p_refServiceName,
+	std::uint64_t p_ullInstanceId)
+	: m_ptrRuntime(new ST_TCP_SERVER_RUNTIME(
+		p_refServiceName, p_ullInstanceId))
 {
-	// wyl 2026-03-30：停服时先拉低运行状态，再停止服务和线程池，避免回调继续进入无效状态。
-	g_bServerStatus = false;
-
-	if (nullptr != g_CTcpPackServer)
-	{
-		g_CTcpPackServer->Stop();
-		HP_Destroy_TcpServer(g_CTcpPackServer);
-		g_CTcpPackServer = nullptr;
-	}
-
-	// wyl 2026-03-30：线程池关闭改为等待已提交任务自然退出，避免强制停池后马上清理任务对象导致悬空指针。
-	g_CTcpHPThreadPool->Stop();
-
-	if (nullptr != g_CTcpServerListerNet)
-	{
-		delete g_CTcpServerListerNet;
-		g_CTcpServerListerNet = nullptr;
-	}
-
-	ClearTcpRuntimeData();
-	DestroyTcpMutexes();
-
-	g_pTcpHandle = nullptr;
-	g_ullTaskID = 0;
-
-	CTcpLog::Release();
-}
-
-CTcpSockServerObj::CTcpSockServerObj()
-{
-
 }
 
 CTcpSockServerObj::~CTcpSockServerObj()
 {
-	DeleteObj();
+	DeleteObj(m_ptrRuntime.get());
 }
+
+bool CTcpSockServerObj::FillRuntimeInfo(
+	ST_SOCKET_SERVER_RUNTIME_INFO& p_refInfo) const
+{
+	if (m_ptrRuntime == nullptr)
+	{
+		return false;
+	}
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
+	if (!m_ptrRuntime->clIdentity.Snapshot(p_refInfo))
+	{
+		return false;
+	}
+	if (m_ptrRuntime->pPackServer != nullptr)
+	{
+		p_refInfo.uiMaxConnectionCount =
+			m_ptrRuntime->pPackServer->GetMaxConnectionCount();
+		p_refInfo.uiAcceptSocketCount =
+			m_ptrRuntime->pPackServer->GetAcceptSocketCount();
+		p_refInfo.uiSocketListenQueue =
+			m_ptrRuntime->pPackServer->GetSocketListenQueue();
+	}
+	return true;
+}
+
+bool CTcpSockServerObj::SetSocketListenQueue(
+	unsigned int p_uiSocketListenQueue)
+{
+	if (m_ptrRuntime == nullptr || p_uiSocketListenQueue == 0 ||
+		p_uiSocketListenQueue > 65535U)
+	{
+		return false;
+	}
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
+	if (m_ptrRuntime->bServerStatus.load() ||
+		m_ptrRuntime->pPackServer != nullptr)
+	{
+		return false;
+	}
+	m_ptrRuntime->uiSocketListenQueue = p_uiSocketListenQueue;
+	return true;
+}
+
+// 以下别名只在 Server 成员函数内展开为当前实例字段。
+#define g_bTcpMutexInit (m_ptrRuntime != nullptr)
+#define g_bServerStatus (m_ptrRuntime->bServerStatus)
+#define g_CTcpHPThreadPool (m_ptrRuntime->clThreadPool)
+#define g_CTcpPackServer (m_ptrRuntime->pPackServer)
+#define g_CTcpServerListerNet (m_ptrRuntime->pListener)
+#define g_pTcpHandle (m_ptrRuntime->pNotifyHandler)
+#define g_ullTaskID (m_ptrRuntime->ullTaskId)
+#define g_mutexConnet (m_ptrRuntime->mutexConnection)
+#define g_mapClient (m_ptrRuntime->mapClient)
+#define g_setTcpLocalClosing (m_ptrRuntime->setLocalClosing)
+#define g_mutexReq (m_ptrRuntime->mutexRequest)
+#define g_mapQueue (m_ptrRuntime->mapRequest)
 
 int CTcpSockServerObj::TcpSockCompare(void *p_refSrcClient, void *p_refObjClient)
 {
@@ -193,6 +230,8 @@ int CTcpSockServerObj::TcpSockCompare(void *p_refSrcClient, void *p_refObjClient
 bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPort, unsigned int p_uiRBufLen, unsigned int p_uiMaxConnectNum, unsigned int p_uiMaxAcceptNum,
 	TCP_NOTIFY_PROC p_tcpHandle, unsigned int p_uiThreadNum, unsigned int p_uiQueueNum, char *p_szErr, const char *p_szLogFold)
 {
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
 	if (nullptr == p_szErr)
 		return false;
 
@@ -203,7 +242,7 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 	}
 
 	// wyl 2026-03-30：启动前先清理旧实例残留，避免重复启动时复用脏状态。
-	DeleteObj();
+	DeleteObj(m_ptrRuntime.get());
 
 	int iRet = 0;
 
@@ -219,7 +258,7 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 		else
 		{
 			_snprintf(p_szErr, 1024, "code=-2,msg=log init fail");
-			DeleteObj();
+			DeleteObj(m_ptrRuntime.get());
 			return false;
 		}
 		// 设置日志等级
@@ -229,29 +268,27 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 	// 设置任务回调
 	g_pTcpHandle = p_tcpHandle;
 
-	// wyl 2026-03-30：先初始化锁和线程池，再启动网络监听，减少启动窗口期竞态。
-	InitTcpMutexes();
-
 	//2.设置线程池
 	g_CTcpHPThreadPool->AdjustThreadCount(p_uiThreadNum);
 	if (!g_CTcpHPThreadPool->Start(p_uiThreadNum, p_uiQueueNum, TRP_CALL_FAIL, 0))
 	{
 		_snprintf(p_szErr, 1024, "code=%d,msg=thread pool start fail", SYS_GetLastError());
-		DeleteObj();
+		DeleteObj(m_ptrRuntime.get());
 		return false;
 	}
 
 	//3.创建服务监听器
 	if (nullptr == g_CTcpServerListerNet)
 	{
-		g_CTcpServerListerNet = new CTcpServerListerNet();
+		g_CTcpServerListerNet = new (std::nothrow)
+			CTcpServerListerNet(m_ptrRuntime.get());
 	}
 
 	if (nullptr == g_CTcpServerListerNet)
 	{
 		iRet = SYS_GetLastError();
 		_snprintf(p_szErr, 1024, "code=%d,msg=create tcp server lister fail", iRet);
-		DeleteObj();
+		DeleteObj(m_ptrRuntime.get());
 		return false;
 	}
 
@@ -265,7 +302,7 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 	if (nullptr == g_CTcpPackServer)
 	{
 		_snprintf(p_szErr, 1024, "code=%d,msg=create tcp server fail", SYS_GetLastError());
-		DeleteObj();
+		DeleteObj(m_ptrRuntime.get());
 		return false;
 	}
 
@@ -282,6 +319,12 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 	// wyl 2026-03-30：这里设置的是底层 Accept 预分配数量，不是“同一 IP 最大连接数”限流。
 	//8.设置Accept大小
 	g_CTcpPackServer->SetAcceptSocketCount(p_uiMaxAcceptNum);
+	// TCP listen 队列与 Accept 预投递数量语义独立；未显式设置时保留 HPSocket 默认值。
+	if (m_ptrRuntime->uiSocketListenQueue != 0)
+	{
+		g_CTcpPackServer->SetSocketListenQueue(
+			m_ptrRuntime->uiSocketListenQueue);
+	}
 
 	// wyl 2026-03-30：资源准备完成后再标记服务可运行，供回调路径做状态保护。
 	g_bServerStatus = true;
@@ -293,17 +336,20 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 		SafeCopyCString(szErrDesc, sizeof(szErrDesc), g_CTcpPackServer->GetLastErrorDesc());
 		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			g_CTcpPackServer->GetLastError(), szErrDesc);
-		DeleteObj();
+		DeleteObj(m_ptrRuntime.get());
 		return false;
 	}
 
+	m_ptrRuntime->clIdentity.MarkStarted(p_szIp, p_unPort);
 	TCP_INFO("server started");
 	return true;
 }
 
 void CTcpSockServerObj::StopTcpSock()
 {
-	DeleteObj();
+	std::lock_guard<std::mutex> clLifecycleLock(
+		m_ptrRuntime->clLifecycleMutex);
+	DeleteObj(m_ptrRuntime.get());
 }
 
 bool CTcpSockServerObj::TcpSockSend(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen)
@@ -314,7 +360,7 @@ bool CTcpSockServerObj::TcpSockSend(void *p_refServer, void *p_refClient, const 
 	ITcpServer *pSender = (ITcpServer *)p_refServer;
 	CONNID dwConnID = (CONNID)p_refClient;
 
-	if (!IsTcpSocketSendable(pSender, dwConnID))
+	if (!IsTcpSocketSendable(m_ptrRuntime.get(), pSender, dwConnID))
 	{
 		TCP_WARN("ConnID=%llu,SkipSendTcpClosed,SendDataLen=%d", (unsigned long long)dwConnID, p_iDataLen);
 		return false;
@@ -340,7 +386,8 @@ void CTcpSockServerObj::TcpSockClose(void *p_refServer, void *p_refClient, const
 	ITcpServer *pSender = (ITcpServer *)p_refServer;
 	CONNID dwConnID = (CONNID)p_refClient;
 
-	bool bCanClose = IsTcpSocketSendable(pSender, dwConnID);
+	bool bCanClose = IsTcpSocketSendable(
+		m_ptrRuntime.get(), pSender, dwConnID);
 	if (g_bTcpMutexInit && bCanClose)
 	{
 		pthread_mutex_lock(&g_mutexConnet);
@@ -396,6 +443,6 @@ bool CTcpSockServerObj::TcpSockIsAlive(void *p_refServer, void *p_refClient)
 
 	ITcpServer *pSender = (ITcpServer *)p_refServer;
 	CONNID dwConnID = (CONNID)p_refClient;
-	return IsTcpSocketSendable(pSender, dwConnID);
+	return IsTcpSocketSendable(m_ptrRuntime.get(), pSender, dwConnID);
 }
 

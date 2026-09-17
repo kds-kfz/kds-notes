@@ -9,6 +9,8 @@
 #include "SocketInterface.h"
 #include "HPSocket.h"
 
+struct ST_TCP_SERVER_RUNTIME;
+
 using namespace std;
 
 /************************************************************************
@@ -41,8 +43,13 @@ class  CTcpServerListerNet : public ITcpServerListener
 	EnHandleResult OnShutdown(ITcpServer* pSender) override;
 
 public:
-	CTcpServerListerNet() {}
+	// Listener 仅保存所属 TCP 实例上下文，回调热路径不查询工厂登记表。
+	explicit CTcpServerListerNet(ST_TCP_SERVER_RUNTIME* p_pRuntime)
+		: m_pRuntime(p_pRuntime) {}
 	~CTcpServerListerNet() {}
+
+private:
+	ST_TCP_SERVER_RUNTIME* m_pRuntime; // 不拥有；由 CTcpSockServerObj 保证生命周期。
 };
 
 #endif

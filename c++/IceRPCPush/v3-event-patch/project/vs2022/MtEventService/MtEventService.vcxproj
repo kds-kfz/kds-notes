@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+	<ItemGroup Label="ProjectConfigurations">
+		<ProjectConfiguration Include="Release|x64">
+			<Configuration>Release</Configuration>
+			<Platform>x64</Platform>
+		</ProjectConfiguration>
+	</ItemGroup>
+	<PropertyGroup Label="Globals">
+		<VCProjectVersion>17.0</VCProjectVersion>
+		<ProjectGuid>{A5555555-5555-4555-8555-555555555555}</ProjectGuid>
+		<Keyword>Win32Proj</Keyword>
+		<RootNamespace>MtEventService</RootNamespace>
+		<WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+	</PropertyGroup>
+	<Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+		<ConfigurationType>Application</ConfigurationType>
+		<UseDebugLibraries>false</UseDebugLibraries>
+		<PlatformToolset>v143</PlatformToolset>
+		<CharacterSet>Unicode</CharacterSet>
+		<WholeProgramOptimization>true</WholeProgramOptimization>
+	</PropertyGroup>
+	<Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+	<ImportGroup Label="ExtensionSettings" />
+	<ImportGroup Label="Shared" />
+	<ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+		<Import Project="..\TradingTerminal.Common.props" />
+	</ImportGroup>
+	<PropertyGroup Label="UserMacros" />
+	<ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+		<ClCompile>
+			<AdditionalIncludeDirectories>$(TradingTerminalRoot)vender\nats\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+		</ClCompile>
+		<Link>
+			<AdditionalLibraryDirectories>$(TradingTerminalRoot)vender\nats\lib\x64vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+			<AdditionalDependencies>nats.lib;%(AdditionalDependencies)</AdditionalDependencies>
+		</Link>
+	</ItemDefinitionGroup>
+	<ItemGroup>
+		<ClCompile Include="..\..\..\common\ClusterCoordinator.cpp" />
+		<ClCompile Include="..\..\..\common\protocol\ClusterBinaryProtocol.cpp" />
+		<ClCompile Include="..\..\..\common\protocol\ClientDataBinaryProtocol.cpp" />
+		<ClCompile Include="..\..\..\common\protocol\DeriveBinaryProtocol.cpp" />
+		<ClCompile Include="..\..\..\common\protocol\EventHeartbeatBinaryProtocol.cpp" />
+		<ClCompile Include="..\..\..\common\protocol\PluginBinaryProtocol.cpp" />
+		<ClCompile Include="..\..\..\common\protocol\QuoteBinaryProtocol.cpp" />
+		<ClCompile Include="..\..\..\common\protocol\QueryBinaryProtocol.cpp" />
+		<ClCompile Include="..\..\..\common\protocol\ReliableEventBinaryProtocol.cpp" />
+		<ClCompile Include="..\..\..\common\protocol\TradeBinaryProtocol.cpp" />
+		<ClCompile Include="..\..\..\common\protocol\TradingTerminalProtocol.cpp" />
+		<ClCompile Include="..\..\..\common\ServiceApplication.cpp" />
+		<ClCompile Include="..\..\..\common\CrashHandler.cpp" />
+		<ClCompile Include="..\..\..\common\ProgramVersion.cpp" />
+		<ClCompile Include="..\..\..\common\CodeMsg.cpp" />
+		<ClCompile Include="..\..\..\common\Log.cpp">
+			<DisableSpecificWarnings>4018;4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+		</ClCompile>
+		<ClCompile Include="..\..\..\common\LogConfig.cpp" />
+		<ClCompile Include="..\..\..\common\Thread.cpp" />
+		<ClCompile Include="..\..\..\services\MtEventService\source\main.cpp" />
+		<ClCompile Include="..\..\..\services\MtEventService\source\MtEventBroadcastBus.cpp" />
+		<ClCompile Include="..\..\..\services\MtEventService\source\MtEventConfig.cpp" />
+		<ClCompile Include="..\..\..\services\MtEventService\source\MtEventServiceApp.cpp" />
+		<ClCompile Include="..\..\..\services\MtEventService\source\MtMarketEventRelay.cpp" />
+		<ClCompile Include="..\..\..\services\MtEventService\source\MtReliableEventStore.cpp" />
+	</ItemGroup>
+	<ItemGroup>
+		<ClInclude Include="..\..\..\common\ClusterCoordinator.h" />
+		<ClInclude Include="..\..\..\common\protocol\ClusterBinaryProtocol.h" />
+		<ClInclude Include="..\..\..\common\protocol\ClientDataBinaryProtocol.h" />
+		<ClInclude Include="..\..\..\common\protocol\DeriveBinaryProtocol.h" />
+		<ClInclude Include="..\..\..\common\protocol\EventHeartbeatBinaryProtocol.h" />
+		<ClInclude Include="..\..\..\common\protocol\PluginBinaryProtocol.h" />
+		<ClInclude Include="..\..\..\common\protocol\QuoteBinaryProtocol.h" />
+		<ClInclude Include="..\..\..\common\protocol\QueryBinaryProtocol.h" />
+		<ClInclude Include="..\..\..\common\protocol\ReliableEventBinaryProtocol.h" />
+		<ClInclude Include="..\..\..\common\protocol\TradeBinaryProtocol.h" />
+		<ClInclude Include="..\..\..\common\protocol\TradingTerminalProtocol.h" />
+		<ClInclude Include="..\..\..\common\ServiceApplication.h" />
+		<ClInclude Include="..\..\..\common\CrashHandler.h" />
+		<ClInclude Include="..\..\..\common\ProgramVersion.h" />
+		<ClInclude Include="..\..\..\common\CodeMsg.h" />
+		<ClInclude Include="resource.h" />
+		<ClInclude Include="..\..\..\common\Log.h" />
+		<ClInclude Include="..\..\..\common\LogConfig.h" />
+		<ClInclude Include="..\..\..\common\Thread.h" />
+		<ClInclude Include="..\..\..\services\MtEventService\include\MtEventConfig.h" />
+		<ClInclude Include="..\..\..\services\MtEventService\include\MtEventBroadcastBus.h" />
+		<ClInclude Include="..\..\..\services\MtEventService\include\MtEventServiceApp.h" />
+		<ClInclude Include="..\..\..\services\MtEventService\include\MtMarketEventRelay.h" />
+		<ClInclude Include="..\..\..\services\MtEventService\include\MtReliableEventStore.h" />
+		<ClInclude Include="..\..\..\vender\CloudNetDataApi\include\CloudNetDataApi.h" />
+		<ClInclude Include="..\..\..\vender\tinyxml\include\tinystr.h" />
+		<ClInclude Include="..\..\..\vender\tinyxml\include\tinyxml.h" />
+		<ClInclude Include="..\..\..\vender\nats\include\nats\nats.h" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Include="..\..\..\conf\MtEventService_dev.xml" />
+		<None Include="..\..\..\conf\MtEventService_test.xml" />
+	</ItemGroup>
+	<ItemGroup>
+		<ResourceCompile Include="MtEventService.rc" />
+		<Image Include="res\MtEventService.ico" />
+	</ItemGroup>
+	<Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+	<ImportGroup Label="ExtensionTargets" />
+	<Target Name="CopyMtEventRuntime" AfterTargets="Build">
+		<Copy SourceFiles="$(TradingTerminalRoot)vender\nats\bin\x64vc14\nats.dll;$(TradingTerminalRoot)vender\nats\bin\x64vc14\libsodium.dll;$(TradingTerminalRoot)vender\nats\bin\x64vc14\libssl-3-x64.dll;$(TradingTerminalRoot)vender\nats\bin\x64vc14\libcrypto-3-x64.dll" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+	</Target>
+</Project>

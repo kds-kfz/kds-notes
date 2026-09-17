@@ -1,50 +1,66 @@
-/*
+ï»¿/*
 d:\ZeroC\Ice-3.5.1\bin\slice2cpp.exe -Id:\ZeroC\Ice-3.5.1\slice\ JSONBINRPCU.ICE
 
 
 2015
-Asynchronous Method Dispatch (AMD) ¡£
+Asynchronous Method Dispatch (AMD) ã€‚
 Using AMD, a server can receive a request but then suspend its processing in order to release the dispatch thread as soon as possible. 
 When processing resumes and the results are available, the server sends a p_fnResponse explicitly using a callback object provided by the Ice run time.
-AMD¶Ô¿Í»§¶ËÀ´ËµÊÇÍ¸Ã÷µÄ£¬¿Í»§¶ËÎŞĞèÇø·Ö.
+AMDå¯¹å®¢æˆ·ç«¯æ¥è¯´æ˜¯é€æ˜çš„ï¼Œå®¢æˆ·ç«¯æ— éœ€åŒºåˆ†.
 
 
 2007
-ÅäÖÃ±ØĞëµÄ²½Öè£º
+é…ç½®å¿…é¡»çš„æ­¥éª¤ï¼š
 1. Create an object m_refAdapter to receive callback requests. This m_refAdapter does not
 require endpoints if its only purpose is to receive callbacks over bi-directional
 connections.
-½¨Á¢Ò»¸ö¶ÔÏóÊÊÅäÆ÷£¬ÓÃÀ´½ÓÊÕcallbackÇëÇó¡£Õâ¸öÊÊÅäÆ÷²»ĞèÒªendpoint£¬Èç¹ûËû½ö½öÊÇÓÃÀ´½ÓÊÕcallbacksµÄ¡£
+å»ºç«‹ä¸€ä¸ªå¯¹è±¡é€‚é…å™¨ï¼Œç”¨æ¥æ¥æ”¶callbackè¯·æ±‚ã€‚è¿™ä¸ªé€‚é…å™¨ä¸éœ€è¦endpointï¼Œå¦‚æœä»–ä»…ä»…æ˜¯ç”¨æ¥æ¥æ”¶callbacksçš„ã€‚
 2. Register the callback object with the object m_refAdapter.
-ÓÃÕâ¸ö¶ÔÏóÊÊÅäÆ÷×¢²áÕâ¸öcallback¶ÔÏó
-3. Activate the object m_refAdapter. ¼¤»î
+ç”¨è¿™ä¸ªå¯¹è±¡é€‚é…å™¨æ³¨å†Œè¿™ä¸ªcallbackå¯¹è±¡
+3. Activate the object m_refAdapter. æ¿€æ´»
 4. Obtain the Ice::Connection object (see Section 33.5.1) by calling
 ice_connection on the refProxy.
 5. Invoke setAdapter on the connection, passing the callback object m_refAdapter.
 This associates an object m_refAdapter with the connection and enables callback
 requests to be dispatched.
-ÔÚÕâ¸öÁ¬½ÓÉÏµ÷ÓÃsetAdapter£¬´«µİcallback¶ÔÏó¸øÕâ¸öÊÊÅäÆ÷¡£ÕâÑù¾Í¹ØÁªÒ»¸ö¶ÔÏóÊÊÅäÆ÷ºÍÕâ¸öÁ¬½Ó£¬Í¬Ê±ÔÊĞíÇëÇó±»·ÖÅÉ¡£
+åœ¨è¿™ä¸ªè¿æ¥ä¸Šè°ƒç”¨setAdapterï¼Œä¼ é€’callbackå¯¹è±¡ç»™è¿™ä¸ªé€‚é…å™¨ã€‚è¿™æ ·å°±å…³è”ä¸€ä¸ªå¯¹è±¡é€‚é…å™¨å’Œè¿™ä¸ªè¿æ¥ï¼ŒåŒæ—¶å…è®¸è¯·æ±‚è¢«åˆ†æ´¾ã€‚
 6. Pass the identity of the callback object to the server.
-°Ñcallback¶ÔÏóµÄidentity´«µİ¸ø·şÎñÆ÷¡£
+æŠŠcallbackå¯¹è±¡çš„identityä¼ é€’ç»™æœåŠ¡å™¨ã€‚
 
 m_ident.name = IceUtil::generateUUID();
 
-//#Ç§Íò²»ÄÜËæ±ã´ò¿ª£¬callback»á°´ÕÕÕâ¸öÊ±¼ä³¬Ê±¶Ï¿ª
+//#åƒä¸‡ä¸èƒ½éšä¾¿æ‰“å¼€ï¼Œcallbackä¼šæŒ‰ç…§è¿™ä¸ªæ—¶é—´è¶…æ—¶æ–­å¼€
 //#Ice.Override.Timeout=15000
 
 
 */
 #include "publicfunc.h"
+#include "BinaryPayloadCodec.h"
 #include "CJsonBinRPCImp.h"
+#include "CSubscriptionFilter.h"
 #include "vld.h"
 #include "UserManage.h"
 #include "Log.h"
 #include "XmlConfig.h"
+#include <algorithm>
 
 extern	CUserManage	g_UserManage;
 void WINAPI ServerCallBack(HS p_hHandle,HCLIENT p_hClient,EN_S_NOTIFY_TYPE p_enType,const void *p_pData,int p_iDataLen,const char *p_szIp,unsigned short p_uPort,void * p_pParam);
 
-// ½«¾É´úÂëµÄ char »º³åÇøÑ¹Ëõ³É Ice AByte£¬¼¯ÖĞ´¦Àí Ice 3.8 ×Ö½ÚÀàĞÍ²îÒì¡£
+// æ­£æ•°å‚æ•°è¦†ç›–å®¢æˆ·ç«¯ Communicator çš„çº¿ç¨‹æ± ï¼›0 ä¿ç•™ XML å±æ€§æˆ– Ice é»˜è®¤å€¼ã€‚
+static void ApplyClientThreadPool(const Ice::PropertiesPtr& p_refProperties,int p_iThreadPool)
+{
+	if (p_refProperties == nullptr || p_iThreadPool <= 0)
+	{
+		return;
+	}
+
+	const std::string strThreadPool = std::to_string(p_iThreadPool);
+	p_refProperties->setProperty("Ice.ThreadPool.Client.Size", strThreadPool);
+	p_refProperties->setProperty("Ice.ThreadPool.Client.SizeMax", strThreadPool);
+}
+
+// å°†æ—§ä»£ç çš„ char ç¼“å†²åŒºå‹ç¼©æˆ Ice AByteï¼Œé›†ä¸­å¤„ç† Ice 3.8 å­—èŠ‚ç±»å‹å·®å¼‚ã€‚
 int	CompressAByte(::JSONBINRPC::AByte & p_refOutByte,const char * p_pSrc,long p_lSrcLen)
 {
 	if (p_pSrc == NULL || p_lSrcLen <= 0)
@@ -53,7 +69,7 @@ int	CompressAByte(::JSONBINRPC::AByte & p_refOutByte,const char * p_pSrc,long p_
 		return 0;
 	}
 
-	// snappy::Compress ÒªÇóÊäÈë»º³å²»ÄÜºÍÊä³ö¶ÔÏó±ğÃû£¬ÏÈ¸´ÖÆÔ­Ê¼ÊäÈëÔÙ¸ÄĞ´Êä³ö¡£
+	// snappy::Compress è¦æ±‚è¾“å…¥ç¼“å†²ä¸èƒ½å’Œè¾“å‡ºå¯¹è±¡åˆ«åï¼Œå…ˆå¤åˆ¶åŸå§‹è¾“å…¥å†æ”¹å†™è¾“å‡ºã€‚
 	std::string strSrc(p_pSrc, static_cast<size_t>(p_lSrcLen));
 	p_refOutByte.clear();
 	std::string strDest;
@@ -67,7 +83,7 @@ int	CompressAByte(::JSONBINRPC::AByte & p_refOutByte,const char * p_pSrc,long p_
 	memcpy(p_refOutByte.data(), strDest.data(), strDest.size());
 	return SafeSizeToLength<int>(strDest.size());
 }
-// ½« Ice AByte ÖĞµÄ snappy Êı¾İ½âÑ¹»ØÔ­Ê¼×Ö½Ú£¬·µ»Ø½âÑ¹³¤¶È¡£
+// å°† Ice AByte ä¸­çš„ snappy æ•°æ®è§£å‹å›åŸå§‹å­—èŠ‚ï¼Œè¿”å›è§£å‹é•¿åº¦ã€‚
 int	UnCompressAByte(::JSONBINRPC::AByte & p_refOutByte,const char * p_pSrc,long p_lSrcLen)
 {
 	if (p_pSrc == NULL || p_lSrcLen <= 0)
@@ -76,7 +92,7 @@ int	UnCompressAByte(::JSONBINRPC::AByte & p_refOutByte,const char * p_pSrc,long 
 		return 0;
 	}
 
-	// Ö§³ÖÊäÈëÀ´×Ô p_refOutByte.data() µÄÀúÊ·Ğ´·¨£¬±ÜÃâ clear ºóÊäÈëÖ¸ÕëÊ§Ğ§¡£
+	// æ”¯æŒè¾“å…¥æ¥è‡ª p_refOutByte.data() çš„å†å²å†™æ³•ï¼Œé¿å… clear åè¾“å…¥æŒ‡é’ˆå¤±æ•ˆã€‚
 	std::string strSrc(p_pSrc, static_cast<size_t>(p_lSrcLen));
 	p_refOutByte.clear();
 	std::string strDest;
@@ -89,7 +105,8 @@ int	UnCompressAByte(::JSONBINRPC::AByte & p_refOutByte,const char * p_pSrc,long 
 	memcpy(p_refOutByte.data(), strDest.data(), strDest.size());
 	return SafeSizeToLength<int>(strDest.size());
 }
-// ºóÌ¨Ïú»Ù Ice m_refCommunicator£¬±ÜÃâÔÚ»Øµ÷Ïß³ÌÖĞÍ¬²½ destroy ¿¨×¡ÉÏ²ã¡£
+
+// åå°é”€æ¯ Ice m_refCommunicatorï¼Œé¿å…åœ¨å›è°ƒçº¿ç¨‹ä¸­åŒæ­¥ destroy å¡ä½ä¸Šå±‚ã€‚
 DWORD	WINAPI	s_DetroyIceCommunicator(void * p_pParam)
 {
 	Ice::CommunicatorPtr * ic = (Ice::CommunicatorPtr *)p_pParam;
@@ -111,12 +128,12 @@ DWORD	WINAPI	s_DetroyIceCommunicator(void * p_pParam)
 }
 CPushMng * CPushMng::m_pThis = NULL;
 volatile long long CPushMng::m_lPushPackCrowded=0;
-// È«¾Ö¹ÜÀíÖ¸Õë
-CRITICAL_SECTION		g_csHandleLock;
+// å…¨å±€ç®¡ç†æŒ‡é’ˆ
+std::mutex			g_clHandleMutex;
 std::map<HANDLE,HANDLE>	g_mapHandle;
 
 
-// ´´½¨»ò¸´ÓÃÈ«¾ÖÍÆËÍ¹ÜÀíÆ÷£¬²¢Ôö¼ÓÒıÓÃ¼ÆÊı¡£
+// åˆ›å»ºæˆ–å¤ç”¨å…¨å±€æ¨é€ç®¡ç†å™¨ï¼Œå¹¶å¢åŠ å¼•ç”¨è®¡æ•°ã€‚
 CPushMng * CPushMng::CreateNewPushObj()
 {
 	if ( m_pThis==NULL)
@@ -131,7 +148,7 @@ CPushMng * CPushMng::CreateNewPushObj()
 	::InterlockedIncrement(&m_pThis->m_lRef);
 	return m_pThis;
 }
-// ÊÍ·ÅÍÆËÍ¹ÜÀíÆ÷ÒıÓÃ£¬×îºóÒ»¸öÒıÓÃ¸ºÔğ¹Ø±ÕÏß³ÌºÍ socket¡£
+// é‡Šæ”¾æ¨é€ç®¡ç†å™¨å¼•ç”¨ï¼Œæœ€åä¸€ä¸ªå¼•ç”¨è´Ÿè´£å…³é—­çº¿ç¨‹å’Œ socketã€‚
 void CPushMng::ReleaseIt()
 {
 	if ( m_pThis )
@@ -143,14 +160,14 @@ void CPushMng::ReleaseIt()
 			m_pThis = NULL;
 
 			delete p;
-			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "É¾³ıÍÆËÍ¹ÜÀíÀà\r\n");
+			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "åˆ é™¤æ¨é€ç®¡ç†ç±»\r\n");
 		}
 	}
 }
 
 
 
-// ³õÊ¼»¯ÍÆËÍ¶ÓÁĞ¡¢ĞÅºÅÁ¿ºÍºóÌ¨Ïß³Ì£¬¹¹Ôìºó¼´¿É½ÓÊÕÍÆËÍ°ü¡£
+// åˆå§‹åŒ–æ¨é€é˜Ÿåˆ—ã€ä¿¡å·é‡å’Œåå°çº¿ç¨‹ï¼Œæ„é€ åå³å¯æ¥æ”¶æ¨é€åŒ…ã€‚
 CPushMng::CPushMng()
 {
 	m_lRef			= 0;
@@ -158,8 +175,8 @@ CPushMng::CPushMng()
 	m_hPushPack		= NULL;
 	m_lPushPackCrowded = 0;
 	m_bStop = false;
-	m_hP2PThread	= NULL;	// µãµ½µã¼«ËÙÍÆËÍ£¬»ù±¾4~8Î¢Ãë
-	m_hMulThread	= NULL;	// ·Ö×é¼«ËÙÍÆËÍ£¬»ù±¾10~15Î¢Ãë
+	m_hP2PThread	= NULL;	// ç‚¹åˆ°ç‚¹æé€Ÿæ¨é€ï¼ŒåŸºæœ¬4~8å¾®ç§’
+	m_hMulThread	= NULL;	// åˆ†ç»„æé€Ÿæ¨é€ï¼ŒåŸºæœ¬10~15å¾®ç§’
 	InitializeCriticalSection(&m_csPush);
 	InitializeCriticalSection(&m_csHandle);
 	InitializeCriticalSection(&m_csClientPushLock);
@@ -170,11 +187,11 @@ CPushMng::CPushMng()
 	m_hPushPack	= CreateThread(NULL,0,s_PushThread,this,0,NULL);
 }
 
-// Í£Ö¹ËùÓĞÍÆËÍÏß³Ì²¢ÇåÀí»ıÑ¹°ü£¬ÍË³öÊ±ÓÅÏÈ±ÜÃâ¾ä±úĞ¹Â©¡£
+// åœæ­¢æ‰€æœ‰æ¨é€çº¿ç¨‹å¹¶æ¸…ç†ç§¯å‹åŒ…ï¼Œé€€å‡ºæ—¶ä¼˜å…ˆé¿å…å¥æŸ„æ³„æ¼ã€‚
 CPushMng::~CPushMng()
 {
 	m_bStop = true;
-	// ¼¯ÖĞ¹ÜÀíµÄÁ¬½Ó¶Ë£¬¿Í»§¶Ë£¬½ÓÊÕÍÆËÍµÄÏß³Ì£¬Ã¿¸ösockÒ»¸öÏß³Ì¹ÜÀí
+	// é›†ä¸­ç®¡ç†çš„è¿æ¥ç«¯ï¼Œå®¢æˆ·ç«¯ï¼Œæ¥æ”¶æ¨é€çš„çº¿ç¨‹ï¼Œæ¯ä¸ªsockä¸€ä¸ªçº¿ç¨‹ç®¡ç†
 	std::map<std::string,ST_TCP_PUSH_CONN*>::iterator	t = m_mapPushConn.begin();
 	while ( t != m_mapPushConn.end() )
 	{
@@ -212,7 +229,6 @@ CPushMng::~CPushMng()
 	ST_PACK_QUEUE * pack = m_clPackQueue.PopFront();
 	while ( pack )
 	{
-		delete [] pack->pBuf;
 		delete	pack;
 		pack = m_clPackQueue.PopFront();
 	}
@@ -250,7 +266,7 @@ CPushMng::~CPushMng()
 	DeleteCriticalSection(&m_csHandle);
 	DeleteCriticalSection(&m_csClientPushLock);
 }
-// °Ñ×îÖÕÍÆËÍÊı¾İ·Ö·¢¸øËùÓĞÒÑ×¢²á»Øµ÷£¬ÏÈ¸´ÖÆ»Øµ÷±íÔÙËøÍâµ÷ÓÃ£¬±ÜÃâ»Øµ÷Àï×¢²á/×¢ÏúÔì³ÉËÀËø¡£
+// æŠŠæœ€ç»ˆæ¨é€æ•°æ®åˆ†å‘ç»™æ‰€æœ‰å·²æ³¨å†Œå›è°ƒï¼Œå…ˆå¤åˆ¶å›è°ƒè¡¨å†é”å¤–è°ƒç”¨ï¼Œé¿å…å›è°ƒé‡Œæ³¨å†Œ/æ³¨é”€é€ æˆæ­»é”ã€‚
 void CPushMng::ProcessPackage(long long p_lReqNo,const char * p_pBuf,long p_lBufLen)
 {
 	if ( m_pThis )
@@ -271,8 +287,8 @@ void CPushMng::ProcessPackage(long long p_lReqNo,const char * p_pBuf,long p_lBuf
 		}
 	}
 }
-// Çø·ÖÍÆËÍµÄÍ¨µÀÀàĞÍ
-// ¼ÇÂ¼²¢Æô¶¯¿Í»§¶Ë¿ìËÙÍÆËÍÁ¬½Ó£¬Í¬Ò»µØÖ·Ö»´´½¨Ò»¸öÀ­È¡Ïß³Ì¡£
+// åŒºåˆ†æ¨é€çš„é€šé“ç±»å‹
+// è®°å½•å¹¶å¯åŠ¨å®¢æˆ·ç«¯å¿«é€Ÿæ¨é€è¿æ¥ï¼ŒåŒä¸€åœ°å€åªåˆ›å»ºä¸€ä¸ªæ‹‰å–çº¿ç¨‹ã€‚
 void CPushMng::PushConnectInfo(int p_iNetType,std::string p_strIp,std::string p_strPort)
 {
 	if ( m_pThis )
@@ -304,8 +320,8 @@ void CPushMng::PushConnectInfo(int p_iNetType,std::string p_strIp,std::string p_
 		}
 	}
 }
-// Æô¶¯µãµ½µãÍÆËÍÏß³Ì
-// Æô¶¯ UDP µã¶ÔµãÍÆËÍ·şÎñ¶Ë£¬¹©ĞĞÇéÀàÊı¾İÈÆ¹ı Ice ¿ìËÙÏÂ·¢¡£
+// å¯åŠ¨ç‚¹åˆ°ç‚¹æ¨é€çº¿ç¨‹
+// å¯åŠ¨ UDP ç‚¹å¯¹ç‚¹æ¨é€æœåŠ¡ç«¯ï¼Œä¾›è¡Œæƒ…ç±»æ•°æ®ç»•è¿‡ Ice å¿«é€Ÿä¸‹å‘ã€‚
 bool CPushMng::StartP2PPush(int p_iThread,int p_iPort)
 {
 	m_iUdpThread = p_iThread;
@@ -327,7 +343,7 @@ bool CPushMng::StartP2PPush(int p_iThread,int p_iPort)
 		delete	u;
 		return false;    
 	}   
-	//½«socketÓëÖÆ¶¨¶Ë¿ÚºÍ0.0.0.0°ó¶¨
+	//å°†socketä¸åˆ¶å®šç«¯å£å’Œ0.0.0.0ç»‘å®š
 	u->stAddr.sin_family=AF_INET;
 	u->stAddr.sin_port=htons(p_iPort);
 	u->stAddr.sin_addr.s_addr=htonl(INADDR_ANY);
@@ -347,12 +363,12 @@ bool CPushMng::StartP2PPush(int p_iThread,int p_iPort)
 	LeaveCriticalSection(&m_csClientPushLock);	
 	return true;
 }
-// ±éÀú½Úµã£¬²¢ÇÒ·¢ËÍÊı¾İ
-// Í¨¹ıÒÑÎ¬»¤µÄ UDP ¿Í»§¶Ë±í¹ã²¥Êı¾İ£¬Ê§°Ü¿Í»§¶ËºóĞø¿¿ĞÄÌøÇåÀí¡£
+// éå†èŠ‚ç‚¹ï¼Œå¹¶ä¸”å‘é€æ•°æ®
+// é€šè¿‡å·²ç»´æŠ¤çš„ UDP å®¢æˆ·ç«¯è¡¨å¹¿æ’­æ•°æ®ï¼Œå¤±è´¥å®¢æˆ·ç«¯åç»­é å¿ƒè·³æ¸…ç†ã€‚
 void CPushMng::UDPPush(const char * p_pBuf,long p_lBufLen)
 {
 	std::map<unsigned long long,ST_UDP_INFO*>	aclient;
-	// ¸Ä³ÉÖ¸Õë
+	// æ”¹æˆæŒ‡é’ˆ
 	EnterCriticalSection(&m_csClientPushLock);
 	aclient = m_mapPushClient;
 	std::map<unsigned long long,ST_UDP_INFO*>::iterator	it = aclient.begin();
@@ -365,7 +381,7 @@ void CPushMng::UDPPush(const char * p_pBuf,long p_lBufLen)
 
 	if (aclient.size() <= 0)
 	{
-		//Sleep(1);		// Èç¹ûÃ»ÓĞ¿Í»§¶Ë£¬Í£ÁôÏÂ£¬Ö÷Òª¸øÑ¹Á¦²âÊÔ£¬¿ÉÒÔÉ¾³ısleep
+		//Sleep(1);		// å¦‚æœæ²¡æœ‰å®¢æˆ·ç«¯ï¼Œåœç•™ä¸‹ï¼Œä¸»è¦ç»™å‹åŠ›æµ‹è¯•ï¼Œå¯ä»¥åˆ é™¤sleep
 		return;
 	}
 
@@ -385,7 +401,7 @@ void CPushMng::UDPPush(const char * p_pBuf,long p_lBufLen)
 	while ( it != aclient.end() )
 	{
 		InterlockedDecrement(&it->second->lRef);	
-		// É¾³ı¶ª¸øÆäËûÏß³Ì
+		// åˆ é™¤ä¸¢ç»™å…¶ä»–çº¿ç¨‹
 // 		if ( it->second->lRef == 0 )
 // 		{
 // 			EnterCriticalSection(&m_csClientPushLock);
@@ -400,19 +416,19 @@ void CPushMng::UDPPush(const char * p_pBuf,long p_lBufLen)
 		++it;
 	}
 }
-// ×÷Îª½ÓÊÕÍÆËÍÊı¾İ¶Ë£¬Æô¶¯Ïß³Ì½ÓÊÕ
+// ä½œä¸ºæ¥æ”¶æ¨é€æ•°æ®ç«¯ï¼Œå¯åŠ¨çº¿ç¨‹æ¥æ”¶
 DWORD	WINAPI	CPushMng::s_P2PRecv(void * p_pParam)
 {
 	ST_UDP_INFO * u = (ST_UDP_INFO*)p_pParam;
 	return u->pParent->P2PRecv(u);
 }
 
-// UDP ½ÓÊÕÏß³Ì£¬Î¬»¤¿Í»§¶ËµØÖ·ºÍĞÄÌø£¬Ö§³Öµã¶ÔµãÍÆËÍ¡£
+// UDP æ¥æ”¶çº¿ç¨‹ï¼Œç»´æŠ¤å®¢æˆ·ç«¯åœ°å€å’Œå¿ƒè·³ï¼Œæ”¯æŒç‚¹å¯¹ç‚¹æ¨é€ã€‚
 DWORD	CPushMng::P2PRecv(ST_UDP_INFO * p_pUdpInfo)
 {
 	int		nbytes=0;
-	char	RecvBuf[1024];	//·¢ËÍÊı¾İµÄ»º³åÇø
-	int		BufLen=1024;	//»º³åÇø´óĞ¡
+	char	RecvBuf[1024];	//å‘é€æ•°æ®çš„ç¼“å†²åŒº
+	int		BufLen=1024;	//ç¼“å†²åŒºå¤§å°
 	sockaddr_in SenderAddr;
 	int		SenderAddrSize;
 	char	szkey[256]={0};
@@ -477,8 +493,8 @@ DWORD	CPushMng::P2PRecv(ST_UDP_INFO * p_pUdpInfo)
 	}
 	return 0;
 }
-// ¶©ÔÄµÄÀàĞÍĞÅÏ¢
-// Í¨¹ı TCP ¿ìËÙÍ¨µÀ·¢ËÍ¶©ÔÄ/ÍË¶©ÇëÇó£¬±£³Ö·şÎñ¶Ë¶©ÔÄ×´Ì¬Í¬²½¡£
+// è®¢é˜…çš„ç±»å‹ä¿¡æ¯
+// é€šè¿‡ TCP å¿«é€Ÿé€šé“å‘é€è®¢é˜…/é€€è®¢è¯·æ±‚ï¼Œä¿æŒæœåŠ¡ç«¯è®¢é˜…çŠ¶æ€åŒæ­¥ã€‚
 void CPushMng::PushRegisterInfo(const char * p_szRegSubInfo,int p_iIsReg)
 {
 	if ( m_pThis )
@@ -488,15 +504,15 @@ void CPushMng::PushRegisterInfo(const char * p_szRegSubInfo,int p_iIsReg)
 		const	char * pstr = NULL;
 		std::vector<std::string>	tosecs;
 		TokenizeOR(tosecs,p_szRegSubInfo,"|");
-		// Ôö¼Ó¶©ÔÄµÄÀàĞÍ
+		// å¢åŠ è®¢é˜…çš„ç±»å‹
 		EnterCriticalSection(&m_pThis->m_csHandle);
-		// ÒòÎªºÜ¶àÊÇguid£¬´ÓµÚ¶ş¸ö¿ªÊ¼ |257 for ( i=0;i<tosecs.size();++i )
+		// å› ä¸ºå¾ˆå¤šæ˜¯guidï¼Œä»ç¬¬äºŒä¸ªå¼€å§‹ |257 for ( i=0;i<tosecs.size();++i )
 		for ( i=1;i<tosecs.size();++i )
 		{
-			if ( tosecs[i].size()>0 && isdigit(tosecs[i][0]) )	// ±ØĞëÊı×Ö¿ªÍ·
+			if ( tosecs[i].size()>0 && isdigit(tosecs[i][0]) )	// å¿…é¡»æ•°å­—å¼€å¤´
 			{
 				dwV = atol(tosecs[i].c_str());
-				m_pThis->m_mapRegSubInfo[ dwV ]	= p_iIsReg;		// ¶©ÔÄ
+				m_pThis->m_mapRegSubInfo[ dwV ]	= p_iIsReg;		// è®¢é˜…
 			}
 		}
 		LeaveCriticalSection(&m_pThis->m_csHandle);	
@@ -508,8 +524,8 @@ DWORD	WINAPI CPushMng::s_PeekThread(void * p_pParam)
 {
 	return m_pThis->PeekThread((ST_TCP_PUSH_CONN*)p_pParam);
 }
-// ¶©ÔÄ»º³åÇø²»ÄÜ³¬¹ı1M
-// Ìî³ä¾É TCP ¶©ÔÄ°üÍ·£¬×Ö¶ÎË³Ğò±ØĞëÓë userdata.hHandle ÖĞĞ­ÒéÍ·Ò»ÖÂ¡£
+// è®¢é˜…ç¼“å†²åŒºä¸èƒ½è¶…è¿‡1M
+// å¡«å……æ—§ TCP è®¢é˜…åŒ…å¤´ï¼Œå­—æ®µé¡ºåºå¿…é¡»ä¸ userdata.hHandle ä¸­åè®®å¤´ä¸€è‡´ã€‚
 void  CPushMng::SetSubReqBuf(ST_REQ_HEADER * p_pReq)
 {
 	ST_SUB_UNSUB_STRING* req2 = (ST_SUB_UNSUB_STRING*)(p_pReq + 1);
@@ -531,10 +547,10 @@ void  CPushMng::SetSubReqBuf(ST_REQ_HEADER * p_pReq)
 	p_pReq->dwPacketLen = sizeof(ST_SUB_UNSUB_STRING)+req2->lLen;
 	p_pReq->dwRawLen = sizeof(ST_SUB_UNSUB_STRING)+req2->lLen;
 	req2->req = PACKET_PUSH_HQ_SUB;
-	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "·¢Æğ¶©ÔÄ:%m_hSocket,%d\r\n",req2->pBuf,req2->lLen);
+	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å‘èµ·è®¢é˜…:%m_hSocket,%d\r\n",req2->pBuf,req2->lLen);
 }
-// ´Ónew¸Ä³ÉÕ»£¬´óÄÚ´æ£¬ËÙ¶È»áÌáÉı100±¶
-// ¿Í»§¶Ë TCP/UDP/×é²¥À­È¡Ïß³Ì£¬½âÎö°üÍ·ºó½»¸øÍ³Ò»ÍÆËÍ·Ö·¢¡£
+// ä»newæ”¹æˆæ ˆï¼Œå¤§å†…å­˜ï¼Œé€Ÿåº¦ä¼šæå‡100å€
+// å®¢æˆ·ç«¯ TCP/UDP/ç»„æ’­æ‹‰å–çº¿ç¨‹ï¼Œè§£æåŒ…å¤´åäº¤ç»™ç»Ÿä¸€æ¨é€åˆ†å‘ã€‚
 DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 {
 	char	  p_pBuf[MAX_CACHE_BUFLEN];
@@ -545,7 +561,7 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 	char	  rcvbuf[per_rcvlen];
 	//std::string		srcvbuf;
 	//srcvbuf.resize(per_rcvlen);
-	time_t	lastsend = time(NULL);	// ·şÎñ¶Ë·¢ÏÖ¿Í»§¶ËÃ»ÇëÇó£¬ËäÈ»ÍÆËÍ£¬µ«ÊÇ»¹ÊÇ»áµ¼ÖÂ³¬Ê±¶Ï¿ª
+	time_t	lastsend = time(NULL);	// æœåŠ¡ç«¯å‘ç°å®¢æˆ·ç«¯æ²¡è¯·æ±‚ï¼Œè™½ç„¶æ¨é€ï¼Œä½†æ˜¯è¿˜æ˜¯ä¼šå¯¼è‡´è¶…æ—¶æ–­å¼€
 	int		lasterror = 0;
 	memset(subbuf,0,MAX_REQ_BUFLEN);
 	ST_REQ_HEADER *	req = (ST_REQ_HEADER*)subbuf;
@@ -565,9 +581,9 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 			closesocket(p_pConn->hSocket);
 			p_pConn->hSocket = INVALID_SOCKET;
 		}
-		//´´½¨Socket¶ÔÏó
+		//åˆ›å»ºSocketå¯¹è±¡
 		p_pConn->hSocket=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP);
-		int timeout = 15 * 1000;	// ×ªÂë»ú30Ãë·¢ËÍÒ»´ÎÊ±¼ä×´Ì¬ĞÅÏ¢
+		int timeout = 15 * 1000;	// è½¬ç æœº30ç§’å‘é€ä¸€æ¬¡æ—¶é—´çŠ¶æ€ä¿¡æ¯
 		setsockopt(p_pConn->hSocket, SOL_SOCKET, SO_RCVTIMEO, (char*)&timeout, sizeof(timeout));
 		setsockopt(p_pConn->hSocket, SOL_SOCKET, SO_SNDTIMEO, (char*)&timeout, sizeof(timeout));
 
@@ -597,7 +613,7 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 				if (WSAEWOULDBLOCK == dwErr || WSAEINPROGRESS == dwErr ||
 					EINPROGRESS == dwErr ||
 					WSAETIMEDOUT == dwErr ||
-					// ERROR_SUCCESS == dwErr||		// Õâ¸öÇé¿ö£¿£¿£¿£¿£¿
+					// ERROR_SUCCESS == dwErr||		// è¿™ä¸ªæƒ…å†µï¼Ÿï¼Ÿï¼Ÿï¼Ÿï¼Ÿ
 					EAGAIN == errno || EINTR == errno || EWOULDBLOCK == errno || ENOENT == errno)
 					// if ( WSAETIMEDOUT == dwErr || WSAEWOULDBLOCK == dwErr )
 				{
@@ -607,7 +623,7 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 					int	nSendLen = sizeof(ST_REQ_HEADER) + sizeof(ST_SUB_UNSUB_STRING) + req2->lLen;
 					sendto(p_pConn->hSocket, subbuf, nSendLen, 0, (struct sockaddr *) &si, sizeof(si));
 					lastsend = time(NULL);
-					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "µÈ´ı³¬Ê±:%m_hSocket,%d,%u  [%u] \r\n", p_pConn->strIp.c_str(), p_pConn->iPort, dwErr, GetCurrentThreadId());
+					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "ç­‰å¾…è¶…æ—¶:%m_hSocket,%d,%u  [%u] \r\n", p_pConn->strIp.c_str(), p_pConn->iPort, dwErr, GetCurrentThreadId());
 					Sleep(1);   
 					continue;
 				}
@@ -620,7 +636,7 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 			} 
 			ST_UDP_HEADER * pi = (ST_UDP_HEADER*)udpbuf;
 			m_dwPacketLen = nbytes - sizeof(ST_UDP_HEADER);
-			//½âÑ¹Ëõ
+			//è§£å‹ç¼©
 			if (!pi->chCompressed)
 			{
 				//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Push %d,%d :%m_hSocket,%d [%u] \r\n",pi->req,pi->dwPacketLen,p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
@@ -629,7 +645,7 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 			}
 			else
 			{
-				// ÍÆËÍÖ»ÄÜÓÃsnappy
+				// æ¨é€åªèƒ½ç”¨snappy
 				//std::string dest;
 				//size_t size = snappy::Uncompress((const char*)(pi + 1),m_dwPacketLen,&dest);
 
@@ -675,7 +691,7 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 			closesocket(p_pConn->hSocket);
 			p_pConn->hSocket = INVALID_SOCKET;
 		}
-		//´´½¨Socket¶ÔÏó
+		//åˆ›å»ºSocketå¯¹è±¡
 		p_pConn->hSocket=socket(AF_INET,SOCK_DGRAM,0);
 		/**** MODIFICATION TO ORIGINAL */    
 		/* allow multiple sockets to use the same PORT number */   
@@ -717,7 +733,7 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 			} 
 			ST_UDP_HEADER * pi = (ST_UDP_HEADER*)rcvbuf;
 			m_dwPacketLen = nbytes - sizeof(ST_UDP_HEADER);
-			//½âÑ¹Ëõ
+			//è§£å‹ç¼©
 			if (!pi->chCompressed)
 			{
 				//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Push %d,%d :%m_hSocket,%d [%u] \r\n",pi->req,pi->dwPacketLen,p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
@@ -726,7 +742,7 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 			}
 			else
 			{
-				// ÍÆËÍÖ»ÄÜÓÃsnappy
+				// æ¨é€åªèƒ½ç”¨snappy
 				std::string dest;
 				size_t size = snappy::Uncompress((const char*)(pi + 1),m_dwPacketLen,&dest);
 
@@ -735,7 +751,7 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 			}
 		}    
 	}
-	else   // TCP ÍÆËÍ½ÓÊÕ
+	else   // TCP æ¨é€æ¥æ”¶
 	{
 		do
 		{
@@ -745,12 +761,12 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 				closesocket(p_pConn->hSocket);
 				p_pConn->hSocket = INVALID_SOCKET;
 			}
-			//´´½¨Á¬½Ó
+			//åˆ›å»ºè¿æ¥
 			p_pConn->hSocket=socket(AF_INET,SOCK_STREAM,0);
 			if(p_pConn->hSocket==SOCKET_ERROR)
 			{
-				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "socket´´½¨Ê§°Ü %m_hSocket:%d\r\n",p_pConn->strIp.c_str(),p_pConn->iPort);
-				CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","socket´´½¨Ê§°Ü %m_hSocket:%d\r\n",p_pConn->strIp.c_str(),p_pConn->iPort);
+				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "socketåˆ›å»ºå¤±è´¥ %m_hSocket:%d\r\n",p_pConn->strIp.c_str(),p_pConn->iPort);
+				CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","socketåˆ›å»ºå¤±è´¥ %m_hSocket:%d\r\n",p_pConn->strIp.c_str(),p_pConn->iPort);
 				if ( m_bStop )	break;
 				Sleep(3000);
 				continue;
@@ -765,28 +781,28 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 			int ret = connect(p_pConn->hSocket,(sockaddr*)&si,sizeof(si));
 			if( ret == SOCKET_ERROR )
 			{
-				closesocket(p_pConn->hSocket);		// Íü¼Ç¹Ø±Õsocket£¬µ¼ÖÂ·şÎñÆ÷socketÈ«²¿Ê§Ğ§
+				closesocket(p_pConn->hSocket);		// å¿˜è®°å…³é—­socketï¼Œå¯¼è‡´æœåŠ¡å™¨socketå…¨éƒ¨å¤±æ•ˆ
 				p_pConn->hSocket = INVALID_SOCKET;
 				if ( m_bStop )	break;
 				DWORD	dwErr = GetLastError();
-				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Á¬½Ó·şÎñÆ÷³¬Ê±:%m_hSocket,%d,%u [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,dwErr,GetCurrentThreadId());
-				CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","Á¬½Ó·şÎñÆ÷³¬Ê±:%m_hSocket,%d,%u [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,dwErr,GetCurrentThreadId());
+				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "è¿æ¥æœåŠ¡å™¨è¶…æ—¶:%m_hSocket,%d,%u [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,dwErr,GetCurrentThreadId());
+				CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","è¿æ¥æœåŠ¡å™¨è¶…æ—¶:%m_hSocket,%d,%u [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,dwErr,GetCurrentThreadId());
 				Sleep(3000);
 				continue;
 			}
 			BOOL bNoDelay = TRUE;
 			setsockopt(p_pConn->hSocket,IPPROTO_TCP,TCP_NODELAY,(const char *)&bNoDelay,sizeof(BOOL));
 
-			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Á¬½Ó·şÎñÆ÷³É¹¦:%m_hSocket,%d [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
-			CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","Á¬½Ó·şÎñÆ÷³É¹¦:%m_hSocket,%d [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
+			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "è¿æ¥æœåŠ¡å™¨æˆåŠŸ:%m_hSocket,%d [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
+			CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","è¿æ¥æœåŠ¡å™¨æˆåŠŸ:%m_hSocket,%d [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
 			p_pConn->bOpenTcpOk = true;
-			//¼¤»îtcpĞ­Òé±£»î°ü
+			//æ¿€æ´»tcpåè®®ä¿æ´»åŒ…
 			DWORD dwRet = 0;
-			lastsend = time(NULL);	// ·şÎñ¶Ë·¢ÏÖ¿Í»§¶ËÃ»ÇëÇó£¬ËäÈ»ÍÆËÍ£¬µ«ÊÇ»¹ÊÇ»áµ¼ÖÂ³¬Ê±¶Ï¿ª
+			lastsend = time(NULL);	// æœåŠ¡ç«¯å‘ç°å®¢æˆ·ç«¯æ²¡è¯·æ±‚ï¼Œè™½ç„¶æ¨é€ï¼Œä½†æ˜¯è¿˜æ˜¯ä¼šå¯¼è‡´è¶…æ—¶æ–­å¼€
 			lasterror = 0;
 			tcp_keepalive keepalive = {1ul,10 * 1000ul,1 * 1000ul};
 			WSAIoctl(p_pConn->hSocket,SIO_KEEPALIVE_VALS,&keepalive,sizeof(keepalive),NULL,0,&dwRet,NULL,NULL);
-			int timeout = 15 * 1000;	// ×ªÂë»ú30Ãë·¢ËÍÒ»´ÎÊ±¼ä×´Ì¬ĞÅÏ¢
+			int timeout = 15 * 1000;	// è½¬ç æœº30ç§’å‘é€ä¸€æ¬¡æ—¶é—´çŠ¶æ€ä¿¡æ¯
 			setsockopt(p_pConn->hSocket,SOL_SOCKET,SO_RCVTIMEO,(char*)&timeout,sizeof(timeout));
 			setsockopt(p_pConn->hSocket,SOL_SOCKET,SO_SNDTIMEO,(char*)&timeout,sizeof(timeout));
 			//////////////////////////////////////////////////////////////////////////
@@ -796,23 +812,23 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 			Sendn(p_pConn->hSocket,subbuf,nSendLen,&lasterror);
 			while (!m_bStop )
 			{
-				//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "×¼±¸recv:%m_hSocket,%d [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
+				//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å‡†å¤‡recv:%m_hSocket,%d [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
 				// ST_ANS_HEADER head = {0};
 				int nread = recv(p_pConn->hSocket,rcvbuf,per_rcvlen,0);
-				//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "×¼±¸recv=%d :%m_hSocket,%d [%u] \r\n",nread,p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
+				//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å‡†å¤‡recv=%d :%m_hSocket,%d [%u] \r\n",nread,p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
 				if ( nread <= 0 )
 				{
 					DWORD	dwErr = GetLastError();
 					if (  WSAEWOULDBLOCK == dwErr || WSAEINPROGRESS == dwErr || 
 						EINPROGRESS == dwErr || 
 						WSAETIMEDOUT == dwErr || 
-						// ERROR_SUCCESS == dwErr||		// Õâ¸öÇé¿ö£¿£¿£¿£¿£¿
+						// ERROR_SUCCESS == dwErr||		// è¿™ä¸ªæƒ…å†µï¼Ÿï¼Ÿï¼Ÿï¼Ÿï¼Ÿ
 						EAGAIN==errno || EINTR==errno || EWOULDBLOCK==errno || ENOENT==errno )
 					// if ( WSAETIMEDOUT == dwErr || WSAEWOULDBLOCK == dwErr )
 					{
 					if ( m_bStop )
 					{
-						closesocket(p_pConn->hSocket);	// Íü¼Ç¹Ø±Õsocket£¬µ¼ÖÂ·şÎñÆ÷socketÈ«²¿Ê§Ğ§
+						closesocket(p_pConn->hSocket);	// å¿˜è®°å…³é—­socketï¼Œå¯¼è‡´æœåŠ¡å™¨socketå…¨éƒ¨å¤±æ•ˆ
 						p_pConn->hSocket = INVALID_SOCKET;
 						break;
 					}
@@ -826,24 +842,24 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 							break;
 						}
 						lastsend = time(NULL);
-						CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "µÈ´ı³¬Ê±:%m_hSocket,%d,%u  [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,dwErr,GetCurrentThreadId());
+						CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "ç­‰å¾…è¶…æ—¶:%m_hSocket,%d,%u  [%u] \r\n",p_pConn->strIp.c_str(),p_pConn->iPort,dwErr,GetCurrentThreadId());
 						continue;
 					}
-					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "¶ÁÈ¡Êı¾İÊ§°Ü=%d:%m_hSocket,%d,%u  [%u] \r\n",nread,p_pConn->strIp.c_str(),p_pConn->iPort,dwErr,GetCurrentThreadId());
-					CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","¶ÁÈ¡Êı¾İÊ§°Ü=%d:%m_hSocket,%d,%u  [%u] \r\n",nread,p_pConn->strIp.c_str(),p_pConn->iPort,dwErr,GetCurrentThreadId());
+					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "è¯»å–æ•°æ®å¤±è´¥=%d:%m_hSocket,%d,%u  [%u] \r\n",nread,p_pConn->strIp.c_str(),p_pConn->iPort,dwErr,GetCurrentThreadId());
+					CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","è¯»å–æ•°æ®å¤±è´¥=%d:%m_hSocket,%d,%u  [%u] \r\n",nread,p_pConn->strIp.c_str(),p_pConn->iPort,dwErr,GetCurrentThreadId());
 					closesocket(p_pConn->hSocket);
 					p_pConn->hSocket = INVALID_SOCKET;
 					break;
 				}
-				//·ÀÖ¹´ò´©»º³åÇø
+				//é˜²æ­¢æ‰“ç©¿ç¼“å†²åŒº
 				if ( rcvoffset+nread >= MAX_CACHE_BUFLEN )
 				{
-					CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","·ÀÖ¹´ò´©»º³åÇø=%d > MAXCAHE=%d [%u]\r\n",rcvoffset+nread,MAX_CACHE_BUFLEN,GetCurrentThreadId());
+					CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","é˜²æ­¢æ‰“ç©¿ç¼“å†²åŒº=%d > MAXCAHE=%d [%u]\r\n",rcvoffset+nread,MAX_CACHE_BUFLEN,GetCurrentThreadId());
 					closesocket(p_pConn->hSocket);
 					p_pConn->hSocket = INVALID_SOCKET;
 					break;
 				}
-				//±£´æ×îĞÂÊı¾İ
+				//ä¿å­˜æœ€æ–°æ•°æ®
 				memcpy(p_pBuf+rcvoffset,rcvbuf,nread);
 				rcvoffset += nread;
 				while (	!m_bStop)
@@ -853,24 +869,24 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 						break;
 					}
 					ST_ANS_HEADER * pi = (ST_ANS_HEADER*)p_pBuf;
-					if( pi->lSeparator != SEPARATOR_NUM )	// °üÍ·²»¶Ô
+					if( pi->lSeparator != SEPARATOR_NUM )	// åŒ…å¤´ä¸å¯¹
 					{
-						CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "°üÍ·½âÎö´íÎó£¬Ö÷¶¯¶Ï¿ªÁ¬½Ó£¬ÖØĞÂÁ¬½Ó\r\n");
-						CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","°üÍ·½âÎö´íÎó£¬Ö÷¶¯¶Ï¿ªÁ¬½Ó£¬ÖØĞÂÁ¬½Ó\r\n");
+						CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "åŒ…å¤´è§£æé”™è¯¯ï¼Œä¸»åŠ¨æ–­å¼€è¿æ¥ï¼Œé‡æ–°è¿æ¥\r\n");
+						CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","åŒ…å¤´è§£æé”™è¯¯ï¼Œä¸»åŠ¨æ–­å¼€è¿æ¥ï¼Œé‡æ–°è¿æ¥\r\n");
 						closesocket(p_pConn->hSocket);
 						p_pConn->hSocket = INVALID_SOCKET;
 						break;
 					}
-					//ÅĞ¶ÏÄÚÈİÊÇ·ñÒÑ¾­ÊÕÍê,Ã»ÓĞÔò¼ÌĞøÊÕ
+					//åˆ¤æ–­å†…å®¹æ˜¯å¦å·²ç»æ”¶å®Œ,æ²¡æœ‰åˆ™ç»§ç»­æ”¶
 					if( rcvoffset  <  pi->dwPacketLen+sizeof(ST_ANS_HEADER))
 					{
-						break;//²»¹»Ò»¸ö°ü,ÍË³öÑ­»·¼ÌĞøÊÕ
+						break;//ä¸å¤Ÿä¸€ä¸ªåŒ…,é€€å‡ºå¾ªç¯ç»§ç»­æ”¶
 					}
-					// ´¦ÀíĞ­Òé,Ìø¹ı¿Õ°ü
+					// å¤„ç†åè®®,è·³è¿‡ç©ºåŒ…
 					if ( pi->dwPacketLen > 0 )
 					{
 						//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "%d,%d,zip=%d:%m_hSocket,%d [%u] \r\n",pi->req,pi->dwPacketLen,pi->stInfo.chCompressed,p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
-						//½âÑ¹Ëõ
+						//è§£å‹ç¼©
 						if (!pi->stInfo.chCompressed)
 						{
 							//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Push %d,%d :%m_hSocket,%d [%u] \r\n",pi->req,pi->dwPacketLen,p_pConn->strIp.c_str(),p_pConn->iPort,GetCurrentThreadId());
@@ -879,7 +895,7 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 						}
 						else
 						{
-							// ÍÆËÍÖ»ÄÜÓÃsnappy
+							// æ¨é€åªèƒ½ç”¨snappy
 							std::string dest;
 							size_t size = snappy::Uncompress((const char*)(pi + 1),pi->dwPacketLen,&dest);
 
@@ -914,10 +930,10 @@ DWORD CPushMng::PeekThread(ST_TCP_PUSH_CONN * p_pConn)
 	//delete [] p_pBuf;
 	//delete [] rcvbuf;
 	//delete [] subbuf;
-	CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","Peek½ÓÊÕÍÆËÍÏß³ÌÍË³ö\r\n");
+	CIceRPCPushLog::Instance().WriteLog("JSONRPC","PEEKTHREAD","Peekæ¥æ”¶æ¨é€çº¿ç¨‹é€€å‡º\r\n");
 	return 0;
 }
-// Î¬»¤ĞèÒª Ice Ö÷¶¯ÍÆËÍµÄ HANDLE ¼¯ºÏ£¬É¾³ıÊ±±ÜÃâºóÌ¨Ïß³Ì¼ÌĞø·ÃÎÊ¡£
+// ç»´æŠ¤éœ€è¦ Ice ä¸»åŠ¨æ¨é€çš„ HANDLE é›†åˆï¼Œåˆ é™¤æ—¶é¿å…åå°çº¿ç¨‹ç»§ç»­è®¿é—®ã€‚
 void CPushMng::PushHandle(HANDLE p_hHandle,bool p_bIsDel)
 {
 	if ( m_pThis )
@@ -935,7 +951,7 @@ void CPushMng::PushHandle(HANDLE p_hHandle,bool p_bIsDel)
 	}
 }
 
-// Ice »Øµ÷ÊÕµ½µÄÍÆËÍ°üÈë¶Ó£¬¶ÓÁĞ³¤¶È×÷Îª»ıÑ¹ÏŞÁ÷Ö¸±ê¡£
+// Ice å›è°ƒæ”¶åˆ°çš„æ¨é€åŒ…å…¥é˜Ÿï¼Œé˜Ÿåˆ—é•¿åº¦ä½œä¸ºç§¯å‹é™æµæŒ‡æ ‡ã€‚
 void CPushMng::PushPack(ST_PACK_QUEUE* p_pPack)
 {
 	if ( m_pThis )
@@ -945,9 +961,8 @@ void CPushMng::PushPack(ST_PACK_QUEUE* p_pPack)
 	}	
 	else
 	{
-		delete [] p_pPack->pBuf;
 		delete	p_pPack;
-		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "ÍÆËÍ¿Õ½ÓÊÕ..........................\r\n");
+		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "æ¨é€ç©ºæ¥æ”¶..........................\r\n");
 	}
 }
 
@@ -956,7 +971,7 @@ DWORD	WINAPI CPushMng::s_PushThread(void * p_pParam)
 	return ((CPushMng*)p_pParam)->PushThread();
 }
 
-// ÍÆËÍ¶ÓÁĞÏû·ÑÏß³Ì£¬¸ºÔğ½âÑ¹ snappy °ü²¢¹ã²¥¸ø±¾µØ»Øµ÷¡£
+// æ¨é€é˜Ÿåˆ—æ¶ˆè´¹çº¿ç¨‹ï¼Œè´Ÿè´£æ ¡éªŒå’Œè§£å‹é€åŒ…è½½è·å¹¶å¹¿æ’­åŸå§‹äºŒè¿›åˆ¶ç»™æœ¬åœ°å›è°ƒã€‚
 DWORD CPushMng::PushThread()
 {
 	time_t	lastT = time(NULL);
@@ -978,38 +993,35 @@ DWORD CPushMng::PushThread()
 		ST_PACK_QUEUE * pack = m_clPackQueue.PopFront();
 		while ( pack )
 		{
-			std::map<func_JsonICEPushClientPack,void*> mapCallback;
-			EnterCriticalSection(&m_csPush);
-			mapCallback = m_mapPackCallback;
-			LeaveCriticalSection(&m_csPush);
-
-			if ( pack->bSnappy )
+			std::vector<unsigned char> vecRaw;
+			std::string strError;
+			if (binarypayload::Decode(pack->stPayload,
+				pack->iProtocolVersion, pack->iMaxPayloadBytes,
+				vecRaw, strError))
 			{
-				std::string dest;
-				snappy::Uncompress((const char*)pack->pBuf,pack->lBufLen,&dest);
+				std::map<func_JsonICEPushClientPack,void*> mapCallback;
+				EnterCriticalSection(&m_csPush);
+				mapCallback = m_mapPackCallback;
+				LeaveCriticalSection(&m_csPush);
+				const char* pRaw = vecRaw.empty() ? NULL :
+					reinterpret_cast<const char*>(vecRaw.data());
 				std::map<func_JsonICEPushClientPack,void*>::iterator it = mapCallback.begin();
 				while ( it != mapCallback.end() )
 				{
 					if ( it->first != NULL )
 					{
-						it->first(pack->lReqNo,dest.data(),SafeSizeToLength<int>(dest.size()),it->second);
+						it->first(pack->lReqNo, pRaw,
+							SafeSizeToLength<long>(vecRaw.size()), it->second);
 					}
 					++it;
 				}
 			}
 			else
 			{
-				std::map<func_JsonICEPushClientPack,void*>::iterator it = mapCallback.begin();
-				while ( it != mapCallback.end() )
-				{
-					if ( it->first != NULL )
-					{
-						it->first(pack->lReqNo,pack->pBuf,pack->lBufLen,it->second);
-					}
-					++it;
-				}
+				CIceRPCPushLog::Instance().WriteLog("JSONRPC", "PUSHPACK",
+					"BINARY_PUSH_DECODE_FAILED: req=%I64d, detail=%s\r\n",
+					pack->lReqNo, strError.c_str());
 			}
-			delete [] pack->pBuf;
 			delete	pack;
 			if ( m_bStop )
 				break;
@@ -1019,7 +1031,7 @@ DWORD CPushMng::PushThread()
 	return 0;
 }
 
-// ×¢²á»òÒÆ³ı±¾µØÍÆËÍ»Øµ÷£¬p_pParam Óëº¯ÊıÖ¸Õë³É¶Ô±£´æ¡£
+// æ³¨å†Œæˆ–ç§»é™¤æœ¬åœ°æ¨é€å›è°ƒï¼Œp_pParam ä¸å‡½æ•°æŒ‡é’ˆæˆå¯¹ä¿å­˜ã€‚
 void CPushMng::UpdateCallBack(func_JsonICEPushClientPack p_pfnCallback,void * p_pParam,bool p_bIsDel)
 {
 	if ( m_pThis )
@@ -1041,18 +1053,163 @@ void CPushMng::UpdateCallBack(func_JsonICEPushClientPack p_pfnCallback,void * p_
 
 namespace JSONBINRPC
 {
-// ×¢²áÍÆËÍµÄ Ice Òì²½»Øµ÷£¬·şÎñ¶Ë·µ»ØÑ¹ËõÄ£Ê½ºó¸üĞÂ¸¸¶ÔÏó×´Ì¬¡£
+	namespace
+	{
+		const int s_iBinaryProtocolVersion = 1;
+		const int s_iBinaryProtocolError = -20008;
+		const int s_iBinaryPayloadTooLarge = -20009;
+		const int s_iBinaryCompressionError = -20010;
+		const int s_iBinaryQueueFull = -20011;
+		const int s_iBinaryCallTimeout = -20012;
+		const int s_iBinaryPendingFull = -20013;
+		const int s_iBinaryCallbackError = -20014;
+		const int s_iBinaryStateError = -20003;
+
+		// ç¼–ç ç»“æœç›´æ¥æ‹¥æœ‰ Ice ç”Ÿæˆçš„ä¸¤ä¸ªå­—èŠ‚å®¹å™¨ï¼Œå…¬å…±ç»“æ„åªæš´éœ²åªè¯»è§†å›¾ã€‚
+		struct ST_BINARY_ENCODED_RESULT_OWNER
+		{
+			::JSONBINRPC::AByte aPayload; // ä¸» BinaryPayload ç¼–ç æ­£æ–‡ã€‚
+			::JSONBINRPC::AByte aExtra;   // æ‰©å±• BinaryPayload ç¼–ç æ­£æ–‡ã€‚
+		};
+
+		void FillBinaryEncodedBuffer(
+			const ::JSONBINRPC::BinaryPayload& p_refPayload,
+			const ::JSONBINRPC::AByte& p_refData, int p_iMaxPayloadBytes,
+			ST_BINARY_ENCODED_BUFFER& p_refBuffer)
+		{
+			p_refBuffer.iVersion = p_refPayload.version;
+			p_refBuffer.iCompression =
+				static_cast<int>(p_refPayload.compression);
+			p_refBuffer.iRawSize = p_refPayload.rawSize;
+			p_refBuffer.iWireSize = SafeSizeToLength<int>(p_refData.size());
+			p_refBuffer.iMaxPayloadBytes = p_iMaxPayloadBytes;
+			p_refBuffer.pBuffer = p_refData.empty() ? nullptr :
+				reinterpret_cast<const unsigned char*>(p_refData.data());
+		}
+
+		// æŠŠæœ¬å±‚åè®®æ ¡éªŒè¯¦æƒ…è½¬æ¢ä¸ºç¨³å®šé”™è¯¯ç ï¼Œä¾›åŒæ­¥å’Œå¼‚æ­¥æäº¤è·¯å¾„å…±ç”¨ã€‚
+		int InferBinaryProtocolErrorCode(const std::string& p_strError)
+		{
+			if (p_strError.rfind("BINARY_PAYLOAD_TOO_LARGE", 0) == 0)
+			{
+				return s_iBinaryPayloadTooLarge;
+			}
+			if (p_strError.rfind("BINARY_SNAPPY_", 0) == 0 || p_strError.rfind("BINARY_COMPRESSION_", 0) == 0)
+			{
+				return s_iBinaryCompressionError;
+			}
+			return s_iBinaryProtocolError;
+		}
+
+		// ä¸ºå¼‚æ­¥å¼‚å¸¸æ„é€ ç¨³å®šçš„è‹±æ–‡æè¿°ï¼Œé¿å…æŠŠå¼‚å¸¸å¯¹è±¡ç”Ÿå‘½å‘¨æœŸä¼ å‡ºå›è°ƒã€‚
+		std::string MakeBinaryExceptionDetail(const char* p_szFunction, std::exception_ptr p_refException)
+		{
+			std::string strDetail = "BINARY_REMOTE_EXCEPTION: func=";
+			strDetail += p_szFunction != NULL ? p_szFunction : "unknown";
+			try
+			{
+				if (p_refException)
+				{
+					std::rethrow_exception(p_refException);
+				}
+			}
+			catch (const IceUtil::Exception& ex)
+			{
+				strDetail += ", ice=";
+				strDetail += ex.ice_id();
+				strDetail += ", what=";
+				strDetail += ex.what();
+			}
+			catch (const std::exception& ex)
+			{
+				strDetail += ", what=";
+				strDetail += ex.what();
+			}
+			catch (...)
+			{
+				strDetail += ", what=unknown exception";
+			}
+			return strDetail;
+		}
+	}
+
+	// å•ä¸ªæœåŠ¡ç«¯ Binary AMD è¯·æ±‚ï¼›å·¥ä½œçº¿ç¨‹æ‹¥æœ‰å¯¹è±¡å¹¶åœ¨å‘é€åº”ç­”åé‡Šæ”¾ã€‚
+	struct CJsonBinRPCImp::ST_BINARY_SERVER_TASK
+	{
+		CJsonBinRPCImp* pOwner;                                           // å¤„ç†è¯¥ä»»åŠ¡çš„æœåŠ¡å®ä¾‹ï¼Œä¸æ‹¥æœ‰å…¶ç”Ÿå‘½å‘¨æœŸã€‚
+		ST_BINARY_RESPONSE_CONTEXT* pResponseContext;                      // ç›´æ¥ç»‘å®šçš„ DLL å†…éƒ¨å¼•ç”¨è®¡æ•°åº”ç­”ä¸Šä¸‹æ–‡ã€‚
+		HANDLE hResponse;                                                  // ä»…å‘ C ABI æš´éœ²çš„ä¸é€æ˜ä¸Šä¸‹æ–‡æŒ‡é’ˆã€‚
+		bool bPut;                                                        // true è¡¨ç¤º PUTï¼Œfalse è¡¨ç¤º RPCã€‚
+		bool bCompleted;                                                  // ä¸šåŠ¡å·²ç»æäº¤åº”ç­”å†…å®¹ã€‚
+		bool bCallbackReturned;                                           // æœåŠ¡å›è°ƒå·²ç»è¿”å› dispositionã€‚
+		bool bDeferred;                                                   // å›è°ƒé€‰æ‹©å»¶è¿Ÿåº”ç­”ã€‚
+		bool bResponseQueued;                                             // å®Œæ•´ç»“æœå·²ç»é¢†å–åº”ç­”é˜Ÿåˆ—æ‰€æœ‰æƒã€‚
+		bool bOwnedResult;                                                // true è¡¨ç¤ºç»“æœä»æ˜¯æœªå‹ç¼©çš„è‡ªæœ‰ç¼“å†²ã€‚
+		int iProtocolVersion;                                             // åˆ›å»ºä»»åŠ¡æ—¶å†»ç»“çš„åè®®ç‰ˆæœ¬ã€‚
+		int iCompressionThresholdBytes;                                   // åˆ›å»ºä»»åŠ¡æ—¶å†»ç»“çš„å‹ç¼©é˜ˆå€¼ã€‚
+		int iMaxPayloadBytes;                                             // åˆ›å»ºä»»åŠ¡æ—¶å†»ç»“çš„è½½è·ä¸Šé™ã€‚
+		std::mutex clMutex;                                               // ä¿æŠ¤å®Œæˆã€å»¶è¿Ÿå’Œå‘é€çŠ¶æ€ã€‚
+		::JSONBINRPC::BinaryRequest stRequest;                            // Ice è§£ç åçš„ä¼ è¾“è¯·æ±‚ã€‚
+		::JSONBINRPC::BinaryResponse stResponse;                          // ä¸šåŠ¡å®Œæˆåå¾…å‘é€çš„ä¼ è¾“åº”ç­”ã€‚
+		std::vector<unsigned char> vecPayload;                            // è§£å‹åçš„ä¸»è¯·æ±‚è½½è·ã€‚
+		std::vector<unsigned char> vecExtra;                              // è§£å‹åçš„æ‰©å±•è¯·æ±‚è½½è·ã€‚
+		std::vector<unsigned char> vecResultPayload;                      // ä¸šåŠ¡è¿”å›çš„æœªå‹ç¼©ä¸»è½½è·è‡ªæœ‰å‰¯æœ¬ã€‚
+		std::vector<unsigned char> vecResultExtra;                        // ä¸šåŠ¡è¿”å›çš„æœªå‹ç¼©æ‰©å±•è½½è·è‡ªæœ‰å‰¯æœ¬ã€‚
+		long long lResultRetVal;                                          // ä¸šåŠ¡ä¸»è¿”å›å€¼ã€‚
+		int iResultErrorCode;                                             // ä¸šåŠ¡æˆ–ç½‘ç»œå±‚é”™è¯¯ç ã€‚
+		long long lResultParam;                                           // ç¬¬ä¸€ä¸šåŠ¡è¿”å›å‚æ•°ã€‚
+		long long lResultWParam;                                          // ç¬¬äºŒä¸šåŠ¡è¿”å›å‚æ•°ã€‚
+		std::string strResultError;                                       // ä¸åŒ…å«å¤§æ­£æ–‡çš„è‹±æ–‡é”™è¯¯æè¿°ã€‚
+		std::function<void(const ::JSONBINRPC::BinaryResponse&)> fnResponse; // Ice AMD æˆåŠŸå›è°ƒã€‚
+		std::function<void(std::exception_ptr)> fnException;              // Ice AMD å¼‚å¸¸å›è°ƒã€‚
+
+		ST_BINARY_SERVER_TASK()
+		{
+			pOwner = NULL;
+			pResponseContext = NULL;
+			hResponse = NULL;
+			bPut = false;
+			bCompleted = false;
+			bCallbackReturned = false;
+			bDeferred = false;
+			bResponseQueued = false;
+			bOwnedResult = false;
+			iProtocolVersion = s_iBinaryProtocolVersion;
+			iCompressionThresholdBytes = 1024;
+			iMaxPayloadBytes = 50 * 1024 * 1024;
+			lResultRetVal = 0;
+			iResultErrorCode = 0;
+			lResultParam = 0;
+			lResultWParam = 0;
+		}
+	};
+
+	// ä¸é€æ˜ä¸Šä¸‹æ–‡åªåœ¨ DLL å†…ä¿å­˜ shared_ptrï¼›C ABI å’Œ CloudNet ä»…é€ä¼ è£¸æŒ‡é’ˆã€‚
+	struct CJsonBinRPCImp::ST_BINARY_RESPONSE_CONTEXT
+	{
+		std::atomic<long> lReferences;                                    // åŸå§‹å¥æŸ„ã€åº”ç­”é˜Ÿåˆ—æˆ–å›æ”¶é˜Ÿåˆ—æŒæœ‰çš„å¼•ç”¨æ•°ã€‚
+		CJsonBinRPCImp* pOwner;                                           // åˆ›å»ºä¸Šä¸‹æ–‡çš„æœåŠ¡å®ä¾‹ï¼Œåœæœºå‰å¿…é¡»å®Œæˆæ”¶æ•›ã€‚
+		std::shared_ptr<ST_BINARY_SERVER_TASK> refTask;                   // ä¿è¯å¼‚æ­¥åº”ç­”å’Œå›æ”¶æœŸé—´ä»»åŠ¡ä»ç„¶æœ‰æ•ˆã€‚
+
+		explicit ST_BINARY_RESPONSE_CONTEXT(
+			const std::shared_ptr<ST_BINARY_SERVER_TASK>& p_refTask)
+			: lReferences(1)
+			, pOwner(p_refTask ? p_refTask->pOwner : NULL)
+			, refTask(p_refTask)
+		{
+		}
+	};
+// æ³¨å†Œæ¨é€çš„ Ice å¼‚æ­¥å›è°ƒï¼ŒæœåŠ¡ç«¯è¿”å›å‹ç¼©æ¨¡å¼åæ›´æ–°çˆ¶å¯¹è±¡çŠ¶æ€ã€‚
 	class CRegisterIOCallBack : public IceUtil::Shared
 	{
 	public:
 		void ice_response(::Ice::Long p_lRetVal)
 		{
-			EnterCriticalSection(&g_csHandleLock);
+			std::lock_guard<std::mutex> clLock(g_clHandleMutex);
 			if ( g_mapHandle.find(m_lpParent) != g_mapHandle.end() )
 			{
 				m_lpParent->RegisterCallBack(p_lRetVal);
 			}
-			LeaveCriticalSection(&g_csHandleLock);
 		}
 		void exception(const Ice::Exception& p_refException)
 		{
@@ -1064,8 +1221,8 @@ namespace JSONBINRPC
 		CJsonBinRPCImp	*	m_lpParent;	
 	};
 	typedef IceUtil::Handle<CRegisterIOCallBack> CRegisterIOCallBackPtr;
-	// µ÷ÓÃÍÆËÍ£¬Òì²½»Øµ÷µÄÀà(½á¹¹)£¬×¢Òâ¿ØÖÆÄÚ´æ´óĞ¡
-// µ¥¸ö¿Í»§¶Ë Ice ÍÆËÍµÄÒì²½»Øµ÷£¬ÓÃÓÚÊ§°ÜºóÇåÀí¿Í»§¶Ë¾ä±ú¡£
+	// è°ƒç”¨æ¨é€ï¼Œå¼‚æ­¥å›è°ƒçš„ç±»(ç»“æ„)ï¼Œæ³¨æ„æ§åˆ¶å†…å­˜å¤§å°
+// å•ä¸ªå®¢æˆ·ç«¯ Ice æ¨é€çš„å¼‚æ­¥å›è°ƒï¼Œç”¨äºå¤±è´¥åæ¸…ç†å®¢æˆ·ç«¯å¥æŸ„ã€‚
 	class CPushCallback : public IceUtil::Shared
 	{
 	public:
@@ -1077,7 +1234,7 @@ namespace JSONBINRPC
 		void response()
 		{
 			InterlockedDecrement64(&CPushMng::m_lPushPackCrowded);
-			// µ×²ã²»ÔÙÍ³¼Æ¾ßÌåÃ¿¸öÁ´½Ó°üµÄ¸öÊı£¬Ö»Í³¼Æ×ÜÊı m_lpParent->PushFinish(m_nKey);
+			// åº•å±‚ä¸å†ç»Ÿè®¡å…·ä½“æ¯ä¸ªé“¾æ¥åŒ…çš„ä¸ªæ•°ï¼Œåªç»Ÿè®¡æ€»æ•° m_lpParent->PushFinish(m_nKey);
 		}
 		void sent(bool p_bSent)
 		{
@@ -1087,12 +1244,11 @@ namespace JSONBINRPC
 			InterlockedDecrement64(&CPushMng::m_lPushPackCrowded);
 			//cerr << "sayHello AMI call failed:\n" << ex << endl;
 			//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "%m_hSocket: ERROR=%u\r\n",ex.ice_id(),GetLastError());
-			EnterCriticalSection(&g_csHandleLock);
+			std::lock_guard<std::mutex> clLock(g_clHandleMutex);
 			if ( g_mapHandle.find(m_lpParent) != g_mapHandle.end() )
 			{
 				m_lpParent->SelfDelClient(m_nKey);
 			}
-			LeaveCriticalSection(&g_csHandleLock);
 		}
 		 void finished(const Ice::AsyncResultPtr& p_refResult) 
 		 {
@@ -1111,12 +1267,12 @@ namespace JSONBINRPC
 		iType = 0;
 		dwCount= 0;
 		pRpc = NULL;
-		// 0x100 ÒÔÉÏµÄÖµĞèÒªµ¥¶À¶©ÔÄ
-		// m_mapSubId[0x02] = 1;	// È±Ê¡¶©ÔÄ»ù´¡ĞĞÇé
+		// 0x100 ä»¥ä¸Šçš„å€¼éœ€è¦å•ç‹¬è®¢é˜…
+		// m_mapSubId[0x02] = 1;	// ç¼ºçœè®¢é˜…åŸºç¡€è¡Œæƒ…
 		tmLive		= time(NULL);
 		refProxy.reset();
 	}
-// ¸ù¾İ¾ä±úÀàĞÍ·µ»Ø¿Éµ÷ÓÃ´úÀí£¬¾ßÌå¿Í»§¶Ë¾ä±úÓÅÏÈÊ¹ÓÃ×ÔÉí refProxy¡£
+// æ ¹æ®å¥æŸ„ç±»å‹è¿”å›å¯è°ƒç”¨ä»£ç†ï¼Œå…·ä½“å®¢æˆ·ç«¯å¥æŸ„ä¼˜å…ˆä½¿ç”¨è‡ªèº« refProxyã€‚
 	JSONBINRPC::IJsonBinRPCPrx ST_JSON_BIN_HANDLE::ClientIO()
 	{
 		if ( iType ==EN_JSON_HANDLE_RPC )
@@ -1124,13 +1280,13 @@ namespace JSONBINRPC
 		else
 			return refProxy.value();
 	}
-// Ôö¼Ó HANDLE ÒıÓÃ¼ÆÊı£¬·ÀÖ¹Òì²½ÍÆËÍÆÚ¼ä¶ÔÏó±»ÌáÇ°ÊÍ·Å¡£
+// å¢åŠ  HANDLE å¼•ç”¨è®¡æ•°ï¼Œé˜²æ­¢å¼‚æ­¥æ¨é€æœŸé—´å¯¹è±¡è¢«æå‰é‡Šæ”¾ã€‚
 	ST_JSON_BIN_HANDLE * ST_JSON_BIN_HANDLE::Ref()
 	{
 		InterlockedIncrement(&lRef);
 		return this;
 	}
-// ÊÍ·Å HANDLE ÒıÓÃ£¬¼ÆÊı¹éÁãÊ±É¾³ı°ü×°¶ÔÏó¡£
+// é‡Šæ”¾ HANDLE å¼•ç”¨ï¼Œè®¡æ•°å½’é›¶æ—¶åˆ é™¤åŒ…è£…å¯¹è±¡ã€‚
 	bool ST_JSON_BIN_HANDLE::ReleaseIt()
 	{	
 		if ( 0==InterlockedDecrement(&lRef) )
@@ -1142,7 +1298,7 @@ namespace JSONBINRPC
 	}
 
 
-// ³õÊ¼»¯ RPC ÊµÀıµÄ·şÎñ¶Ë¡¢¿Í»§¶ËºÍÍÆËÍ×´Ì¬£¬±£Ö¤ºóĞøÊ§°ÜÂ·¾¶¿É°²È«ÇåÀí¡£
+// åˆå§‹åŒ– RPC å®ä¾‹çš„æœåŠ¡ç«¯ã€å®¢æˆ·ç«¯å’Œæ¨é€çŠ¶æ€ï¼Œä¿è¯åç»­å¤±è´¥è·¯å¾„å¯å®‰å…¨æ¸…ç†ã€‚
 CJsonBinRPCImp::CJsonBinRPCImp(void):m_clMemMng(MAX_CACHE_BUFLEN+1024*1024)
 {
 	m_iUdpThread	= 4;
@@ -1151,6 +1307,10 @@ CJsonBinRPCImp::CJsonBinRPCImp(void):m_clMemMng(MAX_CACHE_BUFLEN+1024*1024)
 	m_bNeedReconnect = false;
 	m_semMiddle		= NULL;
 	m_pfnServerCallback		= NULL;
+	m_pfnBinaryServerCallback = NULL;
+	m_pfnBinaryServerCallbackEx = NULL;
+	m_pfnBinaryPriorityClassifier = NULL;
+	m_pBinaryServerParam = NULL;
 	//m_hSemPush		= NULL;
 	//m_hPushPack		= NULL;
 	m_refCommunicator	= nullptr;
@@ -1171,28 +1331,44 @@ CJsonBinRPCImp::CJsonBinRPCImp(void):m_clMemMng(MAX_CACHE_BUFLEN+1024*1024)
 	m_bOpenMul = false;
 	m_bOpenMulOk = false;
 	m_bAsyncWaitCompleted = true;
+	m_iBinaryProtocolVersion = s_iBinaryProtocolVersion;
+	m_iBinaryCompressionThresholdBytes = 1024;
+	m_iBinaryMaxPayloadBytes = 50 * 1024 * 1024;
+	m_iBinaryCallTimeoutMs = 15000;
+	m_iBinaryServerWorkerThreads = 4;
+	m_iBinaryServerQueueCapacity = 4096;
+	m_iBinaryResponseWorkerThreads = 8;
+	m_iBinaryResponseQueueCapacity = 4096;
+	m_iBinaryReclaimWorkerThreads = 2;
+	m_iBinaryMaxPendingAsync = 10000;
+	m_lBinaryPendingAsync.store(0);
+	m_lBinaryPendingResponses.store(0);
+	m_bBinaryWorkerStop.store(true);
+	m_bBinaryResponseWorkerStop.store(true);
+	m_bBinaryReclaimWorkerStop.store(true);
 	m_hSocketServer	= nullptr;
 	InitializeCriticalSection(&m_csLock);
 	//InitializeCriticalSection(&m_csPush);
 	//m_hPushPack	= NULL;
-	EnterCriticalSection(&g_csHandleLock);
-	g_mapHandle[this] = this;
-	LeaveCriticalSection(&g_csHandleLock);
+	{
+		std::lock_guard<std::mutex> clLock(g_clHandleMutex);
+		g_mapHandle[this] = this;
+	}
 	InitializeCriticalSection(&m_csMem);
 }
 
 
-// Îö¹¹Ö»×ö¶µµ×ÇåÀí£¬Õı³£ÊÍ·ÅÓ¦ÏÈ×ß DeleteIt/UnInit Íê³ÉÏß³ÌÍË³ö¡£
+// ææ„åªåšå…œåº•æ¸…ç†ï¼Œæ­£å¸¸é‡Šæ”¾åº”å…ˆèµ° DeleteIt/UnInit å®Œæˆçº¿ç¨‹é€€å‡ºã€‚
 CJsonBinRPCImp::~CJsonBinRPCImp(void)
 {
 	UnInit();
 	DeleteCriticalSection(&m_csLock);
 	DeleteCriticalSection(&m_csMem);
 	//DeleteCriticalSection(&m_csPush);
-	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Õı³£ÍË³ö~CJsonBinRPCImp\r\n");
+	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "æ­£å¸¸é€€å‡º~CJsonBinRPCImp\r\n");
 }
-// ¾²Ì¬º¯Êı
-// °´¾ä±úÉúÃüÖÜÆÚÏú»Ù RPC ÊµÀı£¬¼¯ÖĞ´¦ÀíÈ«¾Ö¾ä±ú±íºÍ Ice ×ÊÔ´¡£
+// é™æ€å‡½æ•°
+// æŒ‰å¥æŸ„ç”Ÿå‘½å‘¨æœŸé”€æ¯ RPC å®ä¾‹ï¼Œé›†ä¸­å¤„ç†å…¨å±€å¥æŸ„è¡¨å’Œ Ice èµ„æºã€‚
 void CJsonBinRPCImp::DeleteIt(CJsonBinRPCImp * p_pThis)
 {
 	HANDLE p_hHandle = NULL;
@@ -1200,15 +1376,15 @@ void CJsonBinRPCImp::DeleteIt(CJsonBinRPCImp * p_pThis)
 
 	p_pThis->UnInit();
 	int		i=0;
-	if ( p_pThis->m_refCommunicatorClient )	// ±ØĞëÇ°Ãæ´¦Àí£¬ÒòÎª¶ÔÓÚstockio£»ºóÃæµÄ¶ÔÓÚthis£¬µ¼ÖÂÉ¾³ıÁË£¬²»´æÔÚÁË
-	{	// Èç¹ûÊÇ¿Í»§¶Ë´æÔÚ»Øµ÷
+	if ( p_pThis->m_refCommunicatorClient )	// å¿…é¡»å‰é¢å¤„ç†ï¼Œå› ä¸ºå¯¹äºstockioï¼›åé¢çš„å¯¹äºthisï¼Œå¯¼è‡´åˆ é™¤äº†ï¼Œä¸å­˜åœ¨äº†
+	{	// å¦‚æœæ˜¯å®¢æˆ·ç«¯å­˜åœ¨å›è°ƒ
 		p_hHandle = CreateThread(NULL,0,(LPTHREAD_START_ROUTINE)s_DetroyIceCommunicator,&p_pThis->m_refCommunicatorClient,0,0);
-		// Ìø¹ıÏß³Ì´¦Àí£¬ÓĞµÄ»úÆ÷ÉÏ£¬²»ÄÜÍêÈ« destroy £¬»á¿¨×¡
+		// è·³è¿‡çº¿ç¨‹å¤„ç†ï¼Œæœ‰çš„æœºå™¨ä¸Šï¼Œä¸èƒ½å®Œå…¨ destroy ï¼Œä¼šå¡ä½
 		for ( i=0;i<8;++i )
 		{
 			if ( WaitForSingleObject(p_hHandle,1000)==WAIT_OBJECT_0 )
 			{
-				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d ´Î/8] ³É¹¦¹Ø±ÕCJsonBinRPCImp  communicatorClient\r\n",i+1);
+				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d æ¬¡/8] æˆåŠŸå…³é—­CJsonBinRPCImp  communicatorClient\r\n",i+1);
 				break;
 			}
 			else
@@ -1216,11 +1392,11 @@ void CJsonBinRPCImp::DeleteIt(CJsonBinRPCImp * p_pThis)
 				if ( i==7 )
 				{
 					::TerminateThread(p_hHandle,100);
-					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "¹Ø±ÕCJsonBinRPCImp  communicatorClientÊ§°Ü£¬Ç¿ĞĞ¹Ø±Õ\r\n");
+					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å…³é—­CJsonBinRPCImp  communicatorClientå¤±è´¥ï¼Œå¼ºè¡Œå…³é—­\r\n");
 				}
 				else
 				{
-					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d ´Î/8] ³¢ÊÔµÈ´ı¹Ø±ÕCJsonBinRPCImp  communicatorClient\r\n",i+1);
+					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d æ¬¡/8] å°è¯•ç­‰å¾…å…³é—­CJsonBinRPCImp  communicatorClient\r\n",i+1);
 				}
 			}
 		}
@@ -1228,7 +1404,7 @@ void CJsonBinRPCImp::DeleteIt(CJsonBinRPCImp * p_pThis)
 // 		if ( WaitForSingleObject(p_hHandle,8000)!=WAIT_OBJECT_0 )
 // 		{
 // 			::TerminateThread(p_hHandle,100);
-// 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "¹Ø±ÕCJsonBinRPCImp  communicatorClientÊ§°Ü£¬Ç¿ĞĞ¹Ø±Õ\r\n");
+// 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å…³é—­CJsonBinRPCImp  communicatorClientå¤±è´¥ï¼Œå¼ºè¡Œå…³é—­\r\n");
 // 		}
 		CloseHandle(p_hHandle);
 		p_pThis->m_refCommunicatorClient = nullptr;
@@ -1241,7 +1417,7 @@ void CJsonBinRPCImp::DeleteIt(CJsonBinRPCImp * p_pThis)
 		{
 			if ( WaitForSingleObject(p_hHandle,1000)==WAIT_OBJECT_0 )
 			{
-				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d ´Î/8] ³É¹¦¹Ø±ÕCJsonBinRPCImp  communicatorServer\r\n",i+1);
+				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d æ¬¡/8] æˆåŠŸå…³é—­CJsonBinRPCImp  communicatorServer\r\n",i+1);
 				break;
 			}
 			else
@@ -1249,34 +1425,34 @@ void CJsonBinRPCImp::DeleteIt(CJsonBinRPCImp * p_pThis)
 				if ( i==7 )
 				{
 					::TerminateThread(p_hHandle,100);
-					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "¹Ø±ÕCJsonBinRPCImp  communicatorServerÊ§°Ü£¬Ç¿ĞĞ¹Ø±Õ\r\n");
+					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å…³é—­CJsonBinRPCImp  communicatorServerå¤±è´¥ï¼Œå¼ºè¡Œå…³é—­\r\n");
 				}
 				else
 				{
-					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d ´Î/8] ³¢ÊÔµÈ´ı¹Ø±ÕCJsonBinRPCImp  communicatorServer\r\n",i+1);
+					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d æ¬¡/8] å°è¯•ç­‰å¾…å…³é—­CJsonBinRPCImp  communicatorServer\r\n",i+1);
 				}
 			}
 		}
 // 		if ( WaitForSingleObject(p_hHandle,8000)!=WAIT_OBJECT_0 )
 // 		{
 // 			::TerminateThread(p_hHandle,100);
-// 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "¹Ø±ÕCJsonBinRPCImp  communicatorÊ§°Ü£¬Ç¿ĞĞ¹Ø±Õ\r\n");
-// 			// ²¹³äÉ¾³ı£¬¼õÉÙÄÚ´æËğÊ§
+// 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å…³é—­CJsonBinRPCImp  communicatorå¤±è´¥ï¼Œå¼ºè¡Œå…³é—­\r\n");
+// 			// è¡¥å……åˆ é™¤ï¼Œå‡å°‘å†…å­˜æŸå¤±
 // 			//it->second.pushadapter->deactivate();
-// 			// Ö÷¶¯É¾³ı£¬µ¼ÖÂdelelte  it->second.pushadapter->remove(it->second.pushident);
+// 			// ä¸»åŠ¨åˆ é™¤ï¼Œå¯¼è‡´delelte  it->second.pushadapter->remove(it->second.pushident);
 // 			//it->second.pushadapter->destroy();
 // 		}
 		CloseHandle(p_hHandle);
-		// µ¼ÖÂÉ¾³ıÁË£¬²»´æÔÚÁË p_pThis->m_refCommunicator	= nullptr;
+		// å¯¼è‡´åˆ é™¤äº†ï¼Œä¸å­˜åœ¨äº† p_pThis->m_refCommunicator	= nullptr;
 	}
 	if ( !p_bIsDel )
 	{
-		delete	p_pThis;	// ¿Í»§¶Ë²»»á×Ô¶¯É¾³ı×Ô¼º£¬adapterÔ­Òò
+		delete	p_pThis;	// å®¢æˆ·ç«¯ä¸ä¼šè‡ªåŠ¨åˆ é™¤è‡ªå·±ï¼ŒadapteråŸå› 
 	}
 	CPushMng::ReleaseIt();
 }
 
-// ÇåÀíÖØÁ¬ locator ´´½¨µÄ¸½¼Ó m_refCommunicator£¬±ÜÃâ¾ÉÁ¬½Ó²ĞÁô¡£
+// æ¸…ç†é‡è¿ locator åˆ›å»ºçš„é™„åŠ  m_refCommunicatorï¼Œé¿å…æ—§è¿æ¥æ®‹ç•™ã€‚
 void CJsonBinRPCImp::DeleteAddedConn()
 {
 	HANDLE p_hHandle = NULL;
@@ -1288,7 +1464,7 @@ void CJsonBinRPCImp::DeleteAddedConn()
 		{
 			if ( WaitForSingleObject(p_hHandle,1000)==WAIT_OBJECT_0 )
 			{
-				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d ´Î/8] ³É¹¦¹Ø±ÕCJsonBinRPCImp  AddedConn\r\n",i+1);
+				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d æ¬¡/8] æˆåŠŸå…³é—­CJsonBinRPCImp  AddedConn\r\n",i+1);
 				break;
 			}
 			else
@@ -1296,11 +1472,11 @@ void CJsonBinRPCImp::DeleteAddedConn()
 				if ( i==7 )
 				{
 					::TerminateThread(p_hHandle,100);
-					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "¹Ø±ÕCJsonBinRPCImp  AddedConnÊ§°Ü£¬Ç¿ĞĞ¹Ø±Õ\r\n");
+					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å…³é—­CJsonBinRPCImp  AddedConnå¤±è´¥ï¼Œå¼ºè¡Œå…³é—­\r\n");
 				}
 				else
 				{
-					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d ´Î/8] ³¢ÊÔµÈ´ı¹Ø±ÕCJsonBinRPCImp  AddedConn\r\n",i+1);
+					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "[ %d æ¬¡/8] å°è¯•ç­‰å¾…å…³é—­CJsonBinRPCImp  AddedConn\r\n",i+1);
 				}
 			}
 		}
@@ -1315,15 +1491,15 @@ void CJsonBinRPCImp::DeleteAddedConn()
 // 	if ( m_refCommunicator  )
 // 	{
 // 		try
-// 		{	// ²âÊÔ £º m_refCommunicator->createObjectAdapter("WithCapitalio.Client");
-// 			// WithCapitalio.Client.Endpoints=default -p_hHandle *  Õı³£
-// 			// WithCapitalio.Client.Endpoints=default -p_hHandle 127.0.0.1 µ¼ÖÂÍË³öÊ§°Ü£¬µ«ÊÇÓĞÊ±ºò * ·şÎñÆ÷Ö§³Ö²»Õı³£
-// 			// ²âÊÔ2£º
-// 			// WithCapitalio.Client.Endpoints=tcp -z -p_hHandle * -p 10009:udp -z -p_hHandle * -p 10009 ¹Ì¶¨¶Ë¿Ú£¬¶à´ÎÁ¬½Ó£¬µ¼ÖÂ·şÎñ¶ËÍË³ö¿¨ËÀ
-// 			// ²âÊÔ3£º
-// 			// ÔÚÅäÖÃÖĞ¼ÓÈë  -t 5000 £¬Ò²µ¼ÖÂdestroy¿¨ËÀ
-// 			m_refCommunicator->destroy();	// É¾³ı×Ô¼º
-// 			// ÒÑ¾­É¾³ıÁË×Ô¼º£¬ÒòÎªadapterÒÑ¾­ºÍCJsonBinRPCImp°ó¶¨,destroy·ÃÎÊ³ÉÔ±±äÁ¿¾Í±ÀÀ££¬·Ç·¨Ö¸Õë  m_refCommunicator = nullptr;
+// 		{	// æµ‹è¯• ï¼š m_refCommunicator->createObjectAdapter("WithCapitalio.Client");
+// 			// WithCapitalio.Client.Endpoints=default -p_hHandle *  æ­£å¸¸
+// 			// WithCapitalio.Client.Endpoints=default -p_hHandle 127.0.0.1 å¯¼è‡´é€€å‡ºå¤±è´¥ï¼Œä½†æ˜¯æœ‰æ—¶å€™ * æœåŠ¡å™¨æ”¯æŒä¸æ­£å¸¸
+// 			// æµ‹è¯•2ï¼š
+// 			// WithCapitalio.Client.Endpoints=tcp -z -p_hHandle * -p 10009:udp -z -p_hHandle * -p 10009 å›ºå®šç«¯å£ï¼Œå¤šæ¬¡è¿æ¥ï¼Œå¯¼è‡´æœåŠ¡ç«¯é€€å‡ºå¡æ­»
+// 			// æµ‹è¯•3ï¼š
+// 			// åœ¨é…ç½®ä¸­åŠ å…¥  -t 5000 ï¼Œä¹Ÿå¯¼è‡´destroyå¡æ­»
+// 			m_refCommunicator->destroy();	// åˆ é™¤è‡ªå·±
+// 			// å·²ç»åˆ é™¤äº†è‡ªå·±ï¼Œå› ä¸ºadapterå·²ç»å’ŒCJsonBinRPCImpç»‘å®š,destroyè®¿é—®æˆå‘˜å˜é‡å°±å´©æºƒï¼Œéæ³•æŒ‡é’ˆ  m_refCommunicator = nullptr;
 // 		}
 // 		catch(const IceUtil::Exception&)
 // 		{
@@ -1332,19 +1508,19 @@ void CJsonBinRPCImp::DeleteAddedConn()
 // 	}
 // }
 /*
-#Ö¸¶¨»ñÈ¡Êı¾İÖ§³ÖµÄÊĞ³¡;
-#Ö¸¶¨¶ÔÓ¦µÄICE·şÎñ;Èç¹ûÊÇZMQ£¬¾Í×Ô¶¯×¢²á;ICE¿ÉÒÔ¿¼ÂÇ×¢²áµ½ZookeeperÉÏ
+#æŒ‡å®šè·å–æ•°æ®æ”¯æŒçš„å¸‚åœº;
+#æŒ‡å®šå¯¹åº”çš„ICEæœåŠ¡;å¦‚æœæ˜¯ZMQï¼Œå°±è‡ªåŠ¨æ³¨å†Œ;ICEå¯ä»¥è€ƒè™‘æ³¨å†Œåˆ°Zookeeperä¸Š
 Markets=SZ,SH
 MarketsNetID=JsonBinRPCSZSH
 
 
-#·şÎñÃû×ÖÊÇ×ÔĞĞÅäÖÃµÄ£¬²»Í¬µÄÊĞ³¡¿ÉÒÔ·Ö²ğ£¬×ÔĞĞÅäÖÃ
+#æœåŠ¡åå­—æ˜¯è‡ªè¡Œé…ç½®çš„ï¼Œä¸åŒçš„å¸‚åœºå¯ä»¥åˆ†æ‹†ï¼Œè‡ªè¡Œé…ç½®
 JsonBinRPCSZSH.Endpoints=tcp -z -p_hHandle * -p 30001:udp -z -p_hHandle * -p 30001
 JsonBinRPCSZSH.Proxy=Corbastockio:tcp -p_hHandle 192.168.0.156 -p 30001:udp -p_hHandle 192.168.0.156 -p 30001
-#´øÔöÖµ·şÎñÍÆËÍ½Ó¿Ú
+#å¸¦å¢å€¼æœåŠ¡æ¨é€æ¥å£
 JsonBinRPCSZSH.Client.Endpoints=default -p_hHandle localhost
 */
-// ·şÎñ¶ËÆô¶¯Á÷³Ì£º¶ÁÈ¡ÅäÖÃ¡¢´´½¨ m_refAdapter¡¢×¢²á servant ²¢´ò¿ªÍÆËÍÍ¨µÀ¡£
+// æœåŠ¡ç«¯å¯åŠ¨æµç¨‹ï¼šè¯»å–é…ç½®ã€åˆ›å»º m_refAdapterã€æ³¨å†Œ servant å¹¶æ‰“å¼€æ¨é€é€šé“ã€‚
 bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEndpointName,HANDLE & p_hSem,bool p_bSnappyCompress)
 {
 	//char	p_szEndpointName[1024]={0};
@@ -1363,19 +1539,22 @@ bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEnd
 			ST_XML_CONFIG_DATA clConfig;
 			LoadIcePropertiesFromConfig(p_szCfgFile, initData.properties, &clConfig);
 			m_bAsyncWaitCompleted = GetConfigInt(&clConfig, p_szCfgFile, "ICEPUSH", "AsyncWaitCompleted", 1) != 0;
+			LoadBinaryConfig(&clConfig, p_szCfgFile);
 			CIceRPCPushLog::Instance().ApplyConfig(p_szCfgFile, &clConfig);
+			// Ice 3.8 initialize ä¼šç§»èµ° InitializationDataï¼Œåç»­è¯»å–å±æ€§å¿…é¡»ä¿ç•™ç‹¬ç«‹ shared_ptrã€‚
+			Ice::PropertiesPtr refProperties = initData.properties;
 			//log = new LogI;
 			//initData.logger = log;
 			m_refCommunicator = Ice::initialize(std::move(initData));
-			m_refAdapter = m_refCommunicator->createObjectAdapter(m_strEndpointSrvName.c_str());	// ¶ÔÓ¦adapter µÄname
-			// Identity Òªµ¥¶ÀÖ¸¶¨
-			std::string idstr = initData.properties->getProperty("Identity");
-			// Push.iPort Òªµ¥¶ÀÖ¸¶¨	: "0" tcp £» ¡°1¡± udp
+			m_refAdapter = m_refCommunicator->createObjectAdapter(m_strEndpointSrvName.c_str());	// å¯¹åº”adapter çš„name
+			// Identity è¦å•ç‹¬æŒ‡å®š
+			std::string idstr = refProperties->getProperty("Identity");
+			// Push.iPort è¦å•ç‹¬æŒ‡å®š	: "0" tcp ï¼› â€œ1â€ udp
 			// Push.strIp
 // 			m_strPushPort = initData.properties->getPropertyWithDefault("RPCPushport","0");
-// 			m_strPushPort = initData.properties->getProperty("RPCPushport");	// Ö¸¶¨ÍÆËÍÄ£Ê½
-// 			m_strPushIp = initData.properties->getProperty("Push.strIp");	// Ö¸¶¨ÍÆËÍÄ£Ê½
-			// Í³Ò»¶ÁÈ¡ XML/¾É INI ÍÆËÍÅäÖÃ£¬·Ç·¨ÊıÖµ»ØÍËµ½ÀúÊ·Ä¬ÈÏÖµ¡£
+// 			m_strPushPort = initData.properties->getProperty("RPCPushport");	// æŒ‡å®šæ¨é€æ¨¡å¼
+// 			m_strPushIp = initData.properties->getProperty("Push.strIp");	// æŒ‡å®šæ¨é€æ¨¡å¼
+			// ç»Ÿä¸€è¯»å– XML/æ—§ INI æ¨é€é…ç½®ï¼Œéæ³•æ•°å€¼å›é€€åˆ°å†å²é»˜è®¤å€¼ã€‚
 			m_strPushBindPort = std::to_string(GetConfigInt(&clConfig, p_szCfgFile, "ICEPUSH", "RPCPushBindport", 0));
 			m_strPushBindIp = GetConfigString(&clConfig, p_szCfgFile, "ICEPUSH", "RPCPushBindip", "127.0.0.1");
 			m_strPushUdpBindPort = std::to_string(GetConfigInt(&clConfig, p_szCfgFile, "ICEPUSH", "RPCXPushBindport", 0));
@@ -1406,7 +1585,7 @@ bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEnd
 			}
 			//////////////////////////////////////////////////////////////////////////
 			m_stObjectSrvId  = Ice::stringToIdentity(idstr.c_str());
-			m_strProgramName = initData.properties->getProperty("Ice.ProgramName");	// ±¾´Î³ÌĞòÃû×Ö
+			m_strProgramName = refProperties->getProperty("Ice.ProgramName");	// æœ¬æ¬¡ç¨‹åºåå­—
 
 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Adapter:%m_hSocket,ID:%m_hSocket\r\n",m_strEndpointSrvName.c_str(),idstr.c_str());
 			CIceRPCPushLog::Instance().WriteLog("JSONPC","CJsonBinRPCImp::StartByServer",
@@ -1420,10 +1599,10 @@ bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEnd
 			for ( int i=0;i<vecEnd.size();++i )
 			{
 				m_strEndpointSrv = vecEnd[i]->toString();
-				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "·şÎñ½ÚµãÔÚ: %m_hSocket\r\n",vecEnd[i]->toString().c_str());
+				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "æœåŠ¡èŠ‚ç‚¹åœ¨: %m_hSocket\r\n",vecEnd[i]->toString().c_str());
 				
 				CIceRPCPushLog::Instance().WriteLog("JSONPC","CJsonBinRPCImp::StartByServer",
-						"·şÎñ½ÚµãÔÚ: %m_hSocket\r\n",vecEnd[i]->toString().c_str());
+						"æœåŠ¡èŠ‚ç‚¹åœ¨: %m_hSocket\r\n",vecEnd[i]->toString().c_str());
 
 
 				::Ice::EndpointInfoPtr p = vecEnd[i]->getInfo();
@@ -1436,12 +1615,12 @@ bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEnd
 				char	err[1024];
 				SYSTEM_INFO si;
 				GetSystemInfo (&si);
-				// ½ÓÊÕ»º³åÇøÌ«´ó£¬Ã¿´ÎnewÀË·ÑÊ±¼ä pc->or.pBuf[0].pBuf=new char[pdata->rbuflen]; £¬¿ÉÒÔ¶à´Î½ÓÊÕ
+				// æ¥æ”¶ç¼“å†²åŒºå¤ªå¤§ï¼Œæ¯æ¬¡newæµªè´¹æ—¶é—´ pc->or.pBuf[0].pBuf=new char[pdata->rbuflen]; ï¼Œå¯ä»¥å¤šæ¬¡æ¥æ”¶
 				m_hSocketServer = s_create(SafeLongLongToLength<unsigned short>(atol(m_strPushBindPort.c_str())),1024*1024,maxconnectnum,maxconnectnum,30*60,ServerCallBack,this,si.dwNumberOfProcessors*2,err);
 				if ( m_hSocketServer == NULL )
 				{
-					m_bOpenTcpOk = false;	// ¿ªÆôÊ§°Ü
-					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Æô¶¯ÍÆËÍ·şÎñÊ§°Ü:%m_hSocket \r\n",m_strPushBindPort.c_str());
+					m_bOpenTcpOk = false;	// å¼€å¯å¤±è´¥
+					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å¯åŠ¨æ¨é€æœåŠ¡å¤±è´¥:%m_hSocket \r\n",m_strPushBindPort.c_str());
 				}
 				else
 				{
@@ -1449,12 +1628,12 @@ bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEnd
 					g_UserManage.Init(maxconnectnum);
 				}
 			}
-			if ( m_bOpenMul )	// ×é²¥
+			if ( m_bOpenMul )	// ç»„æ’­
 			{
 				if ((m_hMulSocket=socket(AF_INET,SOCK_DGRAM,0)) < 0)     
 				{    
 					m_bOpenMulOk = false;
-					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Æô¶¯ÍÆËÍ·şÎñMultiÊ§°Ü:%m_hSocket \r\n",m_strPushUdpMulPort.c_str());
+					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å¯åŠ¨æ¨é€æœåŠ¡Multiå¤±è´¥:%m_hSocket \r\n",m_strPushUdpMulPort.c_str());
 				}
 				else
 					m_bOpenMulOk = true;
@@ -1467,6 +1646,7 @@ bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEnd
 		}
 		catch(const IceUtil::Exception& ex)
 		{
+			m_strError = "ICE_SERVER_START_EXCEPTION: adapter=" + m_strEndpointSrvName + ", ice=" + ex.ice_id() + ", what=" + ex.what();
 			char	str[1024]={0};
 			UTF82ASC(ex.what(),str,1023);
 
@@ -1476,9 +1656,21 @@ bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEnd
 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", m_hSocket.c_str());
 			
 			CIceRPCPushLog::Instance().WriteLog("JSONPC","CJsonBinRPCImp::AddConnectLoctor",
-						"Òì³£:%m_hSocket\r\n",m_hSocket.c_str());
+						"å¼‚å¸¸:%m_hSocket\r\n",m_hSocket.c_str());
 
-
+			// åˆå§‹åŒ–ä¸­é€”å¤±è´¥æ—¶å¿…é¡»é”€æ¯å·²åˆ›å»ºçš„ communicatorï¼Œé¿å… DLL å¸è½½é˜¶æ®µæŠ¥å‘Šèµ„æºæ³„æ¼ã€‚
+			try
+			{
+				if (m_refCommunicator)
+				{
+					m_refCommunicator->destroy();
+				}
+			}
+			catch (...)
+			{
+			}
+			m_refAdapter = nullptr;
+			m_refCommunicator = nullptr;
 			return false;
 		}
 	}
@@ -1487,7 +1679,7 @@ bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEnd
 	p_hSem = m_semMiddle;
 	CPushMng::CreateNewPushObj();
 	CPushMng::PushHandle(this);
-	if ( m_bOpenUdp )	// µãµ½µãÍÆËÍ
+	if ( m_bOpenUdp )	// ç‚¹åˆ°ç‚¹æ¨é€
 	{
 		if ( CPushMng::CreateNewPushObj()->StartP2PPush(m_iUdpThread,atol(m_strPushUdpBindPort.c_str())) )
 		{
@@ -1496,7 +1688,7 @@ bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEnd
 		else
 		{
 			m_bOpenUdpOk = false;
-			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Æô¶¯ÍÆËÍ·şÎñXÊ§°Ü:%m_hSocket \r\n",m_strPushUdpBindPort.c_str());
+			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å¯åŠ¨æ¨é€æœåŠ¡Xå¤±è´¥:%m_hSocket \r\n",m_strPushUdpBindPort.c_str());
 		}
 		CPushMng::ReleaseIt();
 	}
@@ -1507,20 +1699,22 @@ bool CJsonBinRPCImp::StartByServer(const char * p_szCfgFile,const char * p_szEnd
 // 	}
 	return true;
 }
-// ·µ»Ø·şÎñ¶ËÅäÖÃÖĞµÄ endpoint Ãû³Æ£¬¹©µ¼³ö API ×ª½»ÉÏ²ã¡£
+// è¿”å›æœåŠ¡ç«¯é…ç½®ä¸­çš„ endpoint åç§°ï¼Œä¾›å¯¼å‡º API è½¬äº¤ä¸Šå±‚ã€‚
 const char * CJsonBinRPCImp::GetEndPoint()
 {
 	return	m_strEndpointSrv.c_str();
 }
 
-// Í£Ö¹ RPC ÊµÀı£¬ÒÀ´ÎÊÍ·Å Ice¡¢SocketServer¡¢¶ÓÁĞºÍ¿Í»§¶Ë×¢²áĞÅÏ¢¡£
+// åœæ­¢ RPC å®ä¾‹ï¼Œä¾æ¬¡é‡Šæ”¾ Iceã€SocketServerã€é˜Ÿåˆ—å’Œå®¢æˆ·ç«¯æ³¨å†Œä¿¡æ¯ã€‚
 void CJsonBinRPCImp::UnInit()
 {
-	EnterCriticalSection(&g_csHandleLock);
-	g_mapHandle.erase(this);
-	LeaveCriticalSection(&g_csHandleLock);
+	StopBinaryWorkers();
+	{
+		std::lock_guard<std::mutex> clLock(g_clHandleMutex);
+		g_mapHandle.erase(this);
+	}
 
-	// ×¢Ïú½»¸øÉÏ²ãÖ÷¶¯µ÷ÓÃ£¬ÒòÎªÉÏ²ã¿ÉÄÜÒòÎª¶Ô·½Á´½Ó¶Ï¿ª£¬Ö÷¶¯×¢Ïú£¬ÕâÑùµ¼ÖÂ¿¨ÔÚÕâÀï
+	// æ³¨é”€äº¤ç»™ä¸Šå±‚ä¸»åŠ¨è°ƒç”¨ï¼Œå› ä¸ºä¸Šå±‚å¯èƒ½å› ä¸ºå¯¹æ–¹é“¾æ¥æ–­å¼€ï¼Œä¸»åŠ¨æ³¨é”€ï¼Œè¿™æ ·å¯¼è‡´å¡åœ¨è¿™é‡Œ
 // 	if ( m_refStockIo && !m_strClientGuid.empty() )
 // 	{
 // 		try
@@ -1547,7 +1741,7 @@ void CJsonBinRPCImp::UnInit()
 		m_hSocketServer = NULL;
 	}
 
-	CPushMng::PushHandle(this,true);	// É¾³ıÖ¸Õë
+	CPushMng::PushHandle(this,true);	// åˆ é™¤æŒ‡é’ˆ
 
 	EnterCriticalSection(&m_csLock);
 	std::map<unsigned long long,ST_JSON_BIN_HANDLE*>::iterator itclient = m_mapClients.begin();
@@ -1582,7 +1776,7 @@ void CJsonBinRPCImp::UnInit()
 		try
 		{
 			//it->second.refAdapter->deactivate();
-			it->second.refAdapter->remove(m_stObjectSrvId);		// ·ÀÖ¹this¶à´Î±»×Ô¶¯É¾³ı
+			it->second.refAdapter->remove(m_stObjectSrvId);		// é˜²æ­¢thiså¤šæ¬¡è¢«è‡ªåŠ¨åˆ é™¤
 			it->second.refCommunicator->shutdown();
 		}
 		catch(const IceUtil::Exception& ex)
@@ -1597,14 +1791,14 @@ void CJsonBinRPCImp::UnInit()
 
 	ST_JSON_INPUT_EX * pNode = m_aReqMsg.PopFront();
 	while ( pNode )
-	{	// ·¢ËÍÇëÇó
+	{	// å‘é€è¯·æ±‚
 
 		if ( pNode->pRpcCallback || pNode->pPutCallback )
 		{
 
 			if ( pNode->chMode==EN_JSON_INPUT_RPC )
 			{
-				//delete	((::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr*)pNode->cbptr);	// ÀàĞÍ²»¶Ô£¬»áµ¼ÖÂÄÚ´æĞ¹Â©
+				//delete	((::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr*)pNode->cbptr);	// ç±»å‹ä¸å¯¹ï¼Œä¼šå¯¼è‡´å†…å­˜æ³„æ¼
 				//::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr		cb((::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPC*)pNode->cbptr);// = *((::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr*)pNode->cbptr);
 
 				pNode->pRpcCallback->ice_exception();
@@ -1612,7 +1806,7 @@ void CJsonBinRPCImp::UnInit()
 			}
 			else if ( pNode->chMode ==EN_JSON_INPUT_PUT )
 			{
-				//delete ((::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr*)pNode->cbptr);	// ÀàĞÍ²»¶Ô£¬»áµ¼ÖÂÄÚ´æĞ¹Â©
+				//delete ((::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr*)pNode->cbptr);	// ç±»å‹ä¸å¯¹ï¼Œä¼šå¯¼è‡´å†…å­˜æ³„æ¼
 				//::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr		cb((::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUT*)pNode->cbptr);// = *((::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr*)pNode->cbptr);
 
 				pNode->pPutCallback->ice_exception();
@@ -1634,7 +1828,7 @@ void CJsonBinRPCImp::UnInit()
 			delete [] pNode->stJsonReq.pBuffer;
 			pNode->stJsonReq.pBuffer = NULL;
 		}
-		// µ±×öÊı×é²Ù×÷»á³öÏÖ±ÀÀ£ÏÖÏó 0xffffffff´íÎó delete [] pNode;  
+		// å½“åšæ•°ç»„æ“ä½œä¼šå‡ºç°å´©æºƒç°è±¡ 0xffffffffé”™è¯¯ delete [] pNode;
 		delete pNode;
 		pNode = m_aReqMsg.PopFront();
 	}
@@ -1654,9 +1848,9 @@ void CJsonBinRPCImp::UnInit()
 // 	}
 }
 
-// ICE Slice ½Ó¿ÚµÄÊµÏÖ
+// ICE Slice æ¥å£çš„å®ç°
 // ::JSONBINRPCU::AMD_IJsonBinRPC_JsonBinRPCPtr cb = ::IceUtil::Handle< ::JSONBINRPCU::AMD_IJsonBinRPC_JsonBinRPC>((::JSONBINRPCU::AMD_IJsonBinRPC_JsonBinRPC*)ireq->cb);
-// ·şÎñ¶Ë AMD RPC Èë¿Ú£¬°ÑÇëÇó¸´ÖÆµ½¶ÓÁĞ»òÖ±»Øµ÷£¬¾¡¿ìÊÍ·Å Ice ÅÉ·¢Ïß³Ì¡£
+// æœåŠ¡ç«¯ AMD RPC å…¥å£ï¼ŒæŠŠè¯·æ±‚å¤åˆ¶åˆ°é˜Ÿåˆ—æˆ–ç›´å›è°ƒï¼Œå°½å¿«é‡Šæ”¾ Ice æ´¾å‘çº¿ç¨‹ã€‚
 void CJsonBinRPCImp::JsonBinRPC_async(const ::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr& p_pCallback, long long p_lSynId, long long p_lFuncId,long long p_lSetCode,const ::JSONBINRPC::AByte& p_stJsonReq, const ::Ice::Current& /*= ::Ice::Current()*/)
 {
 	::JSONBINRPC::AByte myjsonReq;
@@ -1691,7 +1885,7 @@ void CJsonBinRPCImp::JsonBinRPC_async(const ::JSONBINRPC::AMD_IJsonBinRPC_JsonBi
 		memcpy(req->stJsonReq.pBuffer, myjsonReq.data(), myjsonReq.size());
 	}
 #ifdef _DEBUG
-	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "½ø·şÎñ¶ÓÁĞ: %d %m_hSocket \r\n",req->lFuncId,req->stJsonReq);
+	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "è¿›æœåŠ¡é˜Ÿåˆ—: %d %m_hSocket \r\n",req->lFuncId,req->stJsonReq);
 #endif
 
 	if ( m_pParentImp )
@@ -1705,8 +1899,8 @@ void CJsonBinRPCImp::JsonBinRPC_async(const ::JSONBINRPC::AMD_IJsonBinRPC_JsonBi
 		ReleaseSemaphore(m_semMiddle, 1, NULL);
 	}
 }
-// ICE Slice ½Ó¿ÚµÄÊµÏÖ
-// ·şÎñ¶Ë AMD PUT Èë¿Ú£¬³ıÇëÇó JSON Íâ»¹¸´ÖÆÉÏ´«²ÎÊı¹©ÒµÎñÏß³Ì´¦Àí¡£
+// ICE Slice æ¥å£çš„å®ç°
+// æœåŠ¡ç«¯ AMD PUT å…¥å£ï¼Œé™¤è¯·æ±‚ JSON å¤–è¿˜å¤åˆ¶ä¸Šä¼ å‚æ•°ä¾›ä¸šåŠ¡çº¿ç¨‹å¤„ç†ã€‚
 void CJsonBinRPCImp::JsonBinPUT_async(const ::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr& p_pCallback, long long p_lSynId, long long p_lFuncId,long long p_lSetCode,const ::JSONBINRPC::AByte& p_stJsonReq, long long p_lParam, const ::JSONBINRPC::AByte& p_stLParam, long long p_lWParam, const ::JSONBINRPC::AByte& p_stWParam, const ::Ice::Current& /* = ::Ice::Current() */)
 {
 	::JSONBINRPC::AByte myjsonReq,tmpbyte;
@@ -1790,14 +1984,14 @@ void CJsonBinRPCImp::JsonBinPUT_async(const ::JSONBINRPC::AMD_IJsonBinRPC_JsonBi
 		ReleaseSemaphore(m_semMiddle, 1, NULL);
 	}
 }
-// ¾É°æÍÆËÍ×¢²áÈë¿Ú£¬±£´æ¿Í»§¶Ë´úÀí²¢Í¨ÖªÉÏ²ãĞÂÔö¿Í»§¶Ë¡£
+// æ—§ç‰ˆæ¨é€æ³¨å†Œå…¥å£ï¼Œä¿å­˜å®¢æˆ·ç«¯ä»£ç†å¹¶é€šçŸ¥ä¸Šå±‚æ–°å¢å®¢æˆ·ç«¯ã€‚
 void CJsonBinRPCImp::RegisterStockPushIO_async(const ::JSONBINRPC::AMD_IJsonBinRPC_RegisterStockPushIOPtr& p_pCallback, const ::std::string& p_strGuid, const ::Ice::Identity& p_stIdent, const ::Ice::Current& p_stCurrent)
 {	
 	::Ice::ConnectionPtr con	= p_stCurrent.con;
 	std::optional<::JSONBINRPC::IJsonBinRPCPrx> sameproxy;
 	try
 	{
-		sameproxy = con->createProxy<::JSONBINRPC::IJsonBinRPCPrx>(p_stIdent);// ÕâÊÇÔ­ÓĞÁ´½ÓµÄ£¬²»ÊÇĞÂµÄÁ´½ÓµÄ p_stCurrent.id));
+		sameproxy = con->createProxy<::JSONBINRPC::IJsonBinRPCPrx>(p_stIdent);// è¿™æ˜¯åŸæœ‰é“¾æ¥çš„ï¼Œä¸æ˜¯æ–°çš„é“¾æ¥çš„ p_stCurrent.id));
 		//sameproxy = JSONBINRPCU::IStockPushIOPrx::uncheckedCast(sameproxy->ice_twoway());
 		sameproxy = sameproxy->ice_twoway();
 		//sameproxy = sameproxy->ice_timeout(10000);
@@ -1805,14 +1999,14 @@ void CJsonBinRPCImp::RegisterStockPushIO_async(const ::JSONBINRPC::AMD_IJsonBinR
 	catch(const IceUtil::Exception& ex)
 	{
 		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "%m_hSocket\r\n",ex.ice_id());
-		p_pCallback->ice_response(m_bSnappy);	// ¸æÖª¿Í»§¶Ë·şÎñ¶ËÓÃÁËÑ¹ËõÃ»ÓĞ
+		p_pCallback->ice_response(m_bSnappy);	// å‘ŠçŸ¥å®¢æˆ·ç«¯æœåŠ¡ç«¯ç”¨äº†å‹ç¼©æ²¡æœ‰
 		return;
 	}
 	//////////////////////////////////////////////////////////////////////////
 	bool	newflag = false;
 	ST_JSON_BIN_HANDLE * p = NULL;
 	char	tmpbuf[512];
-	snprintf(tmpbuf, sizeof(tmpbuf), "%s%p", p_strGuid.c_str(), con.get());	// ·ÀÖ¹ÖÕ¶Ë¸øÍ¬Ñùguid»òÕß¿Õ
+	snprintf(tmpbuf, sizeof(tmpbuf), "%s%p", p_strGuid.c_str(), con.get());	// é˜²æ­¢ç»ˆç«¯ç»™åŒæ ·guidæˆ–è€…ç©º
 	unsigned long long	p_ulKey = ST_JSON_BIN_HANDLE::GenKey(tmpbuf);//p_strGuid.c_str());
 	EnterCriticalSection(&m_csLock);
 	if ( m_mapClients.find(p_ulKey) == m_mapClients.end() )
@@ -1820,7 +2014,7 @@ void CJsonBinRPCImp::RegisterStockPushIO_async(const ::JSONBINRPC::AMD_IJsonBinR
 		m_mapClients[p_ulKey] = new ST_JSON_BIN_HANDLE;
 		m_mapClients[p_ulKey]->iType = EN_JSON_HANDLE_CLIENT;
 		m_mapClients[p_ulKey]->pRpc = this;
-		m_mapClients[p_ulKey]->refProxy = sameproxy;	// µ÷ÓÃ¹ı³Ì£¬ĞŞ¸ÄÖ¸Õë£¬ÓĞÌ¤¿Õ·çÏÕ¡£µ÷ÓÃº¯Êı²»ÔÚÁÙ½çÇøÄÚ
+		m_mapClients[p_ulKey]->refProxy = sameproxy;	// è°ƒç”¨è¿‡ç¨‹ï¼Œä¿®æ”¹æŒ‡é’ˆï¼Œæœ‰è¸ç©ºé£é™©ã€‚è°ƒç”¨å‡½æ•°ä¸åœ¨ä¸´ç•ŒåŒºå†…
 		m_mapClients[p_ulKey]->strGuid= tmpbuf;//p_strGuid;
 		newflag = true;
 	}
@@ -1830,44 +2024,44 @@ void CJsonBinRPCImp::RegisterStockPushIO_async(const ::JSONBINRPC::AMD_IJsonBinR
 	const	char * pstr = NULL;
 	std::vector<std::string>	tosecs;
 	TokenizeOR(tosecs,p_strGuid.c_str(),"|");
-	// Ôö¼Ó¶©ÔÄµÄÀàĞÍ
+	// Keep the legacy GUID subscription convention for RegisterStockPushIO.
 	for ( i=0;i<tosecs.size();++i )
 	{
 		pstr = SundayQuickSearch(tosecs[i].c_str(),"~");
 		if ( pstr )
 		{
 			dwV = atol(pstr+1);
-			p->mapSubId[ dwV ]	= 0;		// È¡Ïû¶©ÔÄ
+			p->mapSubId[ dwV ]	= 0;		// å–æ¶ˆè®¢é˜…
 		}
-		else 
+		else
 		{
 			dwV = atol(tosecs[i].c_str());
-			p->mapSubId[ dwV ]	= 1;		// ¶©ÔÄ
+			p->mapSubId[ dwV ]	= 1;		// è®¢é˜…
 		}
 	}
 	m_mapClients[p_ulKey]->tmLive = time(NULL);
 	// m_mapClients[p_ulKey]->refProxy = sameproxy;
 	//m_mapClients[p_ulKey]->strGuid= tmpbuf;//p_strGuid;
-	p->Ref();		// ¶àÒ»´Î¼ÆÊıÆ÷£¬·ÀÖ¹±»É¾³ı
+	p->Ref();		// å¤šä¸€æ¬¡è®¡æ•°å™¨ï¼Œé˜²æ­¢è¢«åˆ é™¤
 	LeaveCriticalSection(&m_csLock);
 
-	p_pCallback->ice_response(m_bSnappy);	// ¸æÖª¿Í»§¶Ë·şÎñ¶ËÓÃÁËÑ¹ËõÃ»ÓĞ
+	p_pCallback->ice_response(m_bSnappy);	// å‘ŠçŸ¥å®¢æˆ·ç«¯æœåŠ¡ç«¯ç”¨äº†å‹ç¼©æ²¡æœ‰
 
-	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "×¢²á[%d] £º%m_hSocket %m_hSocket \r\n",m_mapClients.size(),p_strGuid.c_str(),p_stIdent.name.c_str());
+	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "æ³¨å†Œ[%d] ï¼š%m_hSocket %m_hSocket \r\n",m_mapClients.size(),p_strGuid.c_str(),p_stIdent.name.c_str());
 	if ( newflag )
 	{
 		CPushMng::ProcessPackage(NOTIFY_ADD_CLIENT,(const char*)p,sizeof(ST_JSON_BIN_HANDLE*));
 	}
 	CPushMng::PushHandle(this);
-	p->ReleaseIt();	// ¼õÉÙ¼ÆÊıÆ÷
+	p->ReleaseIt();	// å‡å°‘è®¡æ•°å™¨
 }
-// ¾É°æÍÆËÍ×¢ÏúÈë¿Ú£¬ÒÆ³ı¿Í»§¶Ë´úÀí²¢Í¨ÖªÉÏ²ã¶Ï¿ª¡£
+// æ—§ç‰ˆæ¨é€æ³¨é”€å…¥å£ï¼Œç§»é™¤å®¢æˆ·ç«¯ä»£ç†å¹¶é€šçŸ¥ä¸Šå±‚æ–­å¼€ã€‚
 void CJsonBinRPCImp::UnRegisterStockPushIO_async(const ::JSONBINRPC::AMD_IJsonBinRPC_UnRegisterStockPushIOPtr& p_pCallback, const ::std::string& p_strGuid, const ::Ice::Current& p_stCurrent)
 {
 	::Ice::ConnectionPtr con	= p_stCurrent.con;
 	ST_JSON_BIN_HANDLE * p = NULL;
 	char	tmpbuf[512];
-	snprintf(tmpbuf, sizeof(tmpbuf), "%s%p", p_strGuid.c_str(), con.get());	// ·ÀÖ¹ÖÕ¶Ë¸øÍ¬Ñùguid»òÕß¿Õ
+	snprintf(tmpbuf, sizeof(tmpbuf), "%s%p", p_strGuid.c_str(), con.get());	// é˜²æ­¢ç»ˆç«¯ç»™åŒæ ·guidæˆ–è€…ç©º
 	unsigned long long	p_ulKey = ST_JSON_BIN_HANDLE::GenKey(tmpbuf);//p_strGuid.c_str());
 	EnterCriticalSection(&m_csLock);
 	if ( m_mapClients.find(p_ulKey)!=m_mapClients.end() )
@@ -1880,18 +2074,18 @@ void CJsonBinRPCImp::UnRegisterStockPushIO_async(const ::JSONBINRPC::AMD_IJsonBi
 	p_pCallback->ice_response(m_bSnappy);
 	if ( p )
 	{
-		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Ö÷¶¯·´×¢²á[%d] £º%m_hSocket \r\n",m_mapClients.size(),p_strGuid.c_str());	
+		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "ä¸»åŠ¨åæ³¨å†Œ[%d] ï¼š%m_hSocket \r\n",m_mapClients.size(),p_strGuid.c_str());
 		CPushMng::ProcessPackage(NOTIFY_DEL_CLIENT,(const char*)p,sizeof(ST_JSON_BIN_HANDLE*));
 		p->ReleaseIt();
 	}
 }
 
-// ´ø¶©ÔÄĞÅÏ¢µÄÍÆËÍ×¢²áÈë¿Ú£¬ÉÏ²ã¿É¸ù¾İ p_strSubInfo ·µ»Ø¿ìËÙÍ¨µÀÅäÖÃ¡£
+// å¸¦è®¢é˜…ä¿¡æ¯çš„æ¨é€æ³¨å†Œå…¥å£ï¼Œä¸Šå±‚å¯æ ¹æ® p_strSubInfo è¿”å›å¿«é€Ÿé€šé“é…ç½®ã€‚
 void CJsonBinRPCImp::RegisterStockPushIO2_async(const ::JSONBINRPC::AMD_IJsonBinRPC_RegisterStockPushIO2Ptr& p_pCallback, const ::std::string& p_strGuid, const ::std::string& p_strSubInfo, const ::Ice::Identity& p_stIdent, const ::Ice::Current& p_stCurrent/*= ::Ice::Current()*/)
 {
 	std::string	p_strRet;
 	char		retbuf[256] = {0};
-	// µ×²ãÄÚ²¿¹Ì¶¨µÄ¼¸¸öÅäÖÃ
+	// åº•å±‚å†…éƒ¨å›ºå®šçš„å‡ ä¸ªé…ç½®
 	snprintf(retbuf, sizeof(retbuf), "snappy=%d;", m_bSnappy);
 	p_strRet += retbuf;
 
@@ -1901,13 +2095,13 @@ void CJsonBinRPCImp::RegisterStockPushIO2_async(const ::JSONBINRPC::AMD_IJsonBin
 	snprintf(retbuf, sizeof(retbuf), "rpcpushbindip=%s;", m_strPushBindIp.c_str());		// 127.0.0.1|192.168.0.15
 	p_strRet += retbuf;
 
-	//¿Í»§¶ËÇëÇóµÄ²»ÒªÖØ¸´Ğ´ÁË p_strRet += p_strSubInfo.c_str();		// ÉÏ²ã¿ÉÒÔ×Ô¼ºÉèÖÃµÄ¶©ÔÄ²ÎÊıĞÅÏ¢
+	//å®¢æˆ·ç«¯è¯·æ±‚çš„ä¸è¦é‡å¤å†™äº† p_strRet += p_strSubInfo.c_str();		// ä¸Šå±‚å¯ä»¥è‡ªå·±è®¾ç½®çš„è®¢é˜…å‚æ•°ä¿¡æ¯
 
 	::Ice::ConnectionPtr con	= p_stCurrent.con;
 	std::optional<::JSONBINRPC::IJsonBinRPCPrx> sameproxy;
 	try
 	{
-		sameproxy = con->createProxy<::JSONBINRPC::IJsonBinRPCPrx>(p_stIdent);// ÕâÊÇÔ­ÓĞÁ´½ÓµÄ£¬²»ÊÇĞÂµÄÁ´½ÓµÄ p_stCurrent.id));
+		sameproxy = con->createProxy<::JSONBINRPC::IJsonBinRPCPrx>(p_stIdent);// è¿™æ˜¯åŸæœ‰é“¾æ¥çš„ï¼Œä¸æ˜¯æ–°çš„é“¾æ¥çš„ p_stCurrent.id));
 		//sameproxy = JSONBINRPCU::IStockPushIOPrx::uncheckedCast(sameproxy->ice_twoway());
 		sameproxy = sameproxy->ice_twoway();
 		//sameproxy = sameproxy->ice_timeout(10000);
@@ -1915,14 +2109,14 @@ void CJsonBinRPCImp::RegisterStockPushIO2_async(const ::JSONBINRPC::AMD_IJsonBin
 	catch(const IceUtil::Exception& ex)
 	{
 		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "%m_hSocket\r\n",ex.ice_id());
-		p_pCallback->ice_response(p_strRet);	// ¸æÖª¿Í»§¶Ë·şÎñ¶ËÓÃÁËÑ¹ËõÃ»ÓĞ
+		p_pCallback->ice_response(p_strRet);	// å‘ŠçŸ¥å®¢æˆ·ç«¯æœåŠ¡ç«¯ç”¨äº†å‹ç¼©æ²¡æœ‰
 		return;
 	}
 	//////////////////////////////////////////////////////////////////////////
 	bool	newflag = false;
 	ST_JSON_BIN_HANDLE * p = NULL;
 	char	tmpbuf[512];
-	snprintf(tmpbuf, sizeof(tmpbuf), "%s%p", p_strGuid.c_str(), con.get());	// ·ÀÖ¹ÖÕ¶Ë¸øÍ¬Ñùguid»òÕß¿Õ
+	snprintf(tmpbuf, sizeof(tmpbuf), "%s%p", p_strGuid.c_str(), con.get());	// é˜²æ­¢ç»ˆç«¯ç»™åŒæ ·guidæˆ–è€…ç©º
 	unsigned long long	p_ulKey = ST_JSON_BIN_HANDLE::GenKey(tmpbuf);//p_strGuid.c_str());
 	EnterCriticalSection(&m_csLock);
 	if ( m_mapClients.find(p_ulKey) == m_mapClients.end() )
@@ -1930,60 +2124,45 @@ void CJsonBinRPCImp::RegisterStockPushIO2_async(const ::JSONBINRPC::AMD_IJsonBin
 		m_mapClients[p_ulKey] = new ST_JSON_BIN_HANDLE;
 		m_mapClients[p_ulKey]->iType = EN_JSON_HANDLE_CLIENT;
 		m_mapClients[p_ulKey]->pRpc = this;
-		m_mapClients[p_ulKey]->refProxy = sameproxy;	// µ÷ÓÃ¹ı³Ì£¬ĞŞ¸ÄÖ¸Õë£¬ÓĞÌ¤¿Õ·çÏÕ¡£µ÷ÓÃº¯Êı²»ÔÚÁÙ½çÇøÄÚ
+		m_mapClients[p_ulKey]->refProxy = sameproxy;	// è°ƒç”¨è¿‡ç¨‹ï¼Œä¿®æ”¹æŒ‡é’ˆï¼Œæœ‰è¸ç©ºé£é™©ã€‚è°ƒç”¨å‡½æ•°ä¸åœ¨ä¸´ç•ŒåŒºå†…
 		m_mapClients[p_ulKey]->strGuid= tmpbuf;//p_strGuid;
 		newflag = true;
 	}
 	p = m_mapClients[p_ulKey];
-	int		i;
-	DWORD	dwV=0;
-	const	char * pstr = NULL;
-	std::vector<std::string>	tosecs;
-	TokenizeOR(tosecs,p_strGuid.c_str(),"|");
-	// Ôö¼Ó¶©ÔÄµÄÀàĞÍ
-	for ( i=0;i<tosecs.size();++i )
-	{
-		pstr = SundayQuickSearch(tosecs[i].c_str(),"~");
-		if ( pstr )
-		{
-			dwV = atol(pstr+1);
-			p->mapSubId[ dwV ]	= 0;		// È¡Ïû¶©ÔÄ
-		}
-		else 
-		{
-			dwV = atol(tosecs[i].c_str());
-			p->mapSubId[ dwV ]	= 1;		// ¶©ÔÄ
-		}
-	}
+	// RegisterStockPushIO2 uses subInfo and atomically replaces the old set.
+	CSubscriptionFilter::Replace(p_strSubInfo, p->mapSubId);
 	m_mapClients[p_ulKey]->tmLive = time(NULL);
 	// m_mapClients[p_ulKey]->refProxy = sameproxy;
 	//m_mapClients[p_ulKey]->strGuid= tmpbuf;//p_strGuid;
-	p->Ref();		// ¶àÒ»´Î¼ÆÊıÆ÷£¬·ÀÖ¹±»É¾³ı
+	p->Ref();		// å¤šä¸€æ¬¡è®¡æ•°å™¨ï¼Œé˜²æ­¢è¢«åˆ é™¤
 	LeaveCriticalSection(&m_csLock);
 
-	p_pCallback->ice_response(p_strRet);	// ¸æÖª¿Í»§¶Ë·şÎñ¶ËÓÃÁËÑ¹ËõÃ»ÓĞ
+	p_pCallback->ice_response(p_strRet);	// å‘ŠçŸ¥å®¢æˆ·ç«¯æœåŠ¡ç«¯ç”¨äº†å‹ç¼©æ²¡æœ‰
 
-	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "×¢²á[%d] £º%m_hSocket %m_hSocket \r\n",m_mapClients.size(),p_strGuid.c_str(),p_stIdent.name.c_str());
+	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "æ³¨å†Œ[%d] ï¼š%m_hSocket %m_hSocket \r\n",m_mapClients.size(),p_strGuid.c_str(),p_stIdent.name.c_str());
 	std::string	ncistr(sizeof(ST_NOTIFY_CLIENT_INFO)+p_strSubInfo.size(),0);
 	ST_NOTIFY_CLIENT_INFO * nci = (ST_NOTIFY_CLIENT_INFO*)ncistr.data();
 	nci->hClient = p;
+	nci->lLen = SafeSizeToLength<long>(p_strSubInfo.size());
+	if (nci->lLen > 0)
+	{
+		memcpy(nci->szData, p_strSubInfo.data(), static_cast<size_t>(nci->lLen));
+	}
 	if ( newflag )
 	{
 		CPushMng::ProcessPackage(NOTIFY_ADD_CLIENT,(const char*)nci,sizeof(ST_NOTIFY_CLIENT_INFO)+nci->lLen);
 	}
-	nci->lLen = SafeSizeToLength<long>(p_strSubInfo.size());
-	memcpy(nci->szData,p_strSubInfo.c_str(),p_strSubInfo.size());
-	CPushMng::ProcessPackage(NOTIFY_SUB_CLIENT,(const char*)p,sizeof(ST_NOTIFY_CLIENT_INFO)+nci->lLen);		// Í¨ÖªÉÏ²ã¶©ÔÄµÄĞÅÏ¢
+	CPushMng::ProcessPackage(NOTIFY_SUB_CLIENT,(const char*)nci,sizeof(ST_NOTIFY_CLIENT_INFO)+nci->lLen);		// é€šçŸ¥ä¸Šå±‚è®¢é˜…çš„ä¿¡æ¯
 	CPushMng::PushHandle(this);
-	p->ReleaseIt();	// ¼õÉÙ¼ÆÊıÆ÷
+	p->ReleaseIt();	// å‡å°‘è®¡æ•°å™¨
 }
 
-// ´ø¶©ÔÄĞÅÏ¢µÄ×¢ÏúÈë¿Ú£¬Çø·ÖÍË¶©ºÍ³¹µ×¶Ï¿ªÁ½ÖÖÍ¨Öª¡£
+// å¸¦è®¢é˜…ä¿¡æ¯çš„æ³¨é”€å…¥å£ï¼ŒåŒºåˆ†é€€è®¢å’Œå½»åº•æ–­å¼€ä¸¤ç§é€šçŸ¥ã€‚
 void CJsonBinRPCImp::UnRegisterStockPushIO2_async(const ::JSONBINRPC::AMD_IJsonBinRPC_UnRegisterStockPushIO2Ptr& p_pCallback, const ::std::string& p_strGuid, const ::std::string& p_strSubInfo, const ::Ice::Identity& p_stIdent, const ::Ice::Current& p_stCurrent/*= ::Ice::Current()*/)
 {
 	std::string	p_strRet;
 	char		retbuf[256] = {0};
-	// µ×²ãÄÚ²¿¹Ì¶¨µÄ¼¸¸öÅäÖÃ
+	// åº•å±‚å†…éƒ¨å›ºå®šçš„å‡ ä¸ªé…ç½®
 	snprintf(retbuf, sizeof(retbuf), "snappy=%d;", m_bSnappy);
 	p_strRet += retbuf;
 
@@ -1993,12 +2172,12 @@ void CJsonBinRPCImp::UnRegisterStockPushIO2_async(const ::JSONBINRPC::AMD_IJsonB
 	snprintf(retbuf, sizeof(retbuf), "rpcpushbindip=%s;", m_strPushBindIp.c_str());		// 127.0.0.1|192.168.0.15
 	p_strRet += retbuf;
 
-	// p_strRet += p_strSubInfo.c_str();		// ÉÏ²ã¿ÉÒÔ×Ô¼ºÉèÖÃµÄ¶©ÔÄ²ÎÊıĞÅÏ¢
+	// p_strRet += p_strSubInfo.c_str();		// ä¸Šå±‚å¯ä»¥è‡ªå·±è®¾ç½®çš„è®¢é˜…å‚æ•°ä¿¡æ¯
 
 	::Ice::ConnectionPtr con	= p_stCurrent.con;
 	ST_JSON_BIN_HANDLE * p = NULL;
 	char	tmpbuf[512];
-	snprintf(tmpbuf, sizeof(tmpbuf), "%s%p", p_strGuid.c_str(), con.get());	// ·ÀÖ¹ÖÕ¶Ë¸øÍ¬Ñùguid»òÕß¿Õ
+	snprintf(tmpbuf, sizeof(tmpbuf), "%s%p", p_strGuid.c_str(), con.get());	// é˜²æ­¢ç»ˆç«¯ç»™åŒæ ·guidæˆ–è€…ç©º
 	unsigned long long	p_ulKey = ST_JSON_BIN_HANDLE::GenKey(tmpbuf);//p_strGuid.c_str());
 	EnterCriticalSection(&m_csLock);
 	if ( m_mapClients.find(p_ulKey)!=m_mapClients.end() )
@@ -2019,12 +2198,12 @@ void CJsonBinRPCImp::UnRegisterStockPushIO2_async(const ::JSONBINRPC::AMD_IJsonB
 
 		CPushMng::ProcessPackage(NOTIFY_UNSUB_CLIENT,(const char*)nci,sizeof(ST_NOTIFY_CLIENT_INFO)+nci->lLen);
 
-		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Ö÷¶¯·´×¢²á[%d] £º%m_hSocket \r\n",m_mapClients.size(),p_strGuid.c_str());	
+		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "ä¸»åŠ¨åæ³¨å†Œ[%d] ï¼š%m_hSocket \r\n",m_mapClients.size(),p_strGuid.c_str());
 		CPushMng::ProcessPackage(NOTIFY_DEL_CLIENT,(const char*)nci,sizeof(ST_NOTIFY_CLIENT_INFO));
 		p->ReleaseIt();
 	}
 }
-// ¿Í»§¶Ë±£»îºÍÖØÁ¬¼ì²é£¬×¢²á³¬Ê±»òÁ¬½Ó¾Ü¾øÊ±´¥·¢ÖØ½¨¡£
+// å®¢æˆ·ç«¯ä¿æ´»å’Œé‡è¿æ£€æŸ¥ï¼Œæ³¨å†Œè¶…æ—¶æˆ–è¿æ¥æ‹’ç»æ—¶è§¦å‘é‡å»ºã€‚
 void CJsonBinRPCImp::TTLive()
 {
 	if ( m_bStop )
@@ -2041,7 +2220,7 @@ void CJsonBinRPCImp::TTLive()
 		++it;
 	}
 	LeaveCriticalSection(&m_csLock);
-	// ³¬Ê±£¬²¢ÇÒ·¢ËÍ»ıÑ¹ÑÏÖØ£¬Ã»ÓĞÈÎºÎ·µ»ØµÄÁ´½ÓÉ¾³ı
+	// è¶…æ—¶ï¼Œå¹¶ä¸”å‘é€ç§¯å‹ä¸¥é‡ï¼Œæ²¡æœ‰ä»»ä½•è¿”å›çš„é“¾æ¥åˆ é™¤
 	for ( int i=0;i<aDelKey.size();++i )
 	{
 		SelfDelClient(aDelKey[i]);
@@ -2051,41 +2230,41 @@ void CJsonBinRPCImp::TTLive()
 		AddConnectLoctor();
 	}
 	else if ( m_refLocator.has_value() )
-	{	// ¼ÓÈëÒ»¸öºÍ¶¨Î»·şÎñÆ÷Ö®¼äµÄ´æ»î°ü
+	{	// åŠ å…¥ä¸€ä¸ªå’Œå®šä½æœåŠ¡å™¨ä¹‹é—´çš„å­˜æ´»åŒ…
 		//m_refLocator->begin_findObjectById(m_stObjectSrvId);
 		try
 		{
-			//::Ice::ObjectPrx  psrv = m_refLocator->findObjectById(m_stObjectSrvId);	// Ôö¼Ó¸ú¶¨Î»·şÎñÆ÷Ö®¼äµÄ´æ»î°ü,µ«ÊÇÃ»ÓĞ½â¾öºÍnodeÖ®¼äµÄ´æ»î°ü
+			//::Ice::ObjectPrx  psrv = m_refLocator->findObjectById(m_stObjectSrvId);	// å¢åŠ è·Ÿå®šä½æœåŠ¡å™¨ä¹‹é—´çš„å­˜æ´»åŒ…,ä½†æ˜¯æ²¡æœ‰è§£å†³å’Œnodeä¹‹é—´çš„å­˜æ´»åŒ…
 			m_refLastAdapter->setPublishedEndpoints(m_refLastAdapter->getPublishedEndpoints());
 // #ifdef _DEBUG
-// 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "¶¨Î»·şÎñ²éÕÒ : %p ,%m_hSocket\r\n",psrv,m_stObjectSrvId.name.c_str());
+// 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å®šä½æœåŠ¡æŸ¥æ‰¾ : %p ,%m_hSocket\r\n",psrv,m_stObjectSrvId.name.c_str());
 // #endif
 		}
 		catch(const IceUtil::Exception& ex)
 		{
 			if ( SundayQuickSearch(ex.what(),"NotRegisteredException")  )
 			{
-				// ¿ÉÒÔ×Ô¶¯Í¨¹ı refreshPublishedEndpoints »Ö¸´£¬Õâ¸öÊÇicenode½ÚµãÏûÊ§µ¼ÖÂ
+				// å¯ä»¥è‡ªåŠ¨é€šè¿‡ refreshPublishedEndpoints æ¢å¤ï¼Œè¿™ä¸ªæ˜¯icenodeèŠ‚ç‚¹æ¶ˆå¤±å¯¼è‡´
 			}
 			else if ( SundayQuickSearch(ex.what(),"ConnectionRefusedException")  )
 			{
-				// locatorÏûÊ§µ¼ÖÂ
+				// locatoræ¶ˆå¤±å¯¼è‡´
 				m_bNeedReconnect = true;
 			}
 
 			char	str[1024]={0};
 			UTF82ASC(ex.what(),str,1023);
 
-			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "locator µ÷ÓÃÊ§°Ü%m_hSocket:%m_hSocket\r\n",ex.ice_id(),str);//ex.what());
+			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "locator è°ƒç”¨å¤±è´¥%m_hSocket:%m_hSocket\r\n",ex.ice_id(),str);//ex.what());
 			
 			CIceRPCPushLog::Instance().WriteLog("JSONPC","CJsonBinRPCImp::TTLive",
-						"refreshPublishedEndpointsÊ§°Ü%m_hSocket:%m_hSocket£¬m_bNeedReconnect=%d\r\n",ex.ice_id(),str,m_bNeedReconnect);
+						"refreshPublishedEndpointså¤±è´¥%m_hSocket:%m_hSocketï¼Œm_bNeedReconnect=%d\r\n",ex.ice_id(),str,m_bNeedReconnect);
 			
 		}
 	}
 }
-// ¶¨ÆÚË¢ĞÂ¶¨Î»Æ÷
-// locator ÖØÁ¬¸¨ÖúÁ÷³Ì£¬´´½¨ĞÂ m_refAdapter ºóÔÙÌæ»»£¬¼õÉÙÍ¨ĞÅÖĞµÄ¶Ïµã¡£
+// å®šæœŸåˆ·æ–°å®šä½å™¨
+// locator é‡è¿è¾…åŠ©æµç¨‹ï¼Œåˆ›å»ºæ–° m_refAdapter åå†æ›¿æ¢ï¼Œå‡å°‘é€šä¿¡ä¸­çš„æ–­ç‚¹ã€‚
 bool CJsonBinRPCImp::AddConnectLoctor()
 {
 	HANDLE p_hHandle = NULL;
@@ -2101,15 +2280,18 @@ bool CJsonBinRPCImp::AddConnectLoctor()
 		ST_XML_CONFIG_DATA clConfig;
 		LoadIcePropertiesFromConfig(m_strCfgFile.c_str(), initData.properties, &clConfig);
 		m_bAsyncWaitCompleted = GetConfigInt(&clConfig, m_strCfgFile.c_str(), "ICEPUSH", "AsyncWaitCompleted", 1) != 0;
+		LoadBinaryConfig(&clConfig, m_strCfgFile.c_str());
 		CIceRPCPushLog::Instance().ApplyConfig(m_strCfgFile.c_str(), &clConfig);
+		// ä¿ç•™å±æ€§å¯¹è±¡ï¼Œé¿å… Ice 3.8 initialize ç§»åŠ¨ initData åç»§ç»­è®¿é—®ç©ºæŒ‡é’ˆã€‚
+		Ice::PropertiesPtr refProperties = initData.properties;
 		//log = new LogI;
 		//initData.logger = log;
 		conn = Ice::initialize(std::move(initData));
-		m_refAdapter = conn->createObjectAdapter(m_strEndpointSrvName.c_str());	// ¶ÔÓ¦adapter µÄname
-		// Identity Òªµ¥¶ÀÖ¸¶¨
-		std::string idstr = initData.properties->getProperty("Identity");
+		m_refAdapter = conn->createObjectAdapter(m_strEndpointSrvName.c_str());	// å¯¹åº”adapter çš„name
+		// Identity è¦å•ç‹¬æŒ‡å®š
+		std::string idstr = refProperties->getProperty("Identity");
 		m_stObjectSrvId  = Ice::stringToIdentity(idstr.c_str());
-		m_strProgramName = initData.properties->getProperty("Ice.ProgramName");	// ±¾´Î³ÌĞòÃû×Ö
+		m_strProgramName = refProperties->getProperty("Ice.ProgramName");	// æœ¬æ¬¡ç¨‹åºåå­—
 
 		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Adapter:%m_hSocket,ID:%m_hSocket\r\n",m_strEndpointSrvName.c_str(),idstr.c_str());
 		CIceRPCPushLog::Instance().WriteLog("JSONPC","CJsonBinRPCImp::AddConnectLoctor",
@@ -2122,10 +2304,10 @@ bool CJsonBinRPCImp::AddConnectLoctor()
 		for ( int i=0;i<vecEnd.size();++i )
 		{
 			m_strEndpointSrv = vecEnd[i]->toString();
-			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "·şÎñ½ÚµãÔÚ: %m_hSocket\r\n",vecEnd[i]->toString().c_str());
+			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "æœåŠ¡èŠ‚ç‚¹åœ¨: %m_hSocket\r\n",vecEnd[i]->toString().c_str());
 			
 			CIceRPCPushLog::Instance().WriteLog("JSONPC","CJsonBinRPCImp::AddConnectLoctor",
-						"·şÎñ½ÚµãÔÚ: %m_hSocket\r\n",vecEnd[i]->toString().c_str());
+						"æœåŠ¡èŠ‚ç‚¹åœ¨: %m_hSocket\r\n",vecEnd[i]->toString().c_str());
 
 
 			::Ice::EndpointInfoPtr p = vecEnd[i]->getInfo();
@@ -2144,7 +2326,7 @@ bool CJsonBinRPCImp::AddConnectLoctor()
 		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", m_hSocket.c_str());
 		
 		CIceRPCPushLog::Instance().WriteLog("JSONPC","CJsonBinRPCImp::AddConnectLoctor",
-						"Òì³£:%m_hSocket\r\n",m_hSocket.c_str());
+						"å¼‚å¸¸:%m_hSocket\r\n",m_hSocket.c_str());
 
 		return false;
 	}
@@ -2153,7 +2335,7 @@ bool CJsonBinRPCImp::AddConnectLoctor()
 	return true;
 }
 
-// Òì²½ÍÆËÍÊ§°ÜºóµÄ¿Í»§¶Ë×ÔÉ¾³ıÁ÷³Ì£¬Í¬Ê±ÏòÉÏ²ã·¢ËÍ¶Ï¿ªÍ¨Öª¡£
+// å¼‚æ­¥æ¨é€å¤±è´¥åçš„å®¢æˆ·ç«¯è‡ªåˆ é™¤æµç¨‹ï¼ŒåŒæ—¶å‘ä¸Šå±‚å‘é€æ–­å¼€é€šçŸ¥ã€‚
 void CJsonBinRPCImp::SelfDelClient(unsigned long long	p_ulKey)
 {
 	ST_JSON_BIN_HANDLE * p=NULL;
@@ -2173,13 +2355,13 @@ void CJsonBinRPCImp::SelfDelClient(unsigned long long	p_ulKey)
 	
 	if ( p )
 	{
-		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Òì³£·´×¢²á[%d] £ºGUID=%m_hSocket,Key=%I64u,Left=%I64d \r\n",m_mapClients.size(),thclient.c_str(),p_ulKey,CPushMng::m_lPushPackCrowded);
+		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "å¼‚å¸¸åæ³¨å†Œ[%d] ï¼šGUID=%m_hSocket,Key=%I64u,Left=%I64d \r\n",m_mapClients.size(),thclient.c_str(),p_ulKey,CPushMng::m_lPushPackCrowded);
 		CPushMng::ProcessPackage(NOTIFY_DEL_CLIENT,(const char*)p,sizeof(ST_JSON_BIN_HANDLE*));
 		p->ReleaseIt();
 	}
 }
 
-// ÍÆËÍÍê³ÉºóÊÍ·Å¿Í»§¶Ë¾ä±úÒıÓÃ£¬ÅäºÏ CPushCallback ·ÀÖ¹Ğü¿Õ·ÃÎÊ¡£
+// æ¨é€å®Œæˆåé‡Šæ”¾å®¢æˆ·ç«¯å¥æŸ„å¼•ç”¨ï¼Œé…åˆ CPushCallback é˜²æ­¢æ‚¬ç©ºè®¿é—®ã€‚
 void CJsonBinRPCImp::PushFinish(unsigned long long p_ulKey)
 {
 	EnterCriticalSection(&m_csLock);
@@ -2192,22 +2374,34 @@ void CJsonBinRPCImp::PushFinish(unsigned long long p_ulKey)
 }
 
 
-// »¥¶¯½Ó¿Ú,²»ÊÇSliceÊµÏÖ,ÓÃÓÚÅúÁ¿ÍÆËÍµ½Á¬½ÓÉÏÀ´µÄ¿Í»§¶Ë
-// ÒªÏëÈ¥µô¶ÑµÄÓ°Ïì£¬°Ñµ×²ã¸Ä³É¶ÓÁĞ£¬ÉÏ²ã¾Í²»ĞèÒª¶ÓÁĞÁË
-// ·şÎñ¶ËÖ÷¶¯ÍÆËÍºËĞÄÁ÷³Ì£¬°´¶©ÔÄ×´Ì¬ºÍÍ¨µÀÀàĞÍ¸´ÖÆ/Ñ¹Ëõ/·¢ËÍÊı¾İ¡£
+// äº’åŠ¨æ¥å£,ä¸æ˜¯Sliceå®ç°,ç”¨äºæ‰¹é‡æ¨é€åˆ°è¿æ¥ä¸Šæ¥çš„å®¢æˆ·ç«¯
+// è¦æƒ³å»æ‰å †çš„å½±å“ï¼ŒæŠŠåº•å±‚æ”¹æˆé˜Ÿåˆ—ï¼Œä¸Šå±‚å°±ä¸éœ€è¦é˜Ÿåˆ—äº†
+// æœåŠ¡ç«¯ä¸»åŠ¨æ¨é€æ ¸å¿ƒæµç¨‹ï¼ŒæŒ‰è®¢é˜…çŠ¶æ€å’Œé€šé“ç±»å‹å¤åˆ¶/å‹ç¼©/å‘é€æ•°æ®ã€‚
 long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf,long p_lBufLen,bool p_bIsAsync )
 {
-	const	int	SEND_MAX_PACK = 129*1024;	// 128k + °üÍ·
 	if ( p_lBufLen <=0 )
 	{
-		CIceRPCPushLog::Instance().WriteLog("JSONPC","Pushdata","ÍÆËÍÊ§°Ü:Êı¾İ0 %d / %d ",p_lBufLen,MAX_CACHE_BUFLEN);
+		CIceRPCPushLog::Instance().WriteLog("JSONPC","Pushdata","æ¨é€å¤±è´¥:æ•°æ®0 %d / %d ",p_lBufLen,MAX_CACHE_BUFLEN);
 		return 0;
 	}
-	//if ( p_lBufLen > SEND_MAX_PACK ) // MAX_CACHE_BUFLEN )
-	//{
-	//	CIceRPCPushLog::Instance().WriteLog("JSONPC","Pushdata","ÍÆËÍÊ§°Ü:Êı¾İ¹ı´ó %d / %d ",p_lBufLen,SEND_MAX_PACK);//MAX_CACHE_BUFLEN);
-	//	return 0;
-	//}
+	// æ¯ä¸ªæ¨é€åŒ…ç‹¬ç«‹å†³å®šæ˜¯å¦å‹ç¼©ï¼Œæ‰€æœ‰é€šé“å…±äº«åŒä¸€ç‰ˆæœ¬ã€é˜ˆå€¼å’Œé•¿åº¦æ ¡éªŒè§„åˆ™ã€‚
+	ST_BINARY_VIEW stView;
+	stView.lLen = p_lBufLen;
+	stView.pBuffer = reinterpret_cast<const unsigned char*>(p_pBuf);
+	::JSONBINRPC::BinaryPayload stPayload;
+	std::string strPayloadError;
+	if (!EncodeBinaryPayload(stView, stPayload, strPayloadError))
+	{
+		CIceRPCPushLog::Instance().WriteLog("JSONPC", "Pushdata",
+			"BINARY_PUSH_ENCODE_FAILED: req=%I64d, detail=%s\r\n",
+			p_lReqNo, strPayloadError.c_str());
+		return InferBinaryProtocolErrorCode(strPayloadError);
+	}
+	const long lWireLen = SafeSizeToLength<long>(stPayload.data.size());
+	const char* pWireData = stPayload.data.empty() ? NULL :
+		reinterpret_cast<const char*>(stPayload.data.data());
+	const bool bPacketSnappy = stPayload.compression ==
+		::JSONBINRPC::BinaryCompression::BinaryCompressionSnappy;
 	if ( m_bOpenTcpOk )
 	{
 		// InterlockedIncrement64(&CPushMng::m_lPushPackCrowded);
@@ -2216,7 +2410,7 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 		std::map<ST_HDATA_HCLIENT,int>::iterator it = auser.begin();
 		while ( it != auser.end() )
 		{
-			long	m_lLen = 0;
+			long	m_lLen = lWireLen;
 			std::map<DWORD,int>		subid;
 			ST_USER_DATA * puserdata=g_UserManage.Query(it->first.hServer,it->first.hHandle);
 			CAutoReleaseFunc	autoFunc(puserdata,UserManageFunc);
@@ -2227,15 +2421,15 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 				if ( p_lReqNo > 0x100 )
 				{
 					DWORD dwReqNo = SafeLongLongToLength<DWORD>(p_lReqNo);
-					if ( subid.find(dwReqNo) == subid.end() )	// Ã»ÓĞ¶©ÔÄ´Ë¹¦ÄÜ£¬ºöÂÔ
+					if ( subid.find(dwReqNo) == subid.end() )	// æ²¡æœ‰è®¢é˜…æ­¤åŠŸèƒ½ï¼Œå¿½ç•¥
 					{
-						//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "%d:Î´¶©ÔÄ%m_hSocket,%d\r\n",p_lReqNo,puserdata->strIp,puserdata->iPort);
+						//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "%d:æœªè®¢é˜…%m_hSocket,%d\r\n",p_lReqNo,puserdata->strIp,puserdata->iPort);
 						++it;
 						continue;
 					}
-					else  if ( subid[dwReqNo] <= 0 )			// ¶©ÔÄ×´Ì¬²»ÊÇ 1 £¬ºöÂÔ
+					else  if ( subid[dwReqNo] <= 0 )			// è®¢é˜…çŠ¶æ€ä¸æ˜¯ 1 ï¼Œå¿½ç•¥
 					{
-						//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "%d:È¡Ïû¶©ÔÄ%m_hSocket,%d\r\n",p_lReqNo,puserdata->strIp,puserdata->iPort);
+						//CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "%d:å–æ¶ˆè®¢é˜…%m_hSocket,%d\r\n",p_lReqNo,puserdata->strIp,puserdata->iPort);
 						++it;
 						continue;
 					}
@@ -2245,7 +2439,7 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 				char * pTransfer = (char*)m_clMemMng.Malloc();
 				if ( pTransfer == NULL )
 				{
-					CIceRPCPushLog::Instance().WriteLog("JSONPC","Pushdata","ÉêÇëÄÚ´æÊ§°Ü:%p, memsize=%d\r\n",pTransfer,m_clMemMng.GetMaxSize());
+					CIceRPCPushLog::Instance().WriteLog("JSONPC","Pushdata","ç”³è¯·å†…å­˜å¤±è´¥:%p, memsize=%d\r\n",pTransfer,m_clMemMng.GetMaxSize());
 					LeaveCriticalSection(&m_csMem);
 					++it;
 					continue;
@@ -2255,54 +2449,40 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 				char * transfer_buf		= pTransfer +sizeof(ST_ANS_HEADER);
 				ST_ANS_HEADER * pAnsHead = (ST_ANS_HEADER*)pTransfer;
 				ST_ANS_HEADER &	AnsHeader= *pAnsHead;
-				AnsHeader.dwRawLen		= p_lBufLen;	// pHandleBuffer Òª·¢ËÍµÄÊı¾İ³¤¶È
-				if ( m_bSnappy )
+				AnsHeader.dwRawLen		= stPayload.rawSize;	// pHandleBuffer è¦å‘é€çš„æ•°æ®é•¿åº¦
+				if ( m_lLen < MAX_CACHE_BUFLEN )
 				{
-					std::string dest;
-					size_t size = snappy::Compress((const char*)p_pBuf,p_lBufLen,&dest);
-					if ( dest.size() < MAX_CACHE_BUFLEN )
+					if (m_lLen > 0)
 					{
-						m_lLen = SafeSizeToLength<long>(dest.size());
-						memcpy(transfer_buf,dest.data(),m_lLen);
-					}
-					else
-					{
-						CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Êı¾İ°üÌ«´ó£¬¶ªÆú\r\n");
+						memcpy(transfer_buf, pWireData, m_lLen);
 					}
 				}
 				else
 				{
-					if ( p_lBufLen < MAX_CACHE_BUFLEN )
-					{
-						m_lLen = p_lBufLen;
-						memcpy(transfer_buf,p_pBuf,m_lLen);
-					}
-					else
-					{
-						CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Êı¾İ°üÌ«´ó£¬¶ªÆú\r\n");
-					}
+					m_lLen = 0;
+					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "æ•°æ®åŒ…å¤ªå¤§ï¼Œä¸¢å¼ƒ\r\n");
 				}
 
-				// ´´½¨Ó¦´ğ°üÍ·
+				// åˆ›å»ºåº”ç­”åŒ…å¤´
 				AnsHeader.dwCrc				= 0;
 				AnsHeader.lSeparator			= SEPARATOR_NUM;
 				AnsHeader.stInfo.chVersion		= 2;
-				AnsHeader.stInfo.chCompressed	= m_bSnappy ? EN_COMPRESS_SNAPPY : EN_COMPRESS_DEFAULT;
+				AnsHeader.stInfo.chCompressed	= bPacketSnappy ? EN_COMPRESS_SNAPPY : EN_COMPRESS_DEFAULT;
 				AnsHeader.stInfo.chEncrypted	= 0;
 				AnsHeader.stInfo.chTalkCompress	= 0;
 				
-				AnsHeader.dwPacketLen			= m_lLen;	// pHandleBuffer Òª·¢ËÍµÄÊı¾İ³¤¶È
+				AnsHeader.dwPacketLen			= m_lLen;	// pHandleBuffer è¦å‘é€çš„æ•°æ®é•¿åº¦
 				AnsHeader.dwCookie			= 0;
 				AnsHeader.lMainId			= 0;
 				AnsHeader.lAssistId 			= 0;
 				AnsHeader.chPriority 			= 0;
-				AnsHeader.req				= SafeLongLongToLength<long>(p_lReqNo);// Õâ¸öÖµ²»ÄÜÌ«´ó  PACKET_PUSH_HQ_SUB;//pNode->nGNID;
+				AnsHeader.req				= SafeLongLongToLength<long>(p_lReqNo);// è¿™ä¸ªå€¼ä¸èƒ½å¤ªå¤§  PACKET_PUSH_HQ_SUB;//pNode->nGNID;
 
-				// m_lLen = AnsHeader.dwPacketLen;	// Ñ¹ËõºóµÄ³¤¶È
-				// memcpy(pTransfer,&AnsHeader,sizeof(ST_ANS_HEADER));		// ¿½±´Ó¦´ğ°üÍ·
+				// m_lLen = AnsHeader.dwPacketLen;	// å‹ç¼©åçš„é•¿åº¦
+				// memcpy(pTransfer,&AnsHeader,sizeof(ST_ANS_HEADER));		// æ‹·è´åº”ç­”åŒ…å¤´
 
 				long nLeft = sizeof(ST_ANS_HEADER)+m_lLen;
-				s_send(it->first.hServer,it->first.hHandle, pTransfer,nLeft);	// Ö±½Ó·¢ËÍÓ¦´ğÊı¾İ
+				s_send(it->first.hServer,it->first.hHandle, pTransfer,nLeft);	// ç›´æ¥å‘é€åº”ç­”æ•°æ®
 
 				EnterCriticalSection(&m_csMem);
 				m_clMemMng.Free(pTransfer);
@@ -2312,16 +2492,16 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 		}
 		return CPushMng::m_lPushPackCrowded;
 	}
-	// UDP Êı¾İ´óÓÚ5K£¬Òª·ÖÒ³·¢ËÍ£¬Õâ¸öÂß¼­ÒªÊµÏÖ....................
+	// UDP æ•°æ®å¤§äº5Kï¼Œè¦åˆ†é¡µå‘é€ï¼Œè¿™ä¸ªé€»è¾‘è¦å®ç°....................
 	if ( m_bOpenMulOk )
 	{
-		long	m_lLen = 0;
+		long	m_lLen = lWireLen;
 
 		EnterCriticalSection(&m_csMem);
 		char * pTransfer = (char*)m_clMemMng.Malloc();
 		if ( pTransfer == NULL )
 		{
-			CIceRPCPushLog::Instance().WriteLog("JSONPC","Pushdata","ÉêÇëÄÚ´æÊ§°Ü:%p, memsize=%d\r\n",pTransfer,m_clMemMng.GetMaxSize());
+			CIceRPCPushLog::Instance().WriteLog("JSONPC","Pushdata","ç”³è¯·å†…å­˜å¤±è´¥:%p, memsize=%d\r\n",pTransfer,m_clMemMng.GetMaxSize());
 			LeaveCriticalSection(&m_csMem);
 			return CPushMng::m_lPushPackCrowded;
 		}
@@ -2331,37 +2511,23 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 		char * transfer_buf		= pTransfer +sizeof(ST_UDP_HEADER);
 		ST_UDP_HEADER * pUDPHead = (ST_UDP_HEADER*)pTransfer;
 		ST_UDP_HEADER &	UDPHeader= *pUDPHead;
-		if ( m_bSnappy )
+		if ( m_lLen < MAX_CACHE_BUFLEN )
 		{
-			std::string dest;
-			size_t size = snappy::Compress((const char*)p_pBuf,p_lBufLen,&dest);
-			if ( dest.size() < MAX_CACHE_BUFLEN )
+			if (m_lLen > 0)
 			{
-				m_lLen = SafeSizeToLength<long>(dest.size());
-				memcpy(transfer_buf,dest.data(),m_lLen);
-			}
-			else
-			{
-				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Êı¾İ°üÌ«´ó£¬¶ªÆú\r\n");
+				memcpy(transfer_buf, pWireData, m_lLen);
 			}
 		}
 		else
 		{
-			if ( p_lBufLen < MAX_CACHE_BUFLEN )
-			{
-				m_lLen = p_lBufLen;
-				memcpy(transfer_buf,p_pBuf,m_lLen);
-			}
-			else
-			{
-				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Êı¾İ°üÌ«´ó£¬¶ªÆú\r\n");
-			}
+			m_lLen = 0;
+			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "æ•°æ®åŒ…å¤ªå¤§ï¼Œä¸¢å¼ƒ\r\n");
 		}
 
-		// ´´½¨Ó¦´ğ°üÍ·
-		UDPHeader.chCompressed	= m_bSnappy ? EN_COMPRESS_SNAPPY : EN_COMPRESS_DEFAULT;
+		// åˆ›å»ºåº”ç­”åŒ…å¤´
+		UDPHeader.chCompressed	= bPacketSnappy ? EN_COMPRESS_SNAPPY : EN_COMPRESS_DEFAULT;
 
-		UDPHeader.req				= SafeLongLongToLength<unsigned short>(p_lReqNo);// Õâ¸öÖµ²»ÄÜÌ«´ó  PACKET_PUSH_HQ_SUB;//pNode->nGNID;
+		UDPHeader.req				= SafeLongLongToLength<unsigned short>(p_lReqNo);// è¿™ä¸ªå€¼ä¸èƒ½å¤ªå¤§  PACKET_PUSH_HQ_SUB;//pNode->nGNID;
 
 		long nLeft = sizeof(ST_UDP_HEADER)+m_lLen;
 		if ( sendto(m_hMulSocket,pTransfer,nLeft, 0, (struct sockaddr *) &m_stAddrSend, sizeof(m_stAddrSend))< 0 )
@@ -2378,12 +2544,12 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 	}
 	if ( m_bOpenUdpOk )
 	{
-		long	m_lLen = 0;
+		long	m_lLen = lWireLen;
 		EnterCriticalSection(&m_csMem);
 		char * pTransfer = (char*)m_clMemMng.Malloc();
 		if ( pTransfer == NULL )
 		{
-			CIceRPCPushLog::Instance().WriteLog("JSONPC","Pushdata","ÉêÇëÄÚ´æÊ§°Ü:%p, memsize=%d\r\n",pTransfer,m_clMemMng.GetMaxSize());
+			CIceRPCPushLog::Instance().WriteLog("JSONPC","Pushdata","ç”³è¯·å†…å­˜å¤±è´¥:%p, memsize=%d\r\n",pTransfer,m_clMemMng.GetMaxSize());
 			LeaveCriticalSection(&m_csMem);
 			return CPushMng::m_lPushPackCrowded;
 		}
@@ -2393,37 +2559,23 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 		char * transfer_buf		= pTransfer +sizeof(ST_UDP_HEADER);
 		ST_UDP_HEADER * pUDPHead = (ST_UDP_HEADER*)pTransfer;
 		ST_UDP_HEADER &	UDPHeader= *pUDPHead;
-		if ( m_bSnappy )
+		if ( m_lLen < MAX_CACHE_BUFLEN )
 		{
-			std::string dest;
-			size_t size = snappy::Compress((const char*)p_pBuf,p_lBufLen,&dest);
-			if ( dest.size() < MAX_CACHE_BUFLEN )
+			if (m_lLen > 0)
 			{
-				m_lLen = SafeSizeToLength<long>(dest.size());
-				memcpy(transfer_buf,dest.data(),m_lLen);
+				memcpy(transfer_buf, pWireData, m_lLen);
 			}
-			else
-			{
-				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Êı¾İ°üÌ«´ó£¬¶ªÆú\r\n");
- 			}
 		}
 		else
 		{
-			if ( p_lBufLen < MAX_CACHE_BUFLEN )
-			{
-				m_lLen = p_lBufLen;
-				memcpy(transfer_buf,p_pBuf,m_lLen);
-			}
-			else
-			{
-				CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Êı¾İ°üÌ«´ó£¬¶ªÆú\r\n");
-			}
+			m_lLen = 0;
+			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "æ•°æ®åŒ…å¤ªå¤§ï¼Œä¸¢å¼ƒ\r\n");
 		}
 
-		// ´´½¨Ó¦´ğ°üÍ·
-		UDPHeader.chCompressed	= m_bSnappy ? EN_COMPRESS_SNAPPY : EN_COMPRESS_DEFAULT;
+		// åˆ›å»ºåº”ç­”åŒ…å¤´
+		UDPHeader.chCompressed	= bPacketSnappy ? EN_COMPRESS_SNAPPY : EN_COMPRESS_DEFAULT;
 
-		UDPHeader.req				= SafeLongLongToLength<unsigned short>(p_lReqNo);// Õâ¸öÖµ²»ÄÜÌ«´ó  PACKET_PUSH_HQ_SUB;//pNode->nGNID;
+		UDPHeader.req				= SafeLongLongToLength<unsigned short>(p_lReqNo);// è¿™ä¸ªå€¼ä¸èƒ½å¤ªå¤§  PACKET_PUSH_HQ_SUB;//pNode->nGNID;
 
 		long nLeft = sizeof(ST_UDP_HEADER)+m_lLen;
 		CPushMng::CreateNewPushObj()->UDPPush(pTransfer,nLeft);
@@ -2436,78 +2588,56 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 
 		return CPushMng::m_lPushPackCrowded;
 	}
-	AByte	p_stAByte;
-	if ( m_bSnappy )
-	{
-		std::string dest;
-		size_t size = snappy::Compress((const char*)p_pBuf,p_lBufLen,&dest);
-		p_stAByte.resize(dest.size());
-		if ( !p_stAByte.empty() )
-		{
-			memcpy(p_stAByte.data(),dest.data(),p_stAByte.size());
-		}
-	}
-	else
-	{
-		p_stAByte.resize(p_lBufLen);
-		if ( !p_stAByte.empty() )
-		{
-			memcpy(p_stAByte.data(),p_pBuf,p_lBufLen);
-		}
-	}
-
 	std::map<unsigned long long,ST_JSON_BIN_HANDLE*>	copyclients;
+	const bool bFilterBySubscription = p_lReqNo > 0x100;
+	const DWORD dwReqNo = bFilterBySubscription ?
+		SafeLongLongToLength<DWORD>(p_lReqNo) : 0;
 	EnterCriticalSection(&m_csLock);
 	std::map<unsigned long long,ST_JSON_BIN_HANDLE*>::iterator it = m_mapClients.begin();
 	while ( it != m_mapClients.end() )
 	{
-		it->second->Ref();	// ÏÈÔö¼Ó¼ÆÊıÆ÷
+		// Read and replace mapSubId under the same lock. Only selected handles
+		// receive a reference, so filtered clients cannot leak one per push.
+		if (bFilterBySubscription &&
+			!CSubscriptionFilter::IsSubscribed(
+				it->second->mapSubId, dwReqNo))
+		{
+			++it;
+			continue;
+		}
+		it->second->Ref();	// å…ˆå¢åŠ è®¡æ•°å™¨
+		copyclients[it->first] = it->second;
 		++it;
 	}
-	copyclients = m_mapClients;
 	LeaveCriticalSection(&m_csLock);
 //#if _DEBUG
-//	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "ICE¿Í»§¶ËÊıÄ¿:%d\r\n",m_mapClients.size());
+//	CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "ICEå®¢æˆ·ç«¯æ•°ç›®:%d\r\n",m_mapClients.size());
 //#endif
 	std::vector<unsigned long long>	aDelKey;
 	it = copyclients.begin();
 	while ( it != copyclients.end() )
 	{
-		if ( p_lReqNo > 0x100 )
-		{
-			DWORD dwReqNo = SafeLongLongToLength<DWORD>(p_lReqNo);
-			if ( it->second->mapSubId.find(dwReqNo) == it->second->mapSubId.end() )	// Ã»ÓĞ¶©ÔÄ´Ë¹¦ÄÜ£¬ºöÂÔ
-			{
-				++it;
-				continue;
-			}
-			else  if ( it->second->mapSubId[dwReqNo] <= 0 )			// ¶©ÔÄ×´Ì¬²»ÊÇ 1 £¬ºöÂÔ
-			{
-				++it;
-				continue;
-			}
-		}
 		//////////////////////////////////////////////////////////////////////////
 		try
 		{
 			if ( p_bIsAsync )
 			{
 				InterlockedIncrement64(&CPushMng::m_lPushPackCrowded);
-				// Í¬Ê±ÔÚ½ÓÊÕ¶Ë¸Ä³É½øÈë¶ÓÁĞ£¬²»Á¢¿Ì´¦Àí£¬±ÜÃâÉÏ²ã´¦Àí·çÏÕ£» ·¢ËÍ¶ËÒ²¿ØÖÆ·çÏÕ£¬Èç¹ûÍøÂç²»ºÃ£¬·¢²¼¹ıÈ¥£¬¶àµÄÖ±½Ó¶ªÆú
+				// åŒæ—¶åœ¨æ¥æ”¶ç«¯æ”¹æˆè¿›å…¥é˜Ÿåˆ—ï¼Œä¸ç«‹åˆ»å¤„ç†ï¼Œé¿å…ä¸Šå±‚å¤„ç†é£é™©ï¼› å‘é€ç«¯ä¹Ÿæ§åˆ¶é£é™©ï¼Œå¦‚æœç½‘ç»œä¸å¥½ï¼Œå‘å¸ƒè¿‡å»ï¼Œå¤šçš„ç›´æ¥ä¸¢å¼ƒ
 // #ifdef _DEBUG
-// 				if ( it->second->dwCount < 1024*10 )	// Èç¹ûÌ«¶à°ü»ıÑ¹·¢²»³öÈ¥£¬ÔİÊ±²»Òª¸úÕâ¸öÁ´½Ó·¢ËÍÊı¾İÁË
+// 				if ( it->second->dwCount < 1024*10 )	// å¦‚æœå¤ªå¤šåŒ…ç§¯å‹å‘ä¸å‡ºå»ï¼Œæš‚æ—¶ä¸è¦è·Ÿè¿™ä¸ªé“¾æ¥å‘é€æ•°æ®äº†
 // #else
-// 				if ( it->second->dwCount < 1024*20 )	// Èç¹ûÌ«¶à°ü»ıÑ¹·¢²»³öÈ¥£¬ÔİÊ±²»Òª¸úÕâ¸öÁ´½Ó·¢ËÍÊı¾İÁË
+// 				if ( it->second->dwCount < 1024*20 )	// å¦‚æœå¤ªå¤šåŒ…ç§¯å‹å‘ä¸å‡ºå»ï¼Œæš‚æ—¶ä¸è¦è·Ÿè¿™ä¸ªé“¾æ¥å‘é€æ•°æ®äº†
 // #endif
 				{
 					CPushCallbackPtr cb = std::make_shared<CPushCallback>(it->first,this);
-					Ice::AsyncResultPtr r= icecompat::begin_ProcessPackage(it->second->refProxy.value(),p_lReqNo,p_stAByte,
+					Ice::AsyncResultPtr r= icecompat::begin_ProcessPackage(it->second->refProxy.value(),p_lReqNo,stPayload,
 						newCallback_IJsonBinRPC_ProcessPackage(cb,&CPushCallback::response, &CPushCallback::exception, &CPushCallback::sent));
 					//it->second->dwCount++;
 				}
 // 				else
 // 				{
-// 					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "\r\n%m_hSocket »ıÑ¹=%d,ÏµÍ³»ıÑ¹=%I64dÖ÷¶¯¶ª°ü\r\n",it->second->strGuid.c_str(),it->second->dwCount,CPushMng::m_lPushPackCrowded);
+// 					CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "\r\n%m_hSocket ç§¯å‹=%d,ç³»ç»Ÿç§¯å‹=%I64dä¸»åŠ¨ä¸¢åŒ…\r\n",it->second->strGuid.c_str(),it->second->dwCount,CPushMng::m_lPushPackCrowded);
 // 					if ( time(NULL) - it->second->tmLive > 30 )
 // 					{
 // 						aDelKey.push_back(it->first);
@@ -2515,7 +2645,7 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 // 				}
 			}
 			else
-				it->second->refProxy->ProcessPackage(p_lReqNo,p_stAByte);
+				it->second->refProxy->ProcessPackage(p_lReqNo,stPayload);
 		}
 		catch(const IceUtil::Exception& ex)
 		{
@@ -2530,10 +2660,10 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 	it = copyclients.begin();
 	while ( it != copyclients.end() )
 	{
-		it->second->ReleaseIt();	// ÊÍ·Å¼ÆÊıÆ÷
+		it->second->ReleaseIt();	// é‡Šæ”¾è®¡æ•°å™¨
 		++it;
 	}
-	// ³¬Ê±£¬²¢ÇÒ·¢ËÍ»ıÑ¹ÑÏÖØ£¬Ã»ÓĞÈÎºÎ·µ»ØµÄÁ´½ÓÉ¾³ı
+	// è¶…æ—¶ï¼Œå¹¶ä¸”å‘é€ç§¯å‹ä¸¥é‡ï¼Œæ²¡æœ‰ä»»ä½•è¿”å›çš„é“¾æ¥åˆ é™¤
 	for ( int i=0;i<aDelKey.size();++i )
 	{
 		SelfDelClient(aDelKey[i]);
@@ -2543,11 +2673,11 @@ long long CJsonBinRPCImp::ProcessPackage( long long p_lReqNo,const char * p_pBuf
 
 
 //////////////////////////////////////////////////////////////////////////
-// ¿Í»§¶ËÄ£Ê½ 
-// IceGridAdmin µÄxml²»Ö§³Ö.Proxy  ´«Èë²ÎÊıÒªÒ»²½µ½Î»
+// å®¢æˆ·ç«¯æ¨¡å¼
+// IceGridAdmin çš„xmlä¸æ”¯æŒ.Proxy  ä¼ å…¥å‚æ•°è¦ä¸€æ­¥åˆ°ä½
 //////////////////////////////////////////////////////////////////////////
-// ¿Í»§¶Ë´ÓÅäÖÃÎÄ¼şÆô¶¯£¬²¢¸ù¾İÅäÖÃ´ò¿ª TCP/UDP/×é²¥¿ìËÙÍÆËÍÍ¨µÀ¡£
-bool CJsonBinRPCImp::StartByClientWithLocator(const char * p_szCfgFile,const char * p_szProxyProperty,HANDLE & p_hSem)
+// å®¢æˆ·ç«¯ä»é…ç½®æ–‡ä»¶å¯åŠ¨ï¼Œå¹¶æ ¹æ®é…ç½®æ‰“å¼€ TCP/UDP/ç»„æ’­å¿«é€Ÿæ¨é€é€šé“ã€‚
+bool CJsonBinRPCImp::StartByClientWithLocator(const char * p_szCfgFile,const char * p_szProxyProperty,HANDLE & p_hSem,int p_iThreadPool)
 {
 	char	tmpval[256]={0};
 	m_strProxyProperty = p_szProxyProperty;
@@ -2564,14 +2694,18 @@ bool CJsonBinRPCImp::StartByClientWithLocator(const char * p_szCfgFile,const cha
 			initData.properties = Ice::createProperties();
 			ST_XML_CONFIG_DATA clConfig;
 			LoadIcePropertiesFromConfig(p_szCfgFile, initData.properties, &clConfig);
+			ApplyClientThreadPool(initData.properties, p_iThreadPool);
 			m_bAsyncWaitCompleted = GetConfigInt(&clConfig, p_szCfgFile, "ICEPUSH", "AsyncWaitCompleted", 1) != 0;
+			LoadBinaryConfig(&clConfig, p_szCfgFile);
 			CIceRPCPushLog::Instance().ApplyConfig(p_szCfgFile, &clConfig);
+			// Ice 3.8 initialize ä¼šç§»åŠ¨ initDataï¼Œå®šä½å™¨æ—¥å¿—ä»éœ€è¦åŸå±æ€§å¯¹è±¡ã€‚
+			Ice::PropertiesPtr refProperties = initData.properties;
 			m_refCommunicatorClient = Ice::initialize(std::move(initData));
-			// Push.iPort Òªµ¥¶ÀÖ¸¶¨	: "0" tcp £» ¡°1¡± udp
+			// Push.iPort è¦å•ç‹¬æŒ‡å®š	: "0" tcp ï¼› â€œ1â€ udp
 			// Push.strIp
-// 			m_strPushPort = initData.properties->getProperty("Push.iPort");	// Ö¸¶¨ÍÆËÍÄ£Ê½
-// 			m_strPushIp = initData.properties->getProperty("Push.strIp");	// Ö¸¶¨ÍÆËÍÄ£Ê½
-			// ¿Í»§¶ËÍÆËÍµØÖ·Ö§³Ö XML ºÍ¾É INI Á½ÖÖÅäÖÃÀ´Ô´¡£
+// 			m_strPushPort = initData.properties->getProperty("Push.iPort");	// æŒ‡å®šæ¨é€æ¨¡å¼
+// 			m_strPushIp = initData.properties->getProperty("Push.strIp");	// æŒ‡å®šæ¨é€æ¨¡å¼
+			// å®¢æˆ·ç«¯æ¨é€åœ°å€æ”¯æŒ XML å’Œæ—§ INI ä¸¤ç§é…ç½®æ¥æºã€‚
 			m_strPushPort = std::to_string(GetConfigInt(&clConfig, p_szCfgFile, "ICEPUSH", "RPCPushport", 0));
 			m_strPushIp = GetConfigString(&clConfig, p_szCfgFile, "ICEPUSH", "RPCPuship", "");
 			if ( atol(m_strPushPort.c_str()) > 0 && !m_strPushIp.empty() )
@@ -2597,15 +2731,21 @@ bool CJsonBinRPCImp::StartByClientWithLocator(const char * p_szCfgFile,const cha
 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Client M Push:open=%d,%m_hSocket\r\n",m_bOpenMul, p_szCfgFile);
 
 			std::string locator = "Ice.Default.Locator";
-			std::string proxyVal = initData.properties->getProperty(locator);
-			CIceRPCPushLog::Instance().WriteLog("ÅäÖÃ","StartByClientWithLocator","%m_hSocket=%m_hSocket",p_szProxyProperty,proxyVal.c_str());
+			std::string locatorValue = refProperties->getProperty(locator);
+			std::string configuredProxy = refProperties->getProperty(p_szProxyProperty);
+			if (!configuredProxy.empty())
+			{
+				refProxy = configuredProxy;
+			}
+			CIceRPCPushLog::Instance().WriteLog("é…ç½®", "StartByClientWithLocator",
+				"proxy=%m_hSocket,locator=%m_hSocket", refProxy.c_str(), locatorValue.c_str());
 
 			//////////////////////////////////////////////////////////////			
-			// refProxy = initData.properties->getProperty(szproxy);
-			prx = m_refCommunicatorClient->stringToProxy(p_szProxyProperty);//refProxy);	// Ò»²½µ½Î»
+			// XML ä¸­å­˜åœ¨åŒå Property æ—¶ä½¿ç”¨å±æ€§å€¼ï¼Œç¼ºå¤±æ—¶å…¼å®¹è°ƒç”¨æ–¹ç›´æ¥ä¼ å…¥å®Œæ•´ä»£ç†å­—ç¬¦ä¸²ã€‚
+			prx = m_refCommunicatorClient->stringToProxy(refProxy);
 			if (prx) { prx = prx->ice_twoway(); }
 			// Returns a new refProxy with the given timeout value in milliseconds. A value of  disable -1 m_hSocket timeouts.
-			//prx = prx->ice_timeout(15000);	// Êı¾İ´óÁË£¬Ê±¼ä²»¹»ÓÃ
+			//prx = prx->ice_timeout(15000);	// æ•°æ®å¤§äº†ï¼Œæ—¶é—´ä¸å¤Ÿç”¨
 			m_refStockIo = Ice::uncheckedCast<JSONBINRPC::IJsonBinRPCPrx>(prx);
 		}
 		catch(const IceUtil::Exception& ex)
@@ -2613,7 +2753,7 @@ bool CJsonBinRPCImp::StartByClientWithLocator(const char * p_szCfgFile,const cha
 			char	str[1024]={0};
 			UTF82ASC(ex.what(),str,1023);
 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "%m_hSocket  %m_hSocket:%m_hSocket\r\n",refProxy.c_str(),ex.ice_id(),str);//ex.what());
-			m_strError = (ex.ice_id());
+			m_strError = "ICE_CLIENT_START_EXCEPTION: proxy=" + refProxy + ", ice=" + ex.ice_id() + ", what=" + ex.what();
 			return false;
 		}
 	}
@@ -2643,8 +2783,8 @@ bool CJsonBinRPCImp::StartByClientWithLocator(const char * p_szCfgFile,const cha
 // 	}
 	return true;
 }
-// ¿Í»§¶Ë´ÓÊôĞÔÊı×éÆô¶¯£¬ÊÊºÏµ÷ÓÃ·½¶¯Ì¬Éú³É Ice ÅäÖÃ¡£
-bool CJsonBinRPCImp::StartByClientWithProperty(int p_iNum,const char * p_aPropertyKey[],const char * p_aProperty[],const char * p_szProxyProperty,HANDLE & p_hSem)
+// å®¢æˆ·ç«¯ä»å±æ€§æ•°ç»„å¯åŠ¨ï¼Œé€‚åˆè°ƒç”¨æ–¹åŠ¨æ€ç”Ÿæˆ Ice é…ç½®ã€‚
+bool CJsonBinRPCImp::StartByClientWithProperty(int p_iNum,const char * p_aPropertyKey[],const char * p_aProperty[],const char * p_szProxyProperty,HANDLE & p_hSem,int p_iThreadPool)
 {
 	char	tmpval[256]={0};
 	m_strProxyProperty = p_szProxyProperty;
@@ -2695,13 +2835,14 @@ bool CJsonBinRPCImp::StartByClientWithProperty(int p_iNum,const char * p_aProper
 				//////////////////////////////////////////////////////////////////////////
 
 			}
+			ApplyClientThreadPool(initData.properties, p_iThreadPool);
 			m_refCommunicatorClient = Ice::initialize(std::move(initData));
-			// Push.iPort Òªµ¥¶ÀÖ¸¶¨	: "0" tcp £» ¡°1¡± udp
+			// Push.iPort è¦å•ç‹¬æŒ‡å®š	: "0" tcp ï¼› â€œ1â€ udp
 			// Push.strIp
 			Ice::PropertiesPtr prop = Ice::createProperties();
 
-// 			m_strPushPort = initData.properties->getProperty("Push.iPort");	// Ö¸¶¨ÍÆËÍÄ£Ê½
-// 			m_strPushIp = initData.properties->getProperty("Push.strIp");	// Ö¸¶¨ÍÆËÍÄ£Ê½
+// 			m_strPushPort = initData.properties->getProperty("Push.iPort");	// æŒ‡å®šæ¨é€æ¨¡å¼
+// 			m_strPushIp = initData.properties->getProperty("Push.strIp");	// æŒ‡å®šæ¨é€æ¨¡å¼
 			if ( atol(m_strPushPort.c_str()) > 0 && !m_strPushIp.empty() )
 			{
 				m_bOpenTcp = true;
@@ -2719,7 +2860,7 @@ bool CJsonBinRPCImp::StartByClientWithProperty(int p_iNum,const char * p_aProper
 			}
 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Client ICE Push:open=%d,%d\r\n",m_bOpenTcp,m_bOpenUdp);
 			prx = m_refCommunicatorClient->propertyToProxy(p_szProxyProperty);
-			if (prx) { prx = prx->ice_twoway(); }		// Ò»²½µ½Î» stringToProxy (propertyToProxy )
+			if (prx) { prx = prx->ice_twoway(); }		// ä¸€æ­¥åˆ°ä½ stringToProxy (propertyToProxy )
 			m_refStockIo = Ice::uncheckedCast<JSONBINRPC::IJsonBinRPCPrx>(prx);
 		}
 		catch(const IceUtil::Exception& ex)
@@ -2727,7 +2868,7 @@ bool CJsonBinRPCImp::StartByClientWithProperty(int p_iNum,const char * p_aProper
 			char	str[1024]={0};
 			UTF82ASC(ex.what(),str,1023);
 			CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "%m_hSocket  %m_hSocket,%m_hSocket\r\n",refProxy.c_str(),ex.ice_id(),str);//ex.what());
-			m_strError = (ex.ice_id());
+			m_strError = "ICE_CLIENT_START_EXCEPTION: proxy=" + refProxy + ", ice=" + ex.ice_id() + ", what=" + ex.what();
 			return false;
 		}
 	}
@@ -2737,7 +2878,7 @@ bool CJsonBinRPCImp::StartByClientWithProperty(int p_iNum,const char * p_aProper
 	}
 	p_hSem = m_semMiddle;
 	CPushMng::CreateNewPushObj();
-	// ´ËÊ±»¹Ã»ÓĞ½¨Á¢Á¬½Ó
+	// æ­¤æ—¶è¿˜æ²¡æœ‰å»ºç«‹è¿æ¥
 	if (m_bOpenTcp)
 	{
 		CPushMng::PushConnectInfo(SOCK_STREAM,m_strPushIp, m_strPushPort);
@@ -2757,18 +2898,18 @@ bool CJsonBinRPCImp::StartByClientWithProperty(int p_iNum,const char * p_aProper
 // 	}
 	return true;
 }
-// ×¢²á»Øµ÷º¯Êı£»Í¬Ê±¿ÉÒÔ×¢²á»òÕß×¢Ïú
-// ¿Í»§¶Ë×¢²áÍÆËÍ»Øµ÷£¬±ØÒªÊ±´´½¨Ë«Ïò Ice callback servant ²¢½âÎö·şÎñ¶Ë·µ»ØÅäÖÃ¡£
+// æ³¨å†Œå›è°ƒå‡½æ•°ï¼›åŒæ—¶å¯ä»¥æ³¨å†Œæˆ–è€…æ³¨é”€
+// å®¢æˆ·ç«¯æ³¨å†Œæ¨é€å›è°ƒï¼Œå¿…è¦æ—¶åˆ›å»ºåŒå‘ Ice callback servant å¹¶è§£ææœåŠ¡ç«¯è¿”å›é…ç½®ã€‚
 CJsonBinRPCImp * CJsonBinRPCImp::RegisterClient(std::string& p_strRet,const char * p_strGuid,const char *p_strSubInfo,func_JsonICEPushClientPack p_pfnCallback,int p_iIsReg/*=1*/,void * p_pParam)
 {
 	m_strClientGuid = p_strGuid;
-	// Èç¹û×Ô¼ºÊÇ·şÎñ¶Ë,Ìá¹©×¢²áº¯ÊıÖ¸Õë¼´¿É
-	// ÍÆËÍÊÇµ¥¶ÀnewµÄÊµÀı£¬ÊÕµ½µÄpack¡¢°ü£¬Í³Ò»·Åµ½¸¸Ààm_pParentImp,ËùÒÔ×¢²áº¯Êı£¬thisÒ²Òª×¢²áºÃ£¬m_pStockPushIoÆäÊµÖ»ÊÇÊÕ
+	// å¦‚æœè‡ªå·±æ˜¯æœåŠ¡ç«¯,æä¾›æ³¨å†Œå‡½æ•°æŒ‡é’ˆå³å¯
+	// æ¨é€æ˜¯å•ç‹¬newçš„å®ä¾‹ï¼Œæ”¶åˆ°çš„packã€åŒ…ï¼Œç»Ÿä¸€æ”¾åˆ°çˆ¶ç±»m_pParentImp,æ‰€ä»¥æ³¨å†Œå‡½æ•°ï¼Œthisä¹Ÿè¦æ³¨å†Œå¥½ï¼Œm_pStockPushIoå…¶å®åªæ˜¯æ”¶
 	if ( p_iIsReg)
 		CPushMng::UpdateCallBack(p_pfnCallback,p_pParam,false);
 	else
 		CPushMng::UpdateCallBack(p_pfnCallback,p_pParam,true);
-	if ( !IsClientMode() )	// Èç¹ûÊÇ·şÎñ¶ËÄ£Ê½£¨¿Í»§¶Ë£¬·şÎñ¶ËÖ»ÄÜÒ»¸öÄ£Ê½£©
+	if ( !IsClientMode() )	// å¦‚æœæ˜¯æœåŠ¡ç«¯æ¨¡å¼ï¼ˆå®¢æˆ·ç«¯ï¼ŒæœåŠ¡ç«¯åªèƒ½ä¸€ä¸ªæ¨¡å¼ï¼‰
 	{
 		m_bRegisterOk = true;
 		return this;
@@ -2778,25 +2919,26 @@ CJsonBinRPCImp * CJsonBinRPCImp::RegisterClient(std::string& p_strRet,const char
 	{
 		char	idinfo[256],clientendpoint[256];
 		snprintf(idinfo, sizeof(idinfo), "%s.Client.%s", m_strProxyProperty.c_str(), p_strGuid);
-		snprintf(clientendpoint, sizeof(clientendpoint), "%s.Client", m_strProxyProperty.c_str());	// ²»ÄÜ´ø Endpoints (WithCapitalio.Client)
-		Ice::Identity	iceID = Ice::stringToIdentity(idinfo);	// ½ö½ö±êÊ¶·û
-		Ice::ConnectionPtr pconnect =  m_refStockIo->ice_getConnection();	// Èç¹ûÁ¬½Ó²»ÉÏ£¬¾¡Á¿ÌáÇ°´¥·¢Òì³££¬·ÀÖ¹¶à´Înew²»±ØÒªÊµÀı
+		// Ice 3.8 ä¼šæŠŠ Service.Client.Endpoints è¯¯åˆ¤ä¸ºæœåŠ¡ç«¯ Adapter çš„æœªçŸ¥å­å±æ€§ï¼Œæ”¹ç”¨ç‹¬ç«‹ ServiceClient å‰ç¼€ã€‚
+		snprintf(clientendpoint, sizeof(clientendpoint), "%sClient", m_strProxyProperty.c_str());
+		Ice::Identity	iceID = Ice::stringToIdentity(idinfo);	// ä»…ä»…æ ‡è¯†ç¬¦
+		Ice::ConnectionPtr pconnect =  m_refStockIo->ice_getConnection();	// å¦‚æœè¿æ¥ä¸ä¸Šï¼Œå°½é‡æå‰è§¦å‘å¼‚å¸¸ï¼Œé˜²æ­¢å¤šæ¬¡newä¸å¿…è¦å®ä¾‹
 		if ( p_iIsReg)
 		{
 			if ( !m_refAdapterClient )
 			{
-				// »Øµ÷¹¦ÄÜ½Ó¿Ú : ×Ô¶¯Ôö¼Ó Endpoints ==>> WithCapitalio.Client.Endpoints
-				m_refAdapterClient = m_refCommunicatorClient->createObjectAdapter(clientendpoint);	// "WithCapitalio.Client"¶ÁÈ¡ÅäÖÃ
-				// »Øµ÷Ö¸Õë±£´æºÃ
-				CJsonBinRPCImp * pStockPush = new CJsonBinRPCImp();//(f,fbyhead,p_pParam);	// ÖÇÄÜÖ¸Õë
+				// å›è°ƒåŠŸèƒ½æ¥å£è¯»å– ServiceClient.Endpointsï¼Œé¿å…å’ŒæœåŠ¡ç«¯ Service.Endpoints å±æ€§å‰ç¼€å†²çªã€‚
+				m_refAdapterClient = m_refCommunicatorClient->createObjectAdapter(clientendpoint);
+				// å›è°ƒæŒ‡é’ˆä¿å­˜å¥½
+				CJsonBinRPCImp * pStockPush = new CJsonBinRPCImp();//(f,fbyhead,p_pParam);	// æ™ºèƒ½æŒ‡é’ˆ
 				//pStockPush->UpdateCallBack(f,p_pParam,false);
 				m_refAdapterClient->add(icecompat::MakeServantPtr(pStockPush), iceID);//m_refCommunicatorClient->stringToIdentity("WithCapitalio.Pushio.Client.PushioReceiver"));
 				m_refAdapterClient->activate();
 
 				m_pStockPushIo = pStockPush;
-				m_pStockPushIo->m_pParentImp = this;	// ¸¸Àà
+				m_pStockPushIo->m_pParentImp = this;	// çˆ¶ç±»
 				m_pStockPushIo->m_refStockIo = m_refStockIo;
-				// ÓÃÔ­À´Á´½Ó:¿ÉÄÜµÚÒ»´ÎÁ¬²»ÉÏ
+				// ç”¨åŸæ¥é“¾æ¥:å¯èƒ½ç¬¬ä¸€æ¬¡è¿ä¸ä¸Š
 				//Ice::ConnectionPtr pconnect =  m_refStockIo->ice_getConnection();
 				pconnect->setAdapter(m_refAdapterClient);
 			}
@@ -2807,19 +2949,19 @@ CJsonBinRPCImp * CJsonBinRPCImp::RegisterClient(std::string& p_strRet,const char
 				//m_refAdapterClient->add(m_pStockPushIo, iceID);//m_refCommunicatorClient->stringToIdentity("WithCapitalio.Pushio.Client.PushioReceiver"));
 				m_refAdapterClient->activate();
 			}
-			// ÓÃÔ­À´Á´½Ó:¿ÉÄÜµÚÒ»´ÎÁ¬²»ÉÏ
+			// ç”¨åŸæ¥é“¾æ¥:å¯èƒ½ç¬¬ä¸€æ¬¡è¿ä¸ä¸Š
 			pconnect->setAdapter(m_refAdapterClient);
-			// ×¢²á»Øµ÷½Ó¿Ú,·µ»Ø¸æÖªÊÇ·ñ²ÉÓÃÁËsnappyÑ¹Ëõ
+			// æ³¨å†Œå›è°ƒæ¥å£,è¿”å›å‘ŠçŸ¥æ˜¯å¦é‡‡ç”¨äº†snappyå‹ç¼©
 // 			m_bSnappy = m_refStockIo->RegisterStockPushIO(p_strGuid,iceID);
 // 			if( m_pStockPushIo )
 // 				m_pStockPushIo->m_bSnappy = m_bSnappy;
-			if ( p_strSubInfo )	// Èç¹ûÓĞ¶©ÔÄµÄÏêÏ¸ÄÚÈİ£¬×èÈû»ñµÃ·şÎñ¶ËµÄÅäÖÃĞÅÏ¢£¬ÀıÈçÍÆËÍµÄ¶Ë¿ÚĞÅÏ¢
+			if ( p_strSubInfo )	// å¦‚æœæœ‰è®¢é˜…çš„è¯¦ç»†å†…å®¹ï¼Œé˜»å¡è·å¾—æœåŠ¡ç«¯çš„é…ç½®ä¿¡æ¯ï¼Œä¾‹å¦‚æ¨é€çš„ç«¯å£ä¿¡æ¯
 			{
 				p_strRet = m_refStockIo->RegisterStockPushIO2(p_strGuid,p_strSubInfo,iceID);
 			}
 			else
 			{
-				// Òì²½×¢²á
+				// å¼‚æ­¥æ³¨å†Œ
 				// Ice::AsyncResultPtr m_pResult= m_refStockIo->begin_RegisterStockPushIO(p_strGuid,iceID);
 				CRegisterIOCallBackPtr	cb = std::make_shared<CRegisterIOCallBack>();
 				cb->m_lpParent = this;
@@ -2834,7 +2976,7 @@ CJsonBinRPCImp * CJsonBinRPCImp::RegisterClient(std::string& p_strRet,const char
 		}
 		else
 		{
-			if ( p_strSubInfo )	// Èç¹ûÓĞ¶©ÔÄµÄÏêÏ¸ÄÚÈİ£¬×èÈû»ñµÃ·şÎñ¶ËµÄÅäÖÃĞÅÏ¢£¬ÀıÈçÍÆËÍµÄ¶Ë¿ÚĞÅÏ¢
+			if ( p_strSubInfo )	// å¦‚æœæœ‰è®¢é˜…çš„è¯¦ç»†å†…å®¹ï¼Œé˜»å¡è·å¾—æœåŠ¡ç«¯çš„é…ç½®ä¿¡æ¯ï¼Œä¾‹å¦‚æ¨é€çš„ç«¯å£ä¿¡æ¯
 			{
 				p_strRet = m_refStockIo->UnRegisterStockPushIO2(p_strGuid,p_strSubInfo,iceID);
 			}
@@ -2842,7 +2984,7 @@ CJsonBinRPCImp * CJsonBinRPCImp::RegisterClient(std::string& p_strRet,const char
 			{
 				//m_pStockPushIo->UpdateCallBack(f,p_pParam,true);
 				// m_bsanppy = m_refStockIo->UnRegisterStockPushIO(p_strGuid);
-				icecompat::begin_UnRegisterStockPushIO(m_refStockIo.value(),p_strGuid);	// ×¢ÏúµÄÊ±ºò£¬Òì²½²Ù×÷£¬ÄÜÍê³É¼´Íê³É£¬²»ÄÜÔò¿ìËÙ·µ»Ø£¬·½±ãÉÏ²ãÍË³ö
+				icecompat::begin_UnRegisterStockPushIO(m_refStockIo.value(),p_strGuid);	// æ³¨é”€çš„æ—¶å€™ï¼Œå¼‚æ­¥æ“ä½œï¼Œèƒ½å®Œæˆå³å®Œæˆï¼Œä¸èƒ½åˆ™å¿«é€Ÿè¿”å›ï¼Œæ–¹ä¾¿ä¸Šå±‚é€€å‡º
 				if( m_pStockPushIo )
 					m_pStockPushIo->m_bSnappy = m_bSnappy;
 			}
@@ -2862,7 +3004,11 @@ CJsonBinRPCImp * CJsonBinRPCImp::RegisterClient(std::string& p_strRet,const char
 		TokenizeOR(toids,p_strRet.c_str(),";");
 		for ( int i=0;i<toids.size();++i )
 		{
-			if ( SundayQuickSearch(toids[i].c_str(),"rpcpushbindport=") )
+			if ( SundayQuickSearch(toids[i].c_str(),"snappy=") )
+			{
+				m_bSnappy = atoi(toids[i].c_str() + strlen("snappy=")) != 0;
+			}
+			else if ( SundayQuickSearch(toids[i].c_str(),"rpcpushbindport=") )
 			{
 				m_strPushPort = toids[i].c_str() + strlen("rpcpushbindport=");
 			}
@@ -2893,18 +3039,23 @@ CJsonBinRPCImp * CJsonBinRPCImp::RegisterClient(std::string& p_strRet,const char
 			CPushMng::PushConnectInfo(SOCK_RAW,m_strPushUdpMulIp,m_strPushUdpMulPort);
 		}
 		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Client ICE Push:open=%d,%m_hSocket:%m_hSocket\r\n",m_bOpenTcp,m_strPushIp.c_str(),m_strPushPort.c_str());
-		
+		if (p_iIsReg && m_pStockPushIo != NULL)
+		{
+			m_bRegisterOk = true;
+			m_pStockPushIo->m_bRegisterOk = true;
+			m_pStockPushIo->m_bSnappy = m_bSnappy;
+		}
 	}
 	
 	if (m_bOpenTcp)
 	{
-		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "¶©ÔÄ:%m_hSocket\r\n",p_strGuid);
+		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "è®¢é˜…:%m_hSocket\r\n",p_strGuid);
 		CPushMng::PushRegisterInfo(p_strGuid,p_iIsReg);
 	}
 
 	return m_pStockPushIo;
 }
-// ×¢²áÒì²½·µ»ØºóÍ¬²½±¾¶ÔÏóºÍÍÆËÍ×Ó¶ÔÏóµÄÑ¹Ëõ/×¢²á×´Ì¬¡£
+// æ³¨å†Œå¼‚æ­¥è¿”å›ååŒæ­¥æœ¬å¯¹è±¡å’Œæ¨é€å­å¯¹è±¡çš„å‹ç¼©/æ³¨å†ŒçŠ¶æ€ã€‚
 void CJsonBinRPCImp::RegisterCallBack(long long p_lRetVal)
 {
 	m_bRegisterOk = true;
@@ -2916,34 +3067,31 @@ void CJsonBinRPCImp::RegisterCallBack(long long p_lRetVal)
 	}
 }
 
-// ½ÓÊÕ¶ËÌ«ÂıÁË£¬µ¼ÖÂ·¢ËÍ¶ËÄÚ´æ»ıÑ¹´ò±¬ÁË£¬Ó¦¸Ã°ÑÑ¹Á¦·Åµ½¶ÔÓ¦µÄ¶©ÔÄ¶Ë
-// ¸Ä³ÉÖ÷¶¯À­È¡£¬·ÅÈë¶ÓÁĞ
-// ¿Í»§¶ËÊÕµ½ Ice ÍÆËÍºóµÄÈë¿Ú£¬¸´ÖÆ°üÄÚÈİÈë¶ÓºóÁ¢¼´ÏìÓ¦·şÎñ¶Ë¡£
-void CJsonBinRPCImp::ProcessPackage_async(const ::JSONBINRPC::AMD_IJsonBinRPC_ProcessPackagePtr& p_pCallback,long long p_lReqNo, const ::JSONBINRPC::AByte& p_stAByte, const ::Ice::Current& /* = ::Ice::Current() */)
+// å®¢æˆ·ç«¯æ”¶åˆ° Ice æ¨é€åçš„å…¥å£ï¼Œåªæ·±æ‹·è´è‡ªæè¿°è½½è·å¹¶å…¥é˜Ÿï¼Œè§£å‹å’Œä¸šåŠ¡å›è°ƒç”±æ¨é€çº¿ç¨‹å®Œæˆã€‚
+void CJsonBinRPCImp::ProcessPackage_async(const ::JSONBINRPC::AMD_IJsonBinRPC_ProcessPackagePtr& p_pCallback,long long p_lReqNo, const ::JSONBINRPC::BinaryPayload& p_stPayload, const ::Ice::Current& /* = ::Ice::Current() */)
 {
-	if ( !m_bRegisterOk )	// ×¢²áº¯Êı²»»ØÀ´£¬²»Òªµ÷ÓÃ£¬²»ÖªµÀÔõÃ´½âÎö°ü¸ñÊ½(×Ô¼º×÷Îª·şÎñ£¬ÖªµÀÊÇ·ñÓĞÑ¹Ëõ,Ò²²»»áÍÆËÍ¸ø×Ô¼º)
+	if ( !m_bRegisterOk )
 	{
-		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "Ã»ÓĞ×¢²á³É¹¦£¬²»È·¶¨ÊÇ·ñÑ¹Ëõ£¬ÎŞ·¨ÕıÈ·½âÎö\r\n");
+		CIceRPCPushLog::Instance().WriteDebug("DEBUG", "Trace", "æ²¡æœ‰æ³¨å†ŒæˆåŠŸï¼Œæ‹’ç»æ¥æ”¶æ¨é€\r\n");
 		p_pCallback->ice_response();
 		return;
 	}
 
-	//CPushMng::ProcessPackage(p_lReqNo,(const char *)&*p_stAByte.begin(),p_stAByte.size());
-
-
-	ST_PACK_QUEUE * p = new ST_PACK_QUEUE;//(ST_PACK_QUEUE*)new char[sizeof(ST_PACK_QUEUE)+p_stAByte.size()];
-	//p->cb	 = p_pCallback;
-	p->bSnappy=m_bSnappy;	// ³ÉÔ±±äÁ¿£¬Ã¿¸öÁ´½ÓµÄ·şÎñ¿ÉÄÜ²»Ò»Ñù£¬ÊÇ·ñÑ¹ËõÒ²²»Ò»Ñù£¬ÍÆËÍÊÇ¼¯ÖĞÈ«¾Öº¯Êı
-	p->lReqNo = p_lReqNo;
-	p->lBufLen= SafeSizeToLength<long>(p_stAByte.size());
-	if ( p->lBufLen > 0 )
+	ST_PACK_QUEUE * p = new (std::nothrow) ST_PACK_QUEUE;
+	if (p == NULL)
 	{
-		p->pBuf	 = new char[p->lBufLen];
-		memcpy(p->pBuf,p_stAByte.data(),p->lBufLen);
+		CIceRPCPushLog::Instance().WriteLog("JSONRPC", "PUSHPACK",
+			"BINARY_PUSH_MEMORY_FAILED: req=%I64d\r\n", p_lReqNo);
+		p_pCallback->ice_response();
+		return;
 	}
+	p->lReqNo = p_lReqNo;
+	p->stPayload = p_stPayload;
+	p->iProtocolVersion = m_iBinaryProtocolVersion;
+	p->iMaxPayloadBytes = m_iBinaryMaxPayloadBytes;
 	CPushMng::PushPack(p);
 	
-	// ÌáÇ°·µ»Ø 
+	// æå‰è¿”å›
 	p_pCallback->ice_response();
 }
 
@@ -2951,49 +3099,1185 @@ void CJsonBinRPCImp::ProcessPackage_async(const ::JSONBINRPC::AMD_IJsonBinRPC_Pr
 
 
 
-// Ice 3.8 Éú³É´úÂëÒªÇóµÄ×¢²áÈë¿Ú£¬ÄÚ²¿¼ÌĞø¸´ÓÃ¾É AMD ´¦ÀíÁ÷³Ì¡£
+// è¯»å– Binary åè®®é…ç½®ï¼›æ‰€æœ‰ä¸Šé™éƒ½åœ¨æ­¤å¤„æ”¶æ•›ï¼Œé¿å…éæ³•é…ç½®æ”¾å¤§èµ„æºå ç”¨ã€‚
+void CJsonBinRPCImp::LoadBinaryConfig(const ST_XML_CONFIG_DATA* p_pConfig, const char* p_szCfgFile)
+{
+	m_iBinaryProtocolVersion = GetConfigInt(p_pConfig, p_szCfgFile, "ICEPUSH", "BinaryProtocolVersion", 1);
+	if (m_iBinaryProtocolVersion != s_iBinaryProtocolVersion)
+	{
+		m_iBinaryProtocolVersion = s_iBinaryProtocolVersion;
+	}
+	m_iBinaryCompressionThresholdBytes = GetConfigInt(p_pConfig, p_szCfgFile, "ICEPUSH", "BinaryCompressionThresholdBytes", 1024);
+	if (m_iBinaryCompressionThresholdBytes < 0 || m_iBinaryCompressionThresholdBytes > 1024 * 1024)
+	{
+		m_iBinaryCompressionThresholdBytes = 1024;
+	}
+	m_iBinaryMaxPayloadBytes = GetConfigInt(p_pConfig, p_szCfgFile, "ICEPUSH", "BinaryMaxPayloadBytes", 50 * 1024 * 1024);
+	if (m_iBinaryMaxPayloadBytes <= 0 || m_iBinaryMaxPayloadBytes > 512 * 1024 * 1024)
+	{
+		m_iBinaryMaxPayloadBytes = 50 * 1024 * 1024;
+	}
+	m_iBinaryCallTimeoutMs = GetConfigInt(p_pConfig, p_szCfgFile, "ICEPUSH", "BinaryCallTimeoutMs", 15000);
+	if (m_iBinaryCallTimeoutMs <= 0 || m_iBinaryCallTimeoutMs > 10 * 60 * 1000)
+	{
+		m_iBinaryCallTimeoutMs = 15000;
+	}
+	m_iBinaryServerWorkerThreads = GetConfigInt(p_pConfig, p_szCfgFile, "ICEPUSH", "BinaryServerWorkerThreads", 4);
+	if (m_iBinaryServerWorkerThreads <= 0 || m_iBinaryServerWorkerThreads > 64)
+	{
+		m_iBinaryServerWorkerThreads = 4;
+	}
+	m_iBinaryServerQueueCapacity = GetConfigInt(p_pConfig, p_szCfgFile, "ICEPUSH", "BinaryServerQueueCapacity", 4096);
+	if (m_iBinaryServerQueueCapacity <= 0 || m_iBinaryServerQueueCapacity > 1000000)
+	{
+		m_iBinaryServerQueueCapacity = 4096;
+	}
+	m_iBinaryResponseWorkerThreads = GetConfigInt(p_pConfig, p_szCfgFile,
+		"ICEPUSH", "BinaryResponseWorkerThreads", 8);
+	if (m_iBinaryResponseWorkerThreads <= 0 ||
+		m_iBinaryResponseWorkerThreads > 64)
+	{
+		m_iBinaryResponseWorkerThreads = 8;
+	}
+	m_iBinaryResponseQueueCapacity = GetConfigInt(p_pConfig, p_szCfgFile,
+		"ICEPUSH", "BinaryResponseQueueCapacity", 4096);
+	if (m_iBinaryResponseQueueCapacity < m_iBinaryServerQueueCapacity ||
+		m_iBinaryResponseQueueCapacity > 1000000)
+	{
+		m_iBinaryResponseQueueCapacity = m_iBinaryServerQueueCapacity;
+	}
+	m_iBinaryReclaimWorkerThreads = GetConfigInt(p_pConfig, p_szCfgFile,
+		"ICEPUSH", "BinaryReclaimWorkerThreads", 2);
+	if (m_iBinaryReclaimWorkerThreads <= 0 ||
+		m_iBinaryReclaimWorkerThreads > 16)
+	{
+		m_iBinaryReclaimWorkerThreads = 2;
+	}
+	m_iBinaryMaxPendingAsync = GetConfigInt(p_pConfig, p_szCfgFile, "ICEPUSH", "BinaryMaxPendingAsync", 10000);
+	if (m_iBinaryMaxPendingAsync <= 0 || m_iBinaryMaxPendingAsync > 1000000)
+	{
+		m_iBinaryMaxPendingAsync = 10000;
+	}
+}
+
+// æŠŠä¸šåŠ¡åŸå§‹å­—èŠ‚ç¼–ç æˆè‡ªæè¿° BinaryPayloadï¼Œå°åŒ…ä¸å‹ç¼©ï¼Œå¤§åŒ…ä»…åœ¨å‹ç¼©æœ‰æ•ˆæ—¶ä½¿ç”¨ Snappyã€‚
+bool CJsonBinRPCImp::EncodeBinaryPayload(const ST_BINARY_VIEW& p_refView, ::JSONBINRPC::BinaryPayload& p_refPayload, std::string& p_refError) const
+{
+	return binarypayload::Encode(p_refView.pBuffer, p_refView.lLen,
+		m_iBinaryProtocolVersion, m_iBinaryCompressionThresholdBytes,
+		m_iBinaryMaxPayloadBytes, p_refPayload, p_refError);
+}
+
+// æ ¡éªŒç‰ˆæœ¬ã€å‹ç¼©ç±»å‹å’ŒåŸå§‹é•¿åº¦åè§£ç ï¼Œæ‹’ç»è¶…é™è½½è·å’Œä¸å®Œæ•´ Snappy æ•°æ®ã€‚
+bool CJsonBinRPCImp::DecodeBinaryPayload(const ::JSONBINRPC::BinaryPayload& p_refPayload, std::vector<unsigned char>& p_refBuffer, std::string& p_refError) const
+{
+	return binarypayload::Decode(p_refPayload,
+		m_iBinaryProtocolVersion, m_iBinaryMaxPayloadBytes,
+		p_refBuffer, p_refError);
+}
+
+// æ ¡éªŒå®¢æˆ·ç«¯å…¬å…±ç»“æ„å¹¶æ„é€  Ice è¯·æ±‚ï¼Œä¸»è½½è·å’Œæ‰©å±•è½½è·åˆè®¡ä¸å¾—è¶…è¿‡é…ç½®ä¸Šé™ã€‚
+bool CJsonBinRPCImp::BuildBinaryRequest(const ST_BINARY_CALL* p_pCall, ::JSONBINRPC::BinaryRequest& p_refRequest, std::string& p_refError) const
+{
+	if (p_pCall == NULL)
+	{
+		p_refError = "INVALID_PARAM: binary call is null";
+		return false;
+	}
+	if (p_pCall->iVersion != m_iBinaryProtocolVersion)
+	{
+		p_refError = "BINARY_PROTOCOL_VERSION_UNSUPPORTED: call version does not match local version";
+		return false;
+	}
+	const long long lTotalBytes = static_cast<long long>(p_pCall->stPayload.lLen) + static_cast<long long>(p_pCall->stExtra.lLen);
+	if (p_pCall->stPayload.lLen < 0 || p_pCall->stExtra.lLen < 0 || lTotalBytes > m_iBinaryMaxPayloadBytes)
+	{
+		p_refError = "BINARY_PAYLOAD_TOO_LARGE: request payload total exceeds BinaryMaxPayloadBytes";
+		return false;
+	}
+	p_refRequest.version = m_iBinaryProtocolVersion;
+	p_refRequest.syn = p_pCall->lSynId;
+	p_refRequest.nFuncID = p_pCall->lFuncId;
+	p_refRequest.routeCode = p_pCall->lRouteCode;
+	p_refRequest.param = p_pCall->lParam;
+	p_refRequest.wparam = p_pCall->wParam;
+	return EncodeBinaryPayload(p_pCall->stPayload, p_refRequest.payload, p_refError) &&
+		EncodeBinaryPayload(p_pCall->stExtra, p_refRequest.extra, p_refError);
+}
+
+// æ„é€ ç»Ÿä¸€çš„ä¼ è¾“é”™è¯¯åº”ç­”ï¼Œé”™è¯¯æ–‡æœ¬åªä½¿ç”¨è¯¦ç»†è‹±æ–‡æè¿°ã€‚
+::JSONBINRPC::BinaryResponse CJsonBinRPCImp::MakeBinaryErrorResponse(int p_iErrorCode, const std::string& p_strError) const
+{
+	::JSONBINRPC::BinaryResponse stResponse;
+	stResponse.version = m_iBinaryProtocolVersion;
+	stResponse.retVal = p_iErrorCode;
+	stResponse.errorCode = p_iErrorCode;
+	stResponse.param = 0;
+	stResponse.wparam = 0;
+	stResponse.errInfo = p_strError;
+	stResponse.payload.version = m_iBinaryProtocolVersion;
+	stResponse.payload.compression = ::JSONBINRPC::BinaryCompression::BinaryCompressionNone;
+	stResponse.payload.rawSize = 0;
+	stResponse.payload.data.clear();
+	stResponse.extra = stResponse.payload;
+	return stResponse;
+}
+
+// æ·±æ‹·è´å¹¶è§£ç  Ice åº”ç­”ï¼Œè°ƒç”¨æ–¹åç»­ç»Ÿä¸€é€šè¿‡ BinaryResultFree é‡Šæ”¾ã€‚
+ST_BINARY_RESULT* CJsonBinRPCImp::BuildBinaryResult(const ::JSONBINRPC::BinaryResponse& p_refResponse, void* p_pParam, std::string& p_refError) const
+{
+	ST_BINARY_RESULT* pResult = new ST_BINARY_RESULT;
+	pResult->iVersion = p_refResponse.version;
+	pResult->lRetVal = p_refResponse.retVal;
+	pResult->iErrorCode = p_refResponse.errorCode;
+	pResult->lParam = p_refResponse.param;
+	pResult->wParam = p_refResponse.wparam;
+	pResult->pParam = p_pParam;
+	strncpy(pResult->szErrInfo, p_refResponse.errInfo.c_str(), sizeof(pResult->szErrInfo) - 1);
+
+	std::vector<unsigned char> vecPayload;
+	std::vector<unsigned char> vecExtra;
+	if (!DecodeBinaryPayload(p_refResponse.payload, vecPayload, p_refError) ||
+		!DecodeBinaryPayload(p_refResponse.extra, vecExtra, p_refError))
+	{
+		pResult->lRetVal = s_iBinaryCompressionError;
+		pResult->iErrorCode = s_iBinaryCompressionError;
+		strncpy(pResult->szErrInfo, p_refError.c_str(), sizeof(pResult->szErrInfo) - 1);
+		return pResult;
+	}
+	if (!vecPayload.empty())
+	{
+		pResult->stPayload.lLen = SafeSizeToLength<int>(vecPayload.size());
+		pResult->stPayload.pBuffer = new unsigned char[vecPayload.size()];
+		memcpy(pResult->stPayload.pBuffer, vecPayload.data(), vecPayload.size());
+	}
+	if (!vecExtra.empty())
+	{
+		pResult->stExtra.lLen = SafeSizeToLength<int>(vecExtra.size());
+		pResult->stExtra.pBuffer = new unsigned char[vecExtra.size()];
+		memcpy(pResult->stExtra.pBuffer, vecExtra.data(), vecExtra.size());
+	}
+	return pResult;
+}
+
+// ç§»åŠ¨ Ice BinaryPayload å­—èŠ‚å®¹å™¨ï¼ŒCloudNet/Gateway å¯æŠŠè§£å‹æ¨è¿Ÿåˆ°æœ€ç»ˆæ¶ˆè´¹çº¿ç¨‹ã€‚
+ST_BINARY_ENCODED_RESULT* CJsonBinRPCImp::BuildBinaryEncodedResult(
+	::JSONBINRPC::BinaryResponse&& p_refResponse,
+	ST_BINARY_ENCODED_RESULT* p_pPreparedResult, void* p_pParam,
+	std::string& p_refError) const
+{
+	p_refError.clear();
+	ST_BINARY_ENCODED_RESULT_OWNER* pOwner =
+		p_pPreparedResult != nullptr ?
+		static_cast<ST_BINARY_ENCODED_RESULT_OWNER*>(
+			p_pPreparedResult->pInternalOwner) : nullptr;
+	if (p_pPreparedResult == nullptr || pOwner == nullptr)
+	{
+		p_refError =
+			"BINARY_RESPONSE_OWNER_INVALID: prepared result has no owner";
+		return nullptr;
+	}
+	try
+	{
+		pOwner->aPayload = std::move(p_refResponse.payload.data);
+		pOwner->aExtra = std::move(p_refResponse.extra.data);
+		p_pPreparedResult->iVersion = p_refResponse.version;
+		p_pPreparedResult->lRetVal = p_refResponse.retVal;
+		p_pPreparedResult->iErrorCode = p_refResponse.errorCode;
+		p_pPreparedResult->lParam = p_refResponse.param;
+		p_pPreparedResult->wParam = p_refResponse.wparam;
+		p_pPreparedResult->pParam = p_pParam;
+		strncpy(p_pPreparedResult->szErrInfo, p_refResponse.errInfo.c_str(),
+			sizeof(p_pPreparedResult->szErrInfo) - 1);
+		FillBinaryEncodedBuffer(p_refResponse.payload, pOwner->aPayload,
+			m_iBinaryMaxPayloadBytes, p_pPreparedResult->stPayload);
+		FillBinaryEncodedBuffer(p_refResponse.extra, pOwner->aExtra,
+			m_iBinaryMaxPayloadBytes, p_pPreparedResult->stExtra);
+		return p_pPreparedResult;
+	}
+	catch (...)
+	{
+		p_refError =
+			"BINARY_RESPONSE_MEMORY_FAILED: unable to move encoded result";
+		pOwner->aPayload.clear();
+		pOwner->aExtra.clear();
+		p_pPreparedResult->iVersion = m_iBinaryProtocolVersion;
+		p_pPreparedResult->lRetVal = s_iBinaryCallbackError;
+		p_pPreparedResult->iErrorCode = s_iBinaryCallbackError;
+		p_pPreparedResult->lParam = 0;
+		p_pPreparedResult->wParam = 0;
+		p_pPreparedResult->pParam = p_pParam;
+		strncpy(p_pPreparedResult->szErrInfo, p_refError.c_str(),
+			sizeof(p_pPreparedResult->szErrInfo) - 1);
+		p_pPreparedResult->stPayload = ST_BINARY_ENCODED_BUFFER();
+		p_pPreparedResult->stExtra = ST_BINARY_ENCODED_BUFFER();
+		return p_pPreparedResult;
+	}
+}
+
+void CJsonBinRPCImp::FreeBinaryEncodedResult(
+	ST_BINARY_ENCODED_RESULT* p_pResult)
+{
+	if (p_pResult == nullptr)
+	{
+		return;
+	}
+	ST_BINARY_ENCODED_RESULT_OWNER* pOwner =
+		static_cast<ST_BINARY_ENCODED_RESULT_OWNER*>(
+			p_pResult->pInternalOwner);
+	p_pResult->pInternalOwner = nullptr;
+	delete pOwner;
+	delete p_pResult;
+}
+
+// æ³¨å†Œ Binary å›è°ƒæ—¶æ‰å¯åŠ¨å·¥ä½œçº¿ç¨‹ï¼Œæœªä½¿ç”¨ Binary çš„æ—§æœåŠ¡ä¸ä¼šå¢åŠ çº¿ç¨‹å¼€é”€ã€‚
+void CJsonBinRPCImp::RegisterBinaryServerCallback(func_IceBinaryServerCallback p_pfnCallback, void* p_pParam)
+{
+	m_pfnBinaryServerCallback = p_pfnCallback;
+	m_pfnBinaryServerCallbackEx = NULL;
+	m_pfnBinaryPriorityClassifier = NULL;
+	m_pBinaryServerParam = p_pParam;
+	if (p_pfnCallback != NULL)
+	{
+		StartBinaryWorkers();
+	}
+	else
+	{
+		StopBinaryWorkers();
+	}
+}
+
+void CJsonBinRPCImp::RegisterBinaryServerCallbackEx(
+	func_IceBinaryServerCallbackEx p_pfnCallback,
+	func_IceBinaryPriorityClassifier p_pfnPriorityClassifier,
+	void* p_pParam)
+{
+	m_pfnBinaryServerCallback = NULL;
+	m_pfnBinaryServerCallbackEx = p_pfnCallback;
+	m_pfnBinaryPriorityClassifier = p_pfnPriorityClassifier;
+	m_pBinaryServerParam = p_pParam;
+	if (p_pfnCallback != NULL)
+	{
+		StartBinaryWorkers();
+	}
+	else
+	{
+		StopBinaryWorkers();
+	}
+}
+
+HANDLE CJsonBinRPCImp::RegisterBinaryResponseTask(
+	const std::shared_ptr<ST_BINARY_SERVER_TASK>& p_refTask)
+{
+	if (!p_refTask || p_refTask->pOwner == NULL)
+	{
+		return NULL;
+	}
+	CJsonBinRPCImp* pOwner = p_refTask->pOwner;
+	long long lPending = pOwner->m_lBinaryPendingResponses.load();
+	for (;;)
+	{
+		if (lPending >= pOwner->m_iBinaryServerQueueCapacity)
+		{
+			return NULL;
+		}
+		if (pOwner->m_lBinaryPendingResponses.compare_exchange_weak(
+				lPending, lPending + 1))
+		{
+			break;
+		}
+	}
+	ST_BINARY_RESPONSE_CONTEXT* pContext = NULL;
+	try
+	{
+		pContext = new ST_BINARY_RESPONSE_CONTEXT(p_refTask);
+		p_refTask->pResponseContext = pContext;
+		p_refTask->hResponse = reinterpret_cast<HANDLE>(pContext);
+		std::lock_guard<std::mutex> clLock(
+			pOwner->m_clBinaryPendingContextMutex);
+		pOwner->m_setBinaryPendingContexts.insert(pContext);
+	}
+	catch (...)
+	{
+		delete pContext;
+		p_refTask->pResponseContext = NULL;
+		p_refTask->hResponse = NULL;
+		pOwner->m_lBinaryPendingResponses.fetch_sub(1);
+		return NULL;
+	}
+	return reinterpret_cast<HANDLE>(pContext);
+}
+
+void CJsonBinRPCImp::RetainBinaryResponseContext(
+	ST_BINARY_RESPONSE_CONTEXT* p_pContext)
+{
+	if (p_pContext != NULL)
+	{
+		p_pContext->lReferences.fetch_add(1);
+	}
+}
+
+void CJsonBinRPCImp::ReleaseBinaryResponseContext(
+	ST_BINARY_RESPONSE_CONTEXT* p_pContext)
+
+{
+	if (p_pContext == NULL || p_pContext->lReferences.fetch_sub(1) != 1)
+	{
+		return;
+	}
+	CJsonBinRPCImp* pOwner = p_pContext->pOwner;
+	if (pOwner != NULL)
+	{
+		pOwner->m_lBinaryPendingResponses.fetch_sub(1);
+	}
+	delete p_pContext;
+}
+
+bool CJsonBinRPCImp::QueueBinaryResponseTask(
+	ST_BINARY_RESPONSE_CONTEXT* p_pContext)
+{
+	if (p_pContext == NULL || p_pContext->pOwner != this ||
+		!p_pContext->refTask)
+	{
+		return false;
+	}
+	{
+		std::lock_guard<std::mutex> clTask(p_pContext->refTask->clMutex);
+		if (p_pContext->refTask->bResponseQueued)
+		{
+			return false;
+		}
+		p_pContext->refTask->bResponseQueued = true;
+	}
+	{
+		std::lock_guard<std::mutex> clPending(m_clBinaryPendingContextMutex);
+		m_setBinaryPendingContexts.erase(p_pContext);
+	}
+	try
+	{
+		std::lock_guard<std::mutex> clQueue(m_clBinaryResponseQueueMutex);
+		if (m_bBinaryResponseWorkerStop.load() ||
+			m_dequeBinaryResponses.size() >=
+				static_cast<std::size_t>(m_iBinaryResponseQueueCapacity))
+		{
+			return false;
+		}
+		m_dequeBinaryResponses.push_back(p_pContext);
+	}
+	catch (...)
+	{
+		return false;
+	}
+	m_clBinaryResponseQueueCondition.notify_one();
+	return true;
+}
+
+void CJsonBinRPCImp::StartBinaryWorkers()
+{
+	if (!m_vecBinaryWorkers.empty())
+	{
+		return;
+	}
+	m_bBinaryReclaimWorkerStop.store(false);
+	for (int iIndex = 0; iIndex < m_iBinaryReclaimWorkerThreads; ++iIndex)
+	{
+		m_vecBinaryReclaimWorkers.push_back(std::thread(
+			&CJsonBinRPCImp::BinaryReclaimWorker, this));
+	}
+	m_bBinaryResponseWorkerStop.store(false);
+	for (int iIndex = 0; iIndex < m_iBinaryResponseWorkerThreads; ++iIndex)
+	{
+		m_vecBinaryResponseWorkers.push_back(std::thread(
+			&CJsonBinRPCImp::BinaryResponseWorker, this));
+	}
+	m_bBinaryWorkerStop.store(false);
+	for (int iIndex = 0; iIndex < m_iBinaryServerWorkerThreads; ++iIndex)
+	{
+		m_vecBinaryWorkers.push_back(std::thread(&CJsonBinRPCImp::BinaryWorker, this));
+	}
+}
+
+void CJsonBinRPCImp::StopBinaryWorkers()
+{
+	std::deque<std::shared_ptr<ST_BINARY_SERVER_TASK>> dequePending;
+	std::deque<std::shared_ptr<ST_BINARY_SERVER_TASK>> dequeControlPending;
+	{
+		std::lock_guard<std::mutex> clLock(m_clBinaryQueueMutex);
+		m_bBinaryWorkerStop.store(true);
+		dequePending.swap(m_dequeBinaryTasks);
+		dequeControlPending.swap(m_dequeBinaryControlTasks);
+	}
+	m_clBinaryQueueCondition.notify_all();
+	for (size_t uIndex = 0; uIndex < m_vecBinaryWorkers.size(); ++uIndex)
+	{
+		if (m_vecBinaryWorkers[uIndex].joinable())
+		{
+			m_vecBinaryWorkers[uIndex].join();
+		}
+	}
+	m_vecBinaryWorkers.clear();
+	dequePending.insert(dequePending.end(), dequeControlPending.begin(),
+		dequeControlPending.end());
+	while (!dequePending.empty())
+	{
+		std::shared_ptr<ST_BINARY_SERVER_TASK> pTask = dequePending.front();
+		dequePending.pop_front();
+		{
+			std::lock_guard<std::mutex> clTask(pTask->clMutex);
+			pTask->stResponse = MakeBinaryErrorResponse(s_iBinaryStateError,
+				"BINARY_SERVICE_STOPPED: server is stopping");
+			pTask->bCompleted = true;
+			pTask->bCallbackReturned = true;
+			pTask->bDeferred = false;
+			pTask->bOwnedResult = false;
+		}
+		if (!QueueBinaryResponseTask(pTask->pResponseContext))
+		{
+			QueueBinaryReclaimTask(pTask->pResponseContext);
+		}
+	}
+	CompleteStoppedBinaryTasks(this);
+	{
+		std::lock_guard<std::mutex> clLock(m_clBinaryResponseQueueMutex);
+		m_bBinaryResponseWorkerStop.store(true);
+	}
+	m_clBinaryResponseQueueCondition.notify_all();
+	for (std::thread& refThread : m_vecBinaryResponseWorkers)
+	{
+		if (refThread.joinable())
+		{
+			refThread.join();
+		}
+	}
+	m_vecBinaryResponseWorkers.clear();
+	{
+		std::lock_guard<std::mutex> clLock(m_clBinaryReclaimQueueMutex);
+		m_bBinaryReclaimWorkerStop.store(true);
+	}
+	m_clBinaryReclaimQueueCondition.notify_all();
+	for (std::thread& refThread : m_vecBinaryReclaimWorkers)
+	{
+		if (refThread.joinable())
+		{
+			refThread.join();
+		}
+	}
+	m_vecBinaryReclaimWorkers.clear();
+}
+
+void CJsonBinRPCImp::CompleteStoppedBinaryTasks(CJsonBinRPCImp* p_pOwner)
+{
+	std::vector<ST_BINARY_RESPONSE_CONTEXT*> vecStopped;
+	{
+		std::lock_guard<std::mutex> clPending(
+			p_pOwner->m_clBinaryPendingContextMutex);
+		for (ST_BINARY_RESPONSE_CONTEXT* pContext :
+			p_pOwner->m_setBinaryPendingContexts)
+		{
+			vecStopped.push_back(pContext);
+		}
+	}
+	for (ST_BINARY_RESPONSE_CONTEXT* pContext : vecStopped)
+	{
+		if (pContext == NULL || !pContext->refTask)
+		{
+			continue;
+		}
+		std::shared_ptr<ST_BINARY_SERVER_TASK> pTask = pContext->refTask;
+		{
+			std::lock_guard<std::mutex> clTask(pTask->clMutex);
+			if (!pTask->bResponseQueued)
+			{
+				pTask->stResponse = p_pOwner->MakeBinaryErrorResponse(
+					s_iBinaryStateError,
+					"BINARY_SERVICE_STOPPED: deferred request cancelled");
+				pTask->bCompleted = true;
+				pTask->bCallbackReturned = true;
+				pTask->bDeferred = true;
+				pTask->bOwnedResult = false;
+			}
+		}
+		if (!pTask->bResponseQueued &&
+			!p_pOwner->QueueBinaryResponseTask(pContext))
+		{
+			p_pOwner->QueueBinaryReclaimTask(pContext);
+		}
+	}
+}
+
+// è¯·æ±‚å…¥é˜Ÿåªæ‰§è¡Œå¸¸é‡çº§æ“ä½œï¼Œä¿è¯ Ice æ´¾å‘çº¿ç¨‹ä¸ä¼šè¢«ä¸šåŠ¡å¤„ç†é˜»å¡ã€‚
+void CJsonBinRPCImp::QueueBinaryTask(bool p_bPut, ::JSONBINRPC::BinaryRequest p_stRequest, std::function<void(const ::JSONBINRPC::BinaryResponse&)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException)
+{
+	if ((m_pfnBinaryServerCallback == NULL &&
+		m_pfnBinaryServerCallbackEx == NULL) || m_bBinaryWorkerStop.load())
+	{
+		p_fnResponse(MakeBinaryErrorResponse(s_iBinaryStateError, "BINARY_HANDLER_NOT_REGISTERED: binary server callback is not registered"));
+		return;
+	}
+	std::shared_ptr<ST_BINARY_SERVER_TASK> pTask = std::make_shared<ST_BINARY_SERVER_TASK>();
+	pTask->pOwner = this;
+	pTask->bPut = p_bPut;
+	pTask->stRequest = std::move(p_stRequest);
+	pTask->fnResponse = std::move(p_fnResponse);
+	pTask->fnException = std::move(p_fnException);
+	pTask->iProtocolVersion = m_iBinaryProtocolVersion;
+	pTask->iCompressionThresholdBytes =
+		m_iBinaryCompressionThresholdBytes;
+	pTask->iMaxPayloadBytes = m_iBinaryMaxPayloadBytes;
+	bool bControl = false;
+	if (m_pfnBinaryPriorityClassifier != NULL)
+	{
+		try
+		{
+			bControl = m_pfnBinaryPriorityClassifier(m_pBinaryServerParam,
+				pTask->stRequest.nFuncID) != 0;
+		}
+		catch (...)
+		{
+			bControl = false;
+		}
+	}
+	bool bQueueFull = false;
+	bool bHandleFailed = false;
+	{
+		std::lock_guard<std::mutex> clLock(m_clBinaryQueueMutex);
+		const std::size_t szCapacity = static_cast<std::size_t>(
+			m_iBinaryServerQueueCapacity);
+		const std::size_t szControlReserve = szCapacity > 1U ?
+			(std::max)(static_cast<std::size_t>(1U), szCapacity / 16U) : 0U;
+		const std::size_t szTotal = m_dequeBinaryTasks.size() +
+			m_dequeBinaryControlTasks.size();
+		const bool bFull = szTotal >= szCapacity ||
+			(!bControl && m_dequeBinaryTasks.size() >=
+				szCapacity - szControlReserve);
+		if (bFull)
+		{
+			bQueueFull = true;
+		}
+		else if (RegisterBinaryResponseTask(pTask) == NULL)
+		{
+			bHandleFailed = true;
+		}
+		else if (bControl)
+		{
+			m_dequeBinaryControlTasks.push_back(pTask);
+		}
+		else
+		{
+			m_dequeBinaryTasks.push_back(pTask);
+		}
+	}
+	if (bQueueFull || bHandleFailed)
+	{
+		pTask->fnResponse(MakeBinaryErrorResponse(
+			bQueueFull ? s_iBinaryQueueFull : s_iBinaryStateError,
+			bQueueFull ?
+			"BINARY_QUEUE_FULL: server binary request queue reached capacity" :
+			"BINARY_RESPONSE_HANDLE_FAILED: unable to allocate response handle"));
+		return;
+	}
+	m_clBinaryQueueCondition.notify_one();
+}
+
+// BinaryResponseData åªå¤åˆ¶ç»“æœï¼ŒçœŸæ­£çš„ Ice response åœ¨ä¸šåŠ¡å›è°ƒè¿”å›åç”±å·¥ä½œçº¿ç¨‹å‘é€ã€‚
+bool CJsonBinRPCImp::CompleteBinaryResponse(HANDLE p_hResponse, const ST_BINARY_RESULT* p_pResult)
+{
+	return CompleteBinaryResponseTask(p_hResponse, p_pResult);
+}
+
+bool CJsonBinRPCImp::CompleteBinaryResponseTask(HANDLE p_hResponse,
+	const ST_BINARY_RESULT* p_pResult)
+{
+	if (p_hResponse == NULL || p_pResult == NULL)
+	{
+		return false;
+	}
+	ST_BINARY_RESPONSE_CONTEXT* pContext =
+		reinterpret_cast<ST_BINARY_RESPONSE_CONTEXT*>(p_hResponse);
+	if (pContext->lReferences.load() <= 0 || pContext->pOwner == NULL ||
+		!pContext->refTask)
+	{
+		return false;
+	}
+	std::shared_ptr<ST_BINARY_SERVER_TASK> pTask = pContext->refTask;
+	bool bQueueResponse = false;
+	{
+		std::lock_guard<std::mutex> clTask(pTask->clMutex);
+		if (pTask->bCompleted || pTask->bResponseQueued ||
+			pTask->pOwner == NULL)
+		{
+			return false;
+		}
+		const long long lTotalBytes = static_cast<long long>(
+			p_pResult->stPayload.lLen) + static_cast<long long>(
+				p_pResult->stExtra.lLen);
+		if (p_pResult->stPayload.lLen < 0 ||
+			p_pResult->stExtra.lLen < 0 || lTotalBytes < 0 ||
+			lTotalBytes > pTask->iMaxPayloadBytes ||
+			(p_pResult->stPayload.lLen > 0 &&
+				p_pResult->stPayload.pBuffer == NULL) ||
+			(p_pResult->stExtra.lLen > 0 &&
+				p_pResult->stExtra.pBuffer == NULL))
+		{
+			pTask->stResponse = pTask->pOwner->MakeBinaryErrorResponse(
+				s_iBinaryPayloadTooLarge,
+				"BINARY_RESPONSE_INVALID: response payload is invalid");
+			pTask->bOwnedResult = false;
+		}
+		else
+		{
+			try
+			{
+				pTask->lResultRetVal = p_pResult->lRetVal;
+				pTask->iResultErrorCode = p_pResult->iErrorCode;
+				pTask->lResultParam = p_pResult->lParam;
+				pTask->lResultWParam = p_pResult->wParam;
+				pTask->strResultError = p_pResult->szErrInfo;
+				if (p_pResult->stPayload.lLen > 0)
+				{
+					pTask->vecResultPayload.assign(
+						p_pResult->stPayload.pBuffer,
+						p_pResult->stPayload.pBuffer +
+							p_pResult->stPayload.lLen);
+				}
+				if (p_pResult->stExtra.lLen > 0)
+				{
+					pTask->vecResultExtra.assign(
+						p_pResult->stExtra.pBuffer,
+						p_pResult->stExtra.pBuffer +
+							p_pResult->stExtra.lLen);
+				}
+				pTask->bOwnedResult = true;
+			}
+			catch (...)
+			{
+				pTask->vecResultPayload.clear();
+				pTask->vecResultExtra.clear();
+				pTask->stResponse = pTask->pOwner->MakeBinaryErrorResponse(
+					s_iBinaryStateError,
+					"BINARY_RESPONSE_MEMORY_FAILED: unable to own result buffers");
+				pTask->bOwnedResult = false;
+			}
+		}
+		pTask->bCompleted = true;
+		if (pTask->bCallbackReturned && pTask->bDeferred)
+		{
+			bQueueResponse = true;
+		}
+	}
+	if (bQueueResponse && !pTask->pOwner->QueueBinaryResponseTask(pContext))
+	{
+		pTask->pOwner->QueueBinaryReclaimTask(pContext);
+		return false;
+	}
+	return true;
+}
+
+// åº”ç­”çº¿ç¨‹ä»ç›´ç»‘å®šä¸Šä¸‹æ–‡å–å¾—å®Œæ•´ç»“æœï¼Œåœ¨ä¸šåŠ¡ Worker ä¹‹å¤–æ‰§è¡Œå‹ç¼©å’Œ Ice å›è°ƒã€‚
+void CJsonBinRPCImp::BinaryResponseWorker()
+{
+	for (;;)
+	{
+		ST_BINARY_RESPONSE_CONTEXT* pContext = NULL;
+		{
+			std::unique_lock<std::mutex> clLock(m_clBinaryResponseQueueMutex);
+			m_clBinaryResponseQueueCondition.wait(clLock, [this]() {
+				return m_bBinaryResponseWorkerStop.load() ||
+					!m_dequeBinaryResponses.empty();
+			});
+			if (m_bBinaryResponseWorkerStop.load() &&
+				m_dequeBinaryResponses.empty())
+			{
+				return;
+			}
+			pContext = m_dequeBinaryResponses.front();
+			m_dequeBinaryResponses.pop_front();
+		}
+		if (pContext == NULL || !pContext->refTask)
+		{
+			QueueBinaryReclaimTask(pContext);
+			continue;
+		}
+		std::shared_ptr<ST_BINARY_SERVER_TASK> pTask = pContext->refTask;
+		::JSONBINRPC::BinaryResponse stSendResponse;
+		if (pTask->bOwnedResult)
+		{
+			stSendResponse.version = pTask->iProtocolVersion;
+			stSendResponse.retVal = pTask->lResultRetVal;
+			stSendResponse.errorCode = pTask->iResultErrorCode;
+			stSendResponse.param = pTask->lResultParam;
+			stSendResponse.wparam = pTask->lResultWParam;
+			stSendResponse.errInfo = pTask->strResultError;
+			ST_BINARY_VIEW stPayload;
+			stPayload.lLen = SafeSizeToLength<int>(
+				pTask->vecResultPayload.size());
+			stPayload.pBuffer = pTask->vecResultPayload.empty() ? NULL :
+				pTask->vecResultPayload.data();
+			ST_BINARY_VIEW stExtra;
+			stExtra.lLen = SafeSizeToLength<int>(pTask->vecResultExtra.size());
+			stExtra.pBuffer = pTask->vecResultExtra.empty() ? NULL :
+				pTask->vecResultExtra.data();
+			std::string strError;
+			if (!EncodeBinaryPayload(stPayload, stSendResponse.payload,
+					strError) || !EncodeBinaryPayload(stExtra,
+					stSendResponse.extra, strError))
+			{
+				stSendResponse = MakeBinaryErrorResponse(
+					s_iBinaryCompressionError, strError.empty() ?
+					"BINARY_RESPONSE_ENCODE_FAILED: unable to encode result" :
+					strError);
+			}
+		}
+		else
+		{
+			stSendResponse = pTask->stResponse;
+		}
+		try
+		{
+			if (pTask->fnResponse)
+			{
+				pTask->fnResponse(stSendResponse);
+			}
+		}
+		catch (...)
+		{
+			if (pTask->fnException)
+			{
+				pTask->fnException(std::current_exception());
+			}
+		}
+		QueueBinaryReclaimTask(pContext);
+	}
+}
+
+void CJsonBinRPCImp::QueueBinaryReclaimTask(
+	ST_BINARY_RESPONSE_CONTEXT* p_pContext)
+{
+	if (p_pContext == NULL)
+	{
+		return;
+	}
+	try
+	{
+		std::lock_guard<std::mutex> clLock(m_clBinaryReclaimQueueMutex);
+		if (!m_bBinaryReclaimWorkerStop.load() &&
+			m_dequeBinaryReclaims.size() <
+				static_cast<std::size_t>(m_iBinaryResponseQueueCapacity))
+		{
+			m_dequeBinaryReclaims.push_back(p_pContext);
+			m_clBinaryReclaimQueueCondition.notify_one();
+			return;
+		}
+	}
+	catch (...)
+	{
+	}
+	// å†…å­˜ä¸è¶³æˆ–åœæœºæœ«å°¾å¿…é¡»å®‰å…¨å…œåº•ï¼Œä¸èƒ½ä¸ºäº†å¼‚æ­¥å½¢å¼æ³„æ¼èµ„æºã€‚
+	ReleaseBinaryResponseContext(p_pContext);
+}
+
+void CJsonBinRPCImp::BinaryReclaimWorker()
+{
+	for (;;)
+	{
+		ST_BINARY_RESPONSE_CONTEXT* pContext = NULL;
+		{
+			std::unique_lock<std::mutex> clLock(m_clBinaryReclaimQueueMutex);
+			m_clBinaryReclaimQueueCondition.wait(clLock, [this]() {
+				return m_bBinaryReclaimWorkerStop.load() ||
+					!m_dequeBinaryReclaims.empty();
+			});
+			if (m_bBinaryReclaimWorkerStop.load() &&
+				m_dequeBinaryReclaims.empty())
+			{
+				return;
+			}
+			pContext = m_dequeBinaryReclaims.front();
+			m_dequeBinaryReclaims.pop_front();
+		}
+		ReleaseBinaryResponseContext(pContext);
+	}
+}
+
+// å·¥ä½œçº¿ç¨‹å®Œæˆè§£å‹ã€ä¸šåŠ¡å›è°ƒå’Œåº”ç­”ï¼Œæ…¢ä¸šåŠ¡ä¸ä¼šå ç”¨ Ice æ´¾å‘çº¿ç¨‹ã€‚
+void CJsonBinRPCImp::BinaryWorker()
+{
+	for (;;)
+	{
+		std::shared_ptr<ST_BINARY_SERVER_TASK> pTask;
+		{
+			std::unique_lock<std::mutex> clLock(m_clBinaryQueueMutex);
+			m_clBinaryQueueCondition.wait(clLock, [this]() {
+				return m_bBinaryWorkerStop.load() ||
+					!m_dequeBinaryControlTasks.empty() ||
+					!m_dequeBinaryTasks.empty();
+			});
+			if (m_bBinaryWorkerStop.load() && m_dequeBinaryTasks.empty() &&
+				m_dequeBinaryControlTasks.empty())
+			{
+				return;
+			}
+			if (!m_dequeBinaryControlTasks.empty())
+			{
+				pTask = m_dequeBinaryControlTasks.front();
+				m_dequeBinaryControlTasks.pop_front();
+			}
+			else
+			{
+				pTask = m_dequeBinaryTasks.front();
+				m_dequeBinaryTasks.pop_front();
+			}
+		}
+
+		std::string strError;
+		bool bCallbackFailed = false;
+		::JSONBINRPC::BinaryResponse stCallbackError;
+		int iDisposition = EN_BINARY_SERVER_CALLBACK_COMPLETED;
+		const long long lTotalBytes = static_cast<long long>(pTask->stRequest.payload.rawSize) + static_cast<long long>(pTask->stRequest.extra.rawSize);
+		if (pTask->stRequest.version != m_iBinaryProtocolVersion || lTotalBytes < 0 || lTotalBytes > m_iBinaryMaxPayloadBytes ||
+			!DecodeBinaryPayload(pTask->stRequest.payload, pTask->vecPayload, strError) ||
+			!DecodeBinaryPayload(pTask->stRequest.extra, pTask->vecExtra, strError))
+		{
+			pTask->stResponse = MakeBinaryErrorResponse(s_iBinaryProtocolError, strError.empty() ? "BINARY_REQUEST_INVALID: request validation failed" : strError);
+			pTask->bCompleted = true;
+		}
+		else
+		{
+			ST_BINARY_REQUEST stRequest;
+			stRequest.iVersion = pTask->stRequest.version;
+			stRequest.lSynId = pTask->stRequest.syn;
+			stRequest.lFuncId = pTask->stRequest.nFuncID;
+			stRequest.lRouteCode = pTask->stRequest.routeCode;
+			stRequest.lParam = pTask->stRequest.param;
+			stRequest.wParam = pTask->stRequest.wparam;
+			stRequest.chMode = pTask->bPut ? EN_BINARY_INPUT_PUT : EN_BINARY_INPUT_RPC;
+			stRequest.hResponse = pTask->hResponse;
+			stRequest.stPayload.lLen = SafeSizeToLength<int>(pTask->vecPayload.size());
+			stRequest.stPayload.pBuffer = pTask->vecPayload.empty() ? NULL : pTask->vecPayload.data();
+			stRequest.stExtra.lLen = SafeSizeToLength<int>(pTask->vecExtra.size());
+			stRequest.stExtra.pBuffer = pTask->vecExtra.empty() ? NULL : pTask->vecExtra.data();
+			try
+			{
+				if (m_pfnBinaryServerCallbackEx != NULL)
+				{
+					iDisposition = m_pfnBinaryServerCallbackEx(
+						m_pBinaryServerParam, &stRequest);
+				}
+				else
+				{
+					m_pfnBinaryServerCallback(m_pBinaryServerParam, &stRequest);
+				}
+			}
+			catch (const std::exception& ex)
+			{
+				stCallbackError = MakeBinaryErrorResponse(s_iBinaryCallbackError,
+					std::string("BINARY_CALLBACK_EXCEPTION: what=") + ex.what());
+				bCallbackFailed = true;
+			}
+			catch (...)
+			{
+				stCallbackError = MakeBinaryErrorResponse(s_iBinaryCallbackError,
+					"BINARY_CALLBACK_EXCEPTION: unknown exception");
+				bCallbackFailed = true;
+			}
+		}
+		bool bQueueResponse = false;
+		{
+			std::lock_guard<std::mutex> clTask(pTask->clMutex);
+			pTask->bCallbackReturned = true;
+			if (bCallbackFailed && !pTask->bCompleted)
+			{
+				pTask->stResponse = std::move(stCallbackError);
+				pTask->bCompleted = true;
+			}
+			pTask->bDeferred = iDisposition ==
+				EN_BINARY_SERVER_CALLBACK_DEFERRED;
+			if (iDisposition != EN_BINARY_SERVER_CALLBACK_COMPLETED &&
+				iDisposition != EN_BINARY_SERVER_CALLBACK_DEFERRED)
+			{
+				pTask->bDeferred = false;
+				pTask->stResponse = MakeBinaryErrorResponse(
+					s_iBinaryCallbackError,
+					"BINARY_CALLBACK_RESULT_INVALID: callback returned an unsupported disposition");
+				pTask->bCompleted = true;
+			}
+			if (!pTask->bDeferred && !pTask->bCompleted)
+			{
+				pTask->stResponse = MakeBinaryErrorResponse(
+					s_iBinaryCallbackError,
+					"BINARY_RESPONSE_MISSING: callback returned without BinaryResponseData");
+				pTask->bCompleted = true;
+			}
+			if (pTask->bCompleted && !pTask->bResponseQueued)
+			{
+				bQueueResponse = true;
+			}
+		}
+		if (!bQueueResponse)
+		{
+			continue;
+		}
+		if (!QueueBinaryResponseTask(pTask->pResponseContext))
+		{
+			QueueBinaryReclaimTask(pTask->pResponseContext);
+		}
+	}
+}
+
+// åŒæ­¥ Binary è°ƒç”¨ç›´æ¥ä½¿ç”¨ Ice 3.8 proxyï¼Œå¹¶åº”ç”¨ç‹¬ç«‹è°ƒç”¨è¶…æ—¶ã€‚
+ST_BINARY_RESULT* CJsonBinRPCImp::BinaryCall(const ST_BINARY_CALL* p_pCall, bool p_bPut)
+{
+	::JSONBINRPC::BinaryRequest stRequest;
+	std::string strError;
+	if (!BuildBinaryRequest(p_pCall, stRequest, strError))
+	{
+		m_strError = strError;
+		return NULL;
+	}
+	::JSONBINRPC::IJsonBinRPCPrx clProxy = ClientIO().ice_invocationTimeout(m_iBinaryCallTimeoutMs);
+	::JSONBINRPC::BinaryResponse stResponse = p_bPut ? clProxy.BinaryPUT(stRequest) : clProxy.BinaryRPC(stRequest);
+	return BuildBinaryResult(stResponse, NULL, strError);
+}
+
+// å¼‚æ­¥ Binary è°ƒç”¨çœŸæ­£éé˜»å¡ï¼Œè¾¾åˆ°ç§¯å‹ä¸Šé™æ—¶åœ¨å‘èµ· Ice è°ƒç”¨å‰æ‹’ç»ã€‚
+long long CJsonBinRPCImp::BinaryCallAsync(const ST_BINARY_CALL* p_pCall,
+	bool p_bPut, LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam,
+	int p_iTimeoutMs, bool p_bExplicitTimeout)
+{
+	::JSONBINRPC::BinaryRequest stRequest;
+	std::string strError;
+	if (p_pfnCallback == NULL || !BuildBinaryRequest(p_pCall, stRequest, strError))
+	{
+		m_strError = p_pfnCallback == NULL ? "INVALID_PARAM: binary async callback is null" : strError;
+		return p_pfnCallback == NULL ? s_iBinaryProtocolError : InferBinaryProtocolErrorCode(strError);
+	}
+	const long long lPending = m_lBinaryPendingAsync.fetch_add(1) + 1;
+	if (lPending > m_iBinaryMaxPendingAsync)
+	{
+		m_lBinaryPendingAsync.fetch_sub(1);
+		m_strError = "BINARY_PENDING_FULL: client async pending count reached limit";
+		return s_iBinaryPendingFull;
+	}
+	try
+	{
+		// Ex æ¥å£çš„ 0 æ˜ç¡®è¡¨ç¤ºæ— é™ç­‰å¾…ï¼›æ™®é€šæ¥å£ä»ä½¿ç”¨è¿æ¥é»˜è®¤è¶…æ—¶ã€‚
+		const int iTimeoutMs = p_bExplicitTimeout ?
+			(p_iTimeoutMs == 0 ? -1 : p_iTimeoutMs) :
+			m_iBinaryCallTimeoutMs;
+		::JSONBINRPC::IJsonBinRPCPrx clProxy =
+			ClientIO().ice_invocationTimeout(iTimeoutMs);
+		auto fnResponse = [this, p_pfnCallback, p_pParam](::JSONBINRPC::BinaryResponse p_stResponse)
+		{
+			std::string strBuildError;
+			ST_BINARY_RESULT* pResult = BuildBinaryResult(p_stResponse, p_pParam, strBuildError);
+			try
+			{
+				p_pfnCallback(pResult);
+			}
+			catch (...)
+			{
+				if (pResult != NULL)
+				{
+					delete[] pResult->stPayload.pBuffer;
+					delete[] pResult->stExtra.pBuffer;
+					delete pResult;
+				}
+			}
+			m_lBinaryPendingAsync.fetch_sub(1);
+		};
+		auto fnException = [this, p_pfnCallback, p_pParam](std::exception_ptr p_refException)
+		{
+			const std::string strDetail = MakeBinaryExceptionDetail("BinaryCallAsync", p_refException);
+			std::string strBuildError;
+			ST_BINARY_RESULT* pResult = BuildBinaryResult(MakeBinaryErrorResponse(s_iBinaryCallTimeout, strDetail), p_pParam, strBuildError);
+			try
+			{
+				p_pfnCallback(pResult);
+			}
+			catch (...)
+			{
+				if (pResult != NULL)
+				{
+					delete[] pResult->stPayload.pBuffer;
+					delete[] pResult->stExtra.pBuffer;
+					delete pResult;
+				}
+			}
+			m_lBinaryPendingAsync.fetch_sub(1);
+		};
+		if (p_bPut)
+		{
+			clProxy.BinaryPUTAsync(stRequest, fnResponse, fnException);
+		}
+		else
+		{
+			clProxy.BinaryRPCAsync(stRequest, fnResponse, fnException);
+		}
+	}
+	catch (...)
+	{
+		m_lBinaryPendingAsync.fetch_sub(1);
+		throw;
+	}
+	return lPending;
+}
+
+// ç¼–ç å¼‚æ­¥æ¥å£åªç§»åŠ¨ BinaryPayload æ‰€æœ‰æƒï¼Œä¸åœ¨ Ice å›è°ƒçº¿ç¨‹è§£å‹æˆ–å¤åˆ¶æ­£æ–‡ã€‚
+long long CJsonBinRPCImp::BinaryCallAsyncEncoded(
+	const ST_BINARY_CALL* p_pCall, bool p_bPut,
+	LPTHREAD_START_ROUTINE p_pfnCallback, void* p_pParam,
+	int p_iTimeoutMs, bool p_bExplicitTimeout)
+{
+	::JSONBINRPC::BinaryRequest stRequest;
+	std::string strError;
+	if (p_pfnCallback == nullptr ||
+		!BuildBinaryRequest(p_pCall, stRequest, strError))
+	{
+		m_strError = p_pfnCallback == nullptr ?
+			"INVALID_PARAM: encoded binary async callback is null" : strError;
+		return p_pfnCallback == nullptr ? s_iBinaryProtocolError :
+			InferBinaryProtocolErrorCode(strError);
+	}
+	const long long lPending = m_lBinaryPendingAsync.fetch_add(1) + 1;
+	if (lPending > m_iBinaryMaxPendingAsync)
+	{
+		m_lBinaryPendingAsync.fetch_sub(1);
+		m_strError =
+			"BINARY_PENDING_FULL: client async pending count reached limit";
+		return s_iBinaryPendingFull;
+	}
+	ST_BINARY_ENCODED_RESULT* pPreparedResult =
+		new (std::nothrow) ST_BINARY_ENCODED_RESULT;
+	ST_BINARY_ENCODED_RESULT_OWNER* pPreparedOwner =
+		new (std::nothrow) ST_BINARY_ENCODED_RESULT_OWNER;
+	if (pPreparedResult == nullptr || pPreparedOwner == nullptr)
+	{
+		delete pPreparedOwner;
+		delete pPreparedResult;
+		m_lBinaryPendingAsync.fetch_sub(1);
+		m_strError =
+			"BINARY_RESPONSE_MEMORY_FAILED: unable to prepare encoded result";
+		return s_iBinaryCallbackError;
+	}
+	pPreparedResult->pParam = p_pParam;
+	pPreparedResult->pInternalOwner = pPreparedOwner;
+
+	try
+	{
+		const int iTimeoutMs = p_bExplicitTimeout ?
+			(p_iTimeoutMs == 0 ? -1 : p_iTimeoutMs) :
+			m_iBinaryCallTimeoutMs;
+		::JSONBINRPC::IJsonBinRPCPrx clProxy =
+			ClientIO().ice_invocationTimeout(iTimeoutMs);
+		auto fnResponse = [this, p_pfnCallback, p_pParam, pPreparedResult](
+			::JSONBINRPC::BinaryResponse p_stResponse)
+		{
+			std::string strBuildError;
+			ST_BINARY_ENCODED_RESULT* pResult = BuildBinaryEncodedResult(
+				std::move(p_stResponse), pPreparedResult, p_pParam,
+				strBuildError);
+			try
+			{
+				p_pfnCallback(pResult);
+			}
+			catch (...)
+			{
+				FreeBinaryEncodedResult(pResult);
+			}
+			m_lBinaryPendingAsync.fetch_sub(1);
+		};
+		auto fnException = [this, p_pfnCallback, p_pParam, pPreparedResult](
+			std::exception_ptr p_refException)
+		{
+			const std::string strDetail = MakeBinaryExceptionDetail(
+				"BinaryCallAsyncEncoded", p_refException);
+			std::string strBuildError;
+			ST_BINARY_ENCODED_RESULT* pResult = BuildBinaryEncodedResult(
+				MakeBinaryErrorResponse(s_iBinaryCallTimeout, strDetail),
+				pPreparedResult, p_pParam, strBuildError);
+			try
+			{
+				p_pfnCallback(pResult);
+			}
+			catch (...)
+			{
+				FreeBinaryEncodedResult(pResult);
+			}
+			m_lBinaryPendingAsync.fetch_sub(1);
+		};
+		if (p_bPut)
+		{
+			clProxy.BinaryPUTAsync(stRequest, fnResponse, fnException);
+		}
+		else
+		{
+			clProxy.BinaryRPCAsync(stRequest, fnResponse, fnException);
+		}
+	}
+	catch (...)
+	{
+		FreeBinaryEncodedResult(pPreparedResult);
+		m_lBinaryPendingAsync.fetch_sub(1);
+		throw;
+	}
+	return lPending;
+}
+
+// Ice 3.8 äºŒè¿›åˆ¶ RPC å…¥å£ï¼Œåªè´Ÿè´£æŠŠè¯·æ±‚è½¬å…¥æœåŠ¡ç«¯å·¥ä½œé˜Ÿåˆ—ã€‚
+void CJsonBinRPCImp::BinaryRPCAsync(::JSONBINRPC::BinaryRequest p_stRequest, std::function<void(const ::JSONBINRPC::BinaryResponse&)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent)
+{
+	QueueBinaryTask(false, std::move(p_stRequest), std::move(p_fnResponse), std::move(p_fnException));
+}
+
+// Ice 3.8 äºŒè¿›åˆ¶ PUT å…¥å£ï¼Œå’Œ RPC ä¿æŒä¸€è‡´çš„é™æµã€è§£å‹å’Œé”™è¯¯å¤„ç†ã€‚
+void CJsonBinRPCImp::BinaryPUTAsync(::JSONBINRPC::BinaryRequest p_stRequest, std::function<void(const ::JSONBINRPC::BinaryResponse&)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent)
+{
+	QueueBinaryTask(true, std::move(p_stRequest), std::move(p_fnResponse), std::move(p_fnException));
+}
+
+// Ice 3.8 ç”Ÿæˆä»£ç è¦æ±‚çš„æ³¨å†Œå…¥å£ï¼Œå†…éƒ¨ç»§ç»­å¤ç”¨æ—§ AMD å¤„ç†æµç¨‹ã€‚
 void CJsonBinRPCImp::RegisterStockPushIOAsync(std::string p_strGuid, ::Ice::Identity p_stIdent, std::function<void(std::int64_t)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent)
 {
 	::JSONBINRPC::AMD_IJsonBinRPC_RegisterStockPushIOPtr cb = std::make_shared<::JSONBINRPC::AMD_IJsonBinRPC_RegisterStockPushIO>(p_fnResponse, p_fnException);
 	RegisterStockPushIO_async(cb, p_strGuid, p_stIdent, p_stCurrent);
 }
 
-// Ice 3.8 RPC Èë¿Ú£¬×ª½Óµ½¾É AMD ¶ÓÁĞÂß¼­ÒÔ±£³Ö·şÎñ¶Ë´¦ÀíÓïÒåÒ»ÖÂ¡£
+// Ice 3.8 RPC å…¥å£ï¼Œè½¬æ¥åˆ°æ—§ AMD é˜Ÿåˆ—é€»è¾‘ä»¥ä¿æŒæœåŠ¡ç«¯å¤„ç†è¯­ä¹‰ä¸€è‡´ã€‚
 void CJsonBinRPCImp::JsonBinRPCAsync(std::int64_t p_lSynId, std::int64_t p_lFuncId, std::int64_t p_lSetCode, ::JSONBINRPC::AByte p_stReqJson, std::function<void(std::int64_t, std::int64_t, const ::JSONBINRPC::AByte&, std::int64_t, const ::JSONBINRPC::AByte&, std::string_view)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent)
 {
 	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPCPtr cb = std::make_shared<::JSONBINRPC::AMD_IJsonBinRPC_JsonBinRPC>(p_fnResponse, p_fnException);
 	JsonBinRPC_async(cb, p_lSynId, p_lFuncId, p_lSetCode, p_stReqJson, p_stCurrent);
 }
 
-// Ice 3.8 PUT Èë¿Ú£¬×ª½Óµ½¾É AMD ¶ÓÁĞÂß¼­²¢±£Áô¶ş½øÖÆ²ÎÊıÑ¹ËõÔ¼¶¨¡£
+// Ice 3.8 PUT å…¥å£ï¼Œè½¬æ¥åˆ°æ—§ AMD é˜Ÿåˆ—é€»è¾‘å¹¶ä¿ç•™äºŒè¿›åˆ¶å‚æ•°å‹ç¼©çº¦å®šã€‚
 void CJsonBinRPCImp::JsonBinPUTAsync(std::int64_t p_lSynId, std::int64_t p_lFuncId, std::int64_t p_lSetCode, ::JSONBINRPC::AByte p_stPutJson, std::int64_t p_lParam, ::JSONBINRPC::AByte p_stLParam, std::int64_t p_lWParam, ::JSONBINRPC::AByte p_stWParam, std::function<void(std::int64_t, std::int64_t, const ::JSONBINRPC::AByte&, std::int64_t, const ::JSONBINRPC::AByte&, std::string_view)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent)
 {
 	::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUTPtr cb = std::make_shared<::JSONBINRPC::AMD_IJsonBinRPC_JsonBinPUT>(p_fnResponse, p_fnException);
 	JsonBinPUT_async(cb, p_lSynId, p_lFuncId, p_lSetCode, p_stPutJson, p_lParam, p_stLParam, p_lWParam, p_stWParam, p_stCurrent);
 }
 
-// Ice 3.8 ×¢ÏúÈë¿Ú£¬ÄÚ²¿¼ÌĞøÊ¹ÓÃ¾É×¢ÏúÂß¼­ÇåÀí¿Í»§¶ËÓ³Éä¡£
+// Ice 3.8 æ³¨é”€å…¥å£ï¼Œå†…éƒ¨ç»§ç»­ä½¿ç”¨æ—§æ³¨é”€é€»è¾‘æ¸…ç†å®¢æˆ·ç«¯æ˜ å°„ã€‚
 void CJsonBinRPCImp::UnRegisterStockPushIOAsync(std::string p_strGuid, std::function<void(std::int64_t)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent)
 {
 	::JSONBINRPC::AMD_IJsonBinRPC_UnRegisterStockPushIOPtr cb = std::make_shared<::JSONBINRPC::AMD_IJsonBinRPC_UnRegisterStockPushIO>(p_fnResponse, p_fnException);
 	UnRegisterStockPushIO_async(cb, p_strGuid, p_stCurrent);
 }
 
-// Ice 3.8 ÍÆËÍ°üÈë¿Ú£¬×ª½Óµ½¾ÉÒì²½ÍÆËÍ¶ÓÁĞ¡£
-void CJsonBinRPCImp::ProcessPackageAsync(std::int64_t p_lReqNo, ::JSONBINRPC::AByte p_pBuf, std::function<void()> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent)
+// Ice 3.8 æ¨é€åŒ…å…¥å£ï¼Œè½¬æ¥åˆ°æ—§å¼‚æ­¥æ¨é€é˜Ÿåˆ—ã€‚
+void CJsonBinRPCImp::ProcessPackageAsync(std::int64_t p_lReqNo, ::JSONBINRPC::BinaryPayload p_stPayload, std::function<void()> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent)
 {
 	::JSONBINRPC::AMD_IJsonBinRPC_ProcessPackagePtr cb = std::make_shared<::JSONBINRPC::AMD_IJsonBinRPC_ProcessPackage>(p_fnResponse, p_fnException);
-	ProcessPackage_async(cb, p_lReqNo, p_pBuf, p_stCurrent);
+	ProcessPackage_async(cb, p_lReqNo, p_stPayload, p_stCurrent);
 }
 
-// Ice 3.8 ´ø¶©ÔÄĞÅÏ¢×¢²áÈë¿Ú£¬±£³Ö¾É°æ·µ»Ø¿ìËÙÍ¨µÀÅäÖÃµÄĞĞÎª¡£
+// Ice 3.8 å¸¦è®¢é˜…ä¿¡æ¯æ³¨å†Œå…¥å£ï¼Œä¿æŒæ—§ç‰ˆè¿”å›å¿«é€Ÿé€šé“é…ç½®çš„è¡Œä¸ºã€‚
 void CJsonBinRPCImp::RegisterStockPushIO2Async(std::string p_strGuid, std::string p_strSubInfo, ::Ice::Identity p_stIdent, std::function<void(std::string_view)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent)
 {
 	::JSONBINRPC::AMD_IJsonBinRPC_RegisterStockPushIO2Ptr cb = std::make_shared<::JSONBINRPC::AMD_IJsonBinRPC_RegisterStockPushIO2>(p_fnResponse, p_fnException);
 	RegisterStockPushIO2_async(cb, p_strGuid, p_strSubInfo, p_stIdent, p_stCurrent);
 }
 
-// Ice 3.8 ´ø¶©ÔÄĞÅÏ¢×¢ÏúÈë¿Ú£¬¸´ÓÃ¾É°æÍË¶©ºÍ¶Ï¿ªÍ¨ÖªÂß¼­¡£
+// Ice 3.8 å¸¦è®¢é˜…ä¿¡æ¯æ³¨é”€å…¥å£ï¼Œå¤ç”¨æ—§ç‰ˆé€€è®¢å’Œæ–­å¼€é€šçŸ¥é€»è¾‘ã€‚
 void CJsonBinRPCImp::UnRegisterStockPushIO2Async(std::string p_strGuid, std::string p_strSubInfo, ::Ice::Identity p_stIdent, std::function<void(std::string_view)> p_fnResponse, std::function<void(std::exception_ptr)> p_fnException, const Ice::Current& p_stCurrent)
 {
 	::JSONBINRPC::AMD_IJsonBinRPC_UnRegisterStockPushIO2Ptr cb = std::make_shared<::JSONBINRPC::AMD_IJsonBinRPC_UnRegisterStockPushIO2>(p_fnResponse, p_fnException);

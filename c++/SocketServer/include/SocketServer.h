@@ -22,6 +22,35 @@
 
 #define STR_IP_LEN 32
 
+// HTTP 异步请求接口 ABI 版本；修改虚函数布局时必须同步递增。
+#define SOCKET_SERVER_ABI_VERSION 7U
+
+// SocketServer 实例协议类型；同一类型使用逻辑名称区分多个独立服务。
+enum EN_SOCKET_SERVER_TYPE
+{
+	EN_SOCKET_SERVER_TYPE_UNKNOWN = 0, // 未知类型，仅用于初始化和非法结果。
+	EN_SOCKET_SERVER_TYPE_HTTP = 1,    // HTTP 或 HTTPS 服务实例。
+	EN_SOCKET_SERVER_TYPE_WEB = 2,     // WebSocket 或 WSS 服务实例。
+	EN_SOCKET_SERVER_TYPE_TCP = 3      // 原始 TCP 服务实例。
+};
+
+// SocketServer 实例运行信息；全部字符串由动态库复制到固定缓冲区。
+struct ST_SOCKET_SERVER_RUNTIME_INFO
+{
+	unsigned int uiStructSize;              // 调用方结构体字节数，必须初始化为 sizeof(ST_SOCKET_SERVER_RUNTIME_INFO)。
+	unsigned int uiAbiVersion;              // 动态库 ABI 版本，当前固定为 SOCKET_SERVER_ABI_VERSION。
+	EN_SOCKET_SERVER_TYPE enServerType;     // 工厂创建时绑定的协议类型。
+	unsigned long long ullInstanceId;       // 进程内单调生成且不复用的诊断编号。
+	int bStarted;                           // 1=监听已经成功启动，0=尚未启动或已经停止。
+	char szServiceName[64];                 // 创建时复制的 ASCII 逻辑名称，以零字符结束。
+	char szBindIp[64];                      // 最近一次成功监听的绑定 IP，未启动时为空。
+	unsigned short usPort;                  // 最近一次成功监听端口，未启动时为 0。
+	unsigned short usReserved;              // 对齐和后续扩展保留字段，当前必须为 0。
+	unsigned int uiMaxConnectionCount;      // HPSocket 实际最大连接数，未启动时为 0。
+	unsigned int uiAcceptSocketCount;       // HPSocket 实际 Accept 预投递数量，未启动时为 0。
+	unsigned int uiSocketListenQueue;       // HPSocket 实际 TCP listen 队列长度，未启动时为 0。
+};
+
 /********** TCP 消息类型 **********/
 
 /********** HTTP 状态类型 **********/
@@ -94,6 +123,14 @@ public:
 	virtual void AddResponseHead(const char* p_szName, const char* p_szValue) = 0;
 	// 发送;
 	virtual bool SendResponse(const void* p_szData, int p_iLen) = 0;
+
+	// ABI 4 新增方法统一追加到旧虚表末尾，确保旧请求接口槽位顺序不变。
+	// 返回请求行中的原始 URL，包含 query，用于兼容 GET 查询参数。
+	virtual const char* GetRawUrl() = 0;
+	// 返回 URL 中 ? 后面的原始 query 字符串；没有 query 时返回 nullptr。
+	virtual const char* GetQueryString() = 0;
+	// 按 query 参数名读取 URL 解码后的参数值；不存在时返回 nullptr。
+	virtual const char* GetParam(const char* p_szName) = 0;
 };
 
 /**********
@@ -247,13 +284,31 @@ extern "C"
 		virtual int WebSockCompare(void* p_refSrcClient, void* p_refObjClient) = 0;
 		// 查询客户端连接是否仍可发送;
 		virtual bool WebSockIsAlive(void *p_refServer, void *p_refClient) = 0;
+		// ABI 4 新增方法统一追加到旧虚表末尾，确保旧 WebSocket 接口槽位顺序不变。
+		// 发送 UTF-8 文本帧，供 JSON WebSocket 协议保持浏览器字符串语义;
+		virtual bool WebSockSendText(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) = 0;
+		// 发送 UTF-8 文本错误信息后关闭客户连接;
+		virtual void WebSockCloseText(void *p_refServer, void *p_refClient, const char *p_szData, int p_iDataLen) = 0;
+		// ABI 5 新增方法统一追加到虚表末尾，避免改变 ABI 4 已发布接口的槽位顺序。
+		// 查询指定 WebSocket 连接尚未由底层发出的字节数，供上层识别持续拥塞的慢连接。
+		virtual bool WebSockGetPendingDataLength(void *p_refServer, void *p_refClient, int& p_refIPendingBytes) = 0;
+		// ABI 7 新增方法统一追加到虚表末尾；仅允许在监听启动前设置 TCP listen 队列长度。
+		virtual bool SetSocketListenQueue(unsigned int p_uiSocketListenQueue) = 0;
 	};
+
+	// 返回当前动态库使用的公共接口 ABI 版本，供调用方在创建实例前校验。
+	SOCKETSERVER_API unsigned int GetSocketServerAbiVersion();
+	// 查询指定实例的只读运行信息；调用方必须先填写 uiStructSize。
+	SOCKETSERVER_API bool GetSocketServerRuntimeInfo(CSocketServer* p_pInstance,
+		ST_SOCKET_SERVER_RUNTIME_INFO* p_pInfo);
 	/***************************************************************************
 	接口说明: 用于获取实例, 内部单例;
 	参数说明: NA;
 	返回值:  CSocketServer *对象指针;
 	***************************************************************************/
 	SOCKETSERVER_API CSocketServer* CreateHttpSockInstance();
+	// 按逻辑名称创建独立 HTTP 实例；同类型同名称重复创建返回 nullptr。
+	SOCKETSERVER_API CSocketServer* CreateHttpSockInstanceByName(const char* p_szServiceName);
 
 	/***************************************************************************
 	接口说明: 用于释放实例;
@@ -268,6 +323,8 @@ extern "C"
 	返回值:  CSocketServer *对象指针;
 	***************************************************************************/
 	SOCKETSERVER_API CSocketServer* CreateWebSockInstance();
+	// 按逻辑名称创建独立 WebSocket 实例；同类型同名称重复创建返回 nullptr。
+	SOCKETSERVER_API CSocketServer* CreateWebSockInstanceByName(const char* p_szServiceName);
 
 	/***************************************************************************
 	接口说明: 用于释放实例;
@@ -282,6 +339,8 @@ extern "C"
 	返回值:  CSocketServer *对象指针;
 	***************************************************************************/
 	SOCKETSERVER_API CSocketServer* CreateTcpSockInstance();
+	// 按逻辑名称创建独立 TCP 实例；同类型同名称重复创建返回 nullptr。
+	SOCKETSERVER_API CSocketServer* CreateTcpSockInstanceByName(const char* p_szServiceName);
 
 	/***************************************************************************
 	接口说明: 用于释放实例;
@@ -298,5 +357,4 @@ extern "C"
 #endif
 
 #endif //
-
 

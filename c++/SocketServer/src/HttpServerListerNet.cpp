@@ -1,5 +1,6 @@
 ﻿#include "publicGlobalvar.h"
 #include "publicfunc.h"
+#include "ServerRuntimeContext.h"
 #include "Log.h"
 #include <new>
 #include <windows.h>
@@ -10,6 +11,23 @@ namespace
 	const size_t HTTP_MAX_REQ_HEADER_COUNT = 128;			// wyl 2026-04-25：单个 HTTP 请求允许的最大请求头数量
 	const size_t HTTP_MAX_REQ_HEADER_BYTES = 32 * 1024;	// wyl 2026-04-25：单个 HTTP 请求允许的请求头累计字节数
 	const size_t HTTP_MAX_REQ_BODY_BYTES = 8 * 1024 * 1024;	// wyl 2026-04-25：单个 HTTP 请求允许的 BODY 最大字节数
+	const size_t HTTP_MAX_RAW_URL_BYTES = 16 * 1024;		// 请求目标最大长度，限制异常 GET query 的内存占用
+	const size_t HTTP_MAX_QUERY_PARAM_COUNT = 128;		// 单个请求允许的 query 参数数量
+
+	const char* GetHttpQueryParseReason(EN_HTTP_QUERY_PARSE_RESULT p_enResult)
+	{
+		switch (p_enResult)
+		{
+		case HTTP_QUERY_PARSE_RAW_URL_TOO_LONG:
+			return "request url too long";
+		case HTTP_QUERY_PARSE_PARAM_TOO_MANY:
+			return "too many query params";
+		case HTTP_QUERY_PARSE_DECODED_NUL:
+			return "query contains nul";
+		default:
+			return "request query invalid";
+		}
+	}
 
 	bool HttpSocketIsConnectedNoThrow(IHttpServer* pSender, CONNID dwConnID, const char* p_szAction)
 	{
@@ -95,6 +113,27 @@ namespace
 		return bOK ? true : false;
 	}
 
+	bool DisconnectHttpConnNoThrow(IHttpServer* pSender, CONNID dwConnID, const char* p_szAction)
+	{
+		if (nullptr == pSender)
+			return false;
+
+		BOOL bOK = FALSE;
+		DWORD dwExceptionCode = 0;
+		__try
+		{
+			// false 表示优雅断开，让已经进入发送队列的 HTTP 错误响应先发给客户端。
+			bOK = pSender->Disconnect(dwConnID, false);
+		}
+		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		{
+			HTTP_ERROR("ConnID=%llu,%sException=0x%08X",
+				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "DisconnectConn", dwExceptionCode);
+			return false;
+		}
+		return bOK ? true : false;
+	}
+
 	char ToLowerAscii(char ch)
 	{
 		return (ch >= 'A' && ch <= 'Z') ? (ch - 'A' + 'a') : ch;
@@ -135,62 +174,87 @@ namespace
 		return false;
 	}
 
-	bool FindHttpParsingReqNoLock(CONNID dwConnID, unsigned long long& ullReqID, CHttpAsynReqObj*& pReqObj)
+	bool FindHttpParsingReqNoLock(ST_HTTP_SERVER_RUNTIME* p_pRuntime,
+		CONNID dwConnID, unsigned long long& ullReqID,
+		CHttpAsynReqObj*& pReqObj)
 	{
 		pReqObj = nullptr;
 		ullReqID = 0;
+		if (p_pRuntime == nullptr)
+		{
+			return false;
+		}
 
-		std::map<CONNID, unsigned long long>::iterator itConnReq = g_mapHttpConnReq.find(dwConnID);
-		if (itConnReq == g_mapHttpConnReq.end())
+		std::map<CONNID, unsigned long long>::iterator itConnReq =
+			p_pRuntime->mapParsingRequest.find(dwConnID);
+		if (itConnReq == p_pRuntime->mapParsingRequest.end())
 			return false;
 
 		ullReqID = itConnReq->second;
-		std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq = g_mapHttpReq.find(ullReqID);
-		if (itReq == g_mapHttpReq.end() || nullptr == itReq->second)
+		std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq =
+			p_pRuntime->mapRequest.find(ullReqID);
+		if (itReq == p_pRuntime->mapRequest.end() || nullptr == itReq->second)
 			return false;
 
 		pReqObj = itReq->second;
 		return true;
 	}
 
-	void CleanupHttpParsingReq(CONNID dwConnID)
+	void CleanupHttpParsingReq(ST_HTTP_SERVER_RUNTIME* p_pRuntime,
+		CONNID dwConnID)
 	{
-		pthread_mutex_lock(&g_mutexHttpReq);
+		if (p_pRuntime == nullptr)
+		{
+			return;
+		}
+		pthread_mutex_lock(&p_pRuntime->mutexRequest);
 		unsigned long long ullReqID = 0;
 		CHttpAsynReqObj* pReqObj = nullptr;
-		if (FindHttpParsingReqNoLock(dwConnID, ullReqID, pReqObj))
+		if (FindHttpParsingReqNoLock(p_pRuntime, dwConnID,
+			ullReqID, pReqObj))
 		{
-			g_mapHttpConnReq.erase(dwConnID);
+			p_pRuntime->mapParsingRequest.erase(dwConnID);
 
-			std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq = g_mapHttpReq.find(ullReqID);
-			if (itReq != g_mapHttpReq.end() && nullptr != itReq->second && !itReq->second->IsDispatched())
+			std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq =
+				p_pRuntime->mapRequest.find(ullReqID);
+			if (itReq != p_pRuntime->mapRequest.end() &&
+				nullptr != itReq->second && !itReq->second->IsDispatched())
 			{
 				delete itReq->second;
-				g_mapHttpReq.erase(itReq);
+				p_pRuntime->mapRequest.erase(itReq);
 			}
 		}
-		pthread_mutex_unlock(&g_mutexHttpReq);
+		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
 	}
 
-	void DetachHttpActiveReq(CONNID dwConnID)
+	void DetachHttpActiveReq(ST_HTTP_SERVER_RUNTIME* p_pRuntime,
+		CONNID dwConnID)
 	{
-		pthread_mutex_lock(&g_mutexHttpReq);
-		std::map<CONNID, unsigned long long>::iterator itActiveReq = g_mapHttpConnActiveReq.find(dwConnID);
-		if (itActiveReq != g_mapHttpConnActiveReq.end())
+		if (p_pRuntime == nullptr)
+		{
+			return;
+		}
+		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		std::map<CONNID, unsigned long long>::iterator itActiveReq =
+			p_pRuntime->mapActiveRequest.find(dwConnID);
+		if (itActiveReq != p_pRuntime->mapActiveRequest.end())
 		{
 			const unsigned long long ullReqID = itActiveReq->second;
-			g_mapHttpConnActiveReq.erase(itActiveReq);
+			p_pRuntime->mapActiveRequest.erase(itActiveReq);
 
-			std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq = g_mapHttpReq.find(ullReqID);
-			if (itReq != g_mapHttpReq.end() && nullptr != itReq->second)
+			std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq =
+				p_pRuntime->mapRequest.find(ullReqID);
+			if (itReq != p_pRuntime->mapRequest.end() && nullptr != itReq->second)
 			{
 				itReq->second->DetachTransport();
 			}
 		}
-		pthread_mutex_unlock(&g_mutexHttpReq);
+		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
 	}
 
-	bool SendSimpleHttpError(IHttpServer* pSender, CONNID dwConnID, HttpStatusType enStatus, const char* p_szMsg)
+	bool SendSimpleHttpError(ST_HTTP_SERVER_RUNTIME* p_pRuntime,
+		IHttpServer* pSender, CONNID dwConnID, HttpStatusType enStatus,
+		const char* p_szMsg)
 	{
 		if (nullptr == pSender)
 			return false;
@@ -203,7 +267,9 @@ namespace
 		};
 
 		bool bSendOk = false;
-		if (g_bHttpServerStatus && pSender == g_CHttpPackServer && HttpSocketIsConnectedNoThrow(pSender, dwConnID, "RejectRequest"))
+		if (p_pRuntime != nullptr && p_pRuntime->bServerStatus.load() &&
+			pSender == p_pRuntime->pPackServer &&
+			HttpSocketIsConnectedNoThrow(pSender, dwConnID, "RejectRequest"))
 		{
 			bSendOk = SendHttpResponseNoThrow(pSender, dwConnID, enStatus, stHeaders,
 				sizeof(stHeaders) / sizeof(stHeaders[0]), reinterpret_cast<const BYTE*>(p_szBody), (int)strlen(p_szBody), "RejectSendResponse");
@@ -213,25 +279,32 @@ namespace
 			HTTP_WARN("ConnID=%llu,SkipRejectResponseClosed,Status=%d", (unsigned long long)dwConnID, (int)enStatus);
 		}
 
-		if (!ReleaseHttpConnNoThrow(pSender, dwConnID, "RejectReleaseConn"))
+		const bool bCloseOk = bSendOk
+			? DisconnectHttpConnNoThrow(pSender, dwConnID, "RejectDisconnectConn")
+			: ReleaseHttpConnNoThrow(pSender, dwConnID, "RejectReleaseConn");
+		if (!bCloseOk)
 		{
-			HTTP_WARN("ConnID=%llu,RejectReleaseFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
+			HTTP_WARN("ConnID=%llu,RejectCloseFail,Sent=%d,err=%d",
+				(unsigned long long)dwConnID, bSendOk ? 1 : 0, SYS_GetLastError());
 		}
 
 		return bSendOk;
 	}
 
-	EnHttpParseResult RejectHttpRequest(IHttpServer* pSender, CONNID dwConnID, HttpStatusType enStatus, const char* p_szReason)
+	EnHttpParseResult RejectHttpRequest(ST_HTTP_SERVER_RUNTIME* p_pRuntime,
+		IHttpServer* pSender, CONNID dwConnID, HttpStatusType enStatus,
+		const char* p_szReason)
 	{
 		HTTP_WARN("ConnID=%llu,RejectRequest,Status=%d,Reason=%s",
 			(unsigned long long)dwConnID, (int)enStatus, nullptr == p_szReason ? "" : p_szReason);
 
-		if (!SendSimpleHttpError(pSender, dwConnID, enStatus, p_szReason))
+		if (!SendSimpleHttpError(p_pRuntime, pSender, dwConnID,
+			enStatus, p_szReason))
 		{
 			HTTP_WARN("ConnID=%llu,RejectResponseSendFail,err=%d", (unsigned long long)dwConnID, SYS_GetLastError());
 		}
 
-		CleanupHttpParsingReq(dwConnID);
+		CleanupHttpParsingReq(p_pRuntime, dwConnID);
 		return HPR_ERROR;
 	}
 
@@ -240,28 +313,35 @@ namespace
 		if (nullptr == socketTask || nullptr == socketTask->buf)
 			return;
 
+		ST_HTTP_SERVER_RUNTIME* pRuntime =
+			static_cast<ST_HTTP_SERVER_RUNTIME*>(socketTask->sender);
 		CHttpAsynReqObj* pReqObj = *(CHttpAsynReqObj**)socketTask->buf;
-		if (nullptr == pReqObj)
+		if (pRuntime == nullptr || pReqObj == nullptr)
 			return;
 
-		if (nullptr != g_pHttpHandle && g_bHttpServerStatus)
+		if (pRuntime->pNotifyHandler != nullptr &&
+			pRuntime->bServerStatus.load())
 		{
-			g_pHttpHandle(pReqObj);
+			pRuntime->pNotifyHandler(pReqObj);
 		}
 	}
 
-	bool SubmitHttpRequestTask(CHttpAsynReqObj* pReqObj)
+	bool SubmitHttpRequestTask(ST_HTTP_SERVER_RUNTIME* p_pRuntime,
+		CHttpAsynReqObj* pReqObj)
 	{
-		if (nullptr == pReqObj || nullptr == g_pHttpHandle || !g_bHttpServerStatus)
+		if (p_pRuntime == nullptr || pReqObj == nullptr ||
+			p_pRuntime->pNotifyHandler == nullptr ||
+			!p_pRuntime->bServerStatus.load())
 			return false;
 
 		CHttpAsynReqObj* pTaskReqObj = pReqObj;
-		LPTSocketTask task = HP_Create_SocketTaskObj((Fn_SocketTaskProc)ThreadHttpRequestTask, pReqObj,
+		LPTSocketTask task = HP_Create_SocketTaskObj(
+			(Fn_SocketTaskProc)ThreadHttpRequestTask, p_pRuntime,
 			(CONNID)pReqObj->GetConnId(), (const BYTE*)&pTaskReqObj, sizeof(pTaskReqObj));
 		if (nullptr == task)
 			return false;
 
-		if (!g_CHttpHPThreadPool->Submit(task, 1000 * 5))
+		if (!p_pRuntime->clThreadPool->Submit(task, 1000 * 5))
 		{
 			HP_Destroy_SocketTaskObj(task);
 			return false;
@@ -270,6 +350,15 @@ namespace
 		return true;
 	}
 }
+
+// 以下别名只在 Listener 成员函数内展开为当前实例字段，不对应进程级全局变量。
+#define g_bHttpServerStatus (m_pRuntime->bServerStatus.load())
+#define g_mutexHttpReq (m_pRuntime->mutexRequest)
+#define g_mapHttpReq (m_pRuntime->mapRequest)
+#define g_mapHttpConnReq (m_pRuntime->mapParsingRequest)
+#define g_mapHttpConnActiveReq (m_pRuntime->mapActiveRequest)
+#define g_ullHttpAsynReqID (m_pRuntime->ullAsyncRequestId)
+#define g_CHttpSockServerObj (m_pRuntime->pOwner)
 
 EnHttpParseResult CHttpServerListerNet::OnMessageBegin(IHttpServer*, CONNID dwConnID)
 {
@@ -300,15 +389,18 @@ EnHttpParseResult CHttpServerListerNet::OnRequestLine(IHttpServer* pSender, CONN
 	{
 		HTTP_WARN("ConnID=%llu,UnsupportedMethod=%s",
 			(unsigned long long)dwConnID, nullptr == lpszMethod ? "" : lpszMethod);
-		return RejectHttpRequest(pSender, dwConnID, NotImplemented, "method not support");
+		return RejectHttpRequest(m_pRuntime, pSender, dwConnID,
+			NotImplemented, "method not support");
 	}
 
 	// wyl 2026-04-25：请求行阶段创建请求上下文；使用 nothrow，内存不足时直接回复 500，不让异常穿透 HP-Socket 回调。
-	CHttpAsynReqObj* pReqObj = new (std::nothrow) CHttpAsynReqObj();
+	CHttpAsynReqObj* pReqObj = new (std::nothrow)
+		CHttpAsynReqObj(m_pRuntime);
 	if (nullptr == pReqObj)
 	{
 		HTTP_ERROR("ConnID=%llu,CreateHttpReqAllocFail", (unsigned long long)dwConnID);
-		return RejectHttpRequest(pSender, dwConnID, InternalServerError, "request alloc fail");
+		return RejectHttpRequest(m_pRuntime, pSender, dwConnID,
+			InternalServerError, "request alloc fail");
 	}
 
 	// wyl 2026-04-25：这里只记录 method、url、client 地址等元信息；BODY 由后续 OnBody 分片累计，不在这里读取或打印。
@@ -317,6 +409,22 @@ EnHttpParseResult CHttpServerListerNet::OnRequestLine(IHttpServer* pSender, CONN
 		pReqObj->SetSender(pSender);
 		pReqObj->SetConnId(dwConnID);
 		pReqObj->SetMethod(lpszMethod);
+		// 优先使用 HP-Socket 已拆分的 query，网络层通用解析全部参数，不绑定任何业务参数名。
+		const char* p_szQuery = pSender->GetUrlField(dwConnID, HUF_QUERY);
+		size_t uiObservedRawUrlBytes = 0;
+		size_t uiObservedQueryParamCount = 0;
+		const EN_HTTP_QUERY_PARSE_RESULT enQueryResult = pReqObj->SetRequestUrl(lpszUrl, p_szQuery,
+			HTTP_MAX_RAW_URL_BYTES, HTTP_MAX_QUERY_PARAM_COUNT,
+			uiObservedRawUrlBytes, uiObservedQueryParamCount);
+		if (HTTP_QUERY_PARSE_OK != enQueryResult)
+		{
+			const char* p_szReason = GetHttpQueryParseReason(enQueryResult);
+			HTTP_WARN("ConnID=%llu,RejectQuery,Type=%d,RawUrlBytes=%zu,ParamCount=%zu",
+				(unsigned long long)dwConnID, (int)enQueryResult,
+				uiObservedRawUrlBytes, uiObservedQueryParamCount);
+			// 请求行阶段返回 HPR_ERROR 会让底层立即断开并丢弃错误响应，因此延迟到完整解析后统一回 400。
+			pReqObj->SetRequestReject(BadRequest, p_szReason);
+		}
 
 		const char* p_szUrlPath = pSender->GetUrlField(dwConnID, HUF_PATH);
 		pReqObj->SetUrl(nullptr != p_szUrlPath ? p_szUrlPath : lpszUrl);
@@ -333,7 +441,8 @@ EnHttpParseResult CHttpServerListerNet::OnRequestLine(IHttpServer* pSender, CONN
 	{
 		delete pReqObj;
 		HTTP_ERROR("ConnID=%llu,InitHttpReqAllocFail", (unsigned long long)dwConnID);
-		return RejectHttpRequest(pSender, dwConnID, InternalServerError, "request init fail");
+		return RejectHttpRequest(m_pRuntime, pSender, dwConnID,
+			InternalServerError, "request init fail");
 	}
 
 	bool bInserted = false;
@@ -375,7 +484,8 @@ EnHttpParseResult CHttpServerListerNet::OnHeader(IHttpServer* pSender, CONNID dw
 	pthread_mutex_lock(&g_mutexHttpReq);
 	unsigned long long ullReqID = 0;
 	CHttpAsynReqObj* pReqObj = nullptr;
-	if (FindHttpParsingReqNoLock(dwConnID, ullReqID, pReqObj))
+	if (FindHttpParsingReqNoLock(m_pRuntime, dwConnID,
+		ullReqID, pReqObj))
 	{
 		bFound = true;
 		bAdded = pReqObj->AddRequestHead(lpszName, lpszValue, HTTP_MAX_REQ_HEADER_COUNT, HTTP_MAX_REQ_HEADER_BYTES);
@@ -387,7 +497,8 @@ EnHttpParseResult CHttpServerListerNet::OnHeader(IHttpServer* pSender, CONNID dw
 
 	if (!bAdded)
 	{
-		return RejectHttpRequest(pSender, dwConnID, RequestHeaderFieldsTooLarge, "request headers too large");
+		return RejectHttpRequest(m_pRuntime, pSender, dwConnID,
+			RequestHeaderFieldsTooLarge, "request headers too large");
 	}
 
 	return HPR_OK;
@@ -401,7 +512,8 @@ EnHttpParseResult CHttpServerListerNet::OnHeadersComplete(IHttpServer* pSender, 
 	if (pSender->IsUpgrade(dwConnID))
 	{
 		HTTP_WARN("ConnID=%llu,UpgradeRequestNotSupported", (unsigned long long)dwConnID);
-		return RejectHttpRequest(pSender, dwConnID, BadRequest, "upgrade not support");
+		return RejectHttpRequest(m_pRuntime, pSender, dwConnID,
+			BadRequest, "upgrade not support");
 	}
 
 	// wyl 2026-04-25：HeadersComplete 阶段可以拿到 Content-Length：先做大包拦截，再按长度预留缓存。
@@ -409,7 +521,8 @@ EnHttpParseResult CHttpServerListerNet::OnHeadersComplete(IHttpServer* pSender, 
 	// wyl 2026-04-25：若 Content-Length 已经超限，就不再继续等待 BODY 分片，尽早返回 413。
 	if (ullContentLength > HTTP_MAX_REQ_BODY_BYTES)
 	{
-		return RejectHttpRequest(pSender, dwConnID, PayloadTooLarge, "request body too large");
+		return RejectHttpRequest(m_pRuntime, pSender, dwConnID,
+			PayloadTooLarge, "request body too large");
 	}
 
 	bool bFound = false;
@@ -417,7 +530,8 @@ EnHttpParseResult CHttpServerListerNet::OnHeadersComplete(IHttpServer* pSender, 
 	pthread_mutex_lock(&g_mutexHttpReq);
 	unsigned long long ullReqID = 0;
 	CHttpAsynReqObj* pReqObj = nullptr;
-	if (FindHttpParsingReqNoLock(dwConnID, ullReqID, pReqObj))
+	if (FindHttpParsingReqNoLock(m_pRuntime, dwConnID,
+		ullReqID, pReqObj))
 	{
 		pReqObj->SetKeepAlive(!!pSender->IsKeepAlive(dwConnID));
 		if (ullContentLength > 0)
@@ -434,7 +548,8 @@ EnHttpParseResult CHttpServerListerNet::OnHeadersComplete(IHttpServer* pSender, 
 
 	if (!bReserved)
 	{
-		return RejectHttpRequest(pSender, dwConnID, InternalServerError, "request body reserve fail");
+		return RejectHttpRequest(m_pRuntime, pSender, dwConnID,
+			InternalServerError, "request body reserve fail");
 	}
 
 	return HPR_OK;
@@ -456,7 +571,8 @@ EnHttpParseResult CHttpServerListerNet::OnBody(IHttpServer* pSender, CONNID dwCo
 	pthread_mutex_lock(&g_mutexHttpReq);
 	unsigned long long ullReqID = 0;
 	CHttpAsynReqObj* pReqObj = nullptr;
-	if (FindHttpParsingReqNoLock(dwConnID, ullReqID, pReqObj))
+	if (FindHttpParsingReqNoLock(m_pRuntime, dwConnID,
+		ullReqID, pReqObj))
 	{
 		bFound = true;
 		bAppended = pReqObj->AppendContent(reinterpret_cast<const unsigned char*>(pData), iLength, HTTP_MAX_REQ_BODY_BYTES);
@@ -468,7 +584,8 @@ EnHttpParseResult CHttpServerListerNet::OnBody(IHttpServer* pSender, CONNID dwCo
 
 	if (!bAppended)
 	{
-		return RejectHttpRequest(pSender, dwConnID, PayloadTooLarge, "request body too large");
+		return RejectHttpRequest(m_pRuntime, pSender, dwConnID,
+			PayloadTooLarge, "request body too large");
 	}
 
 	return HPR_OK;
@@ -483,7 +600,8 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 	unsigned long long ullReqID = 0;
 	pthread_mutex_lock(&g_mutexHttpReq);
 	if (g_mapHttpConnActiveReq.find(dwConnID) == g_mapHttpConnActiveReq.end()
-		&& FindHttpParsingReqNoLock(dwConnID, ullReqID, pReqObj))
+		&& FindHttpParsingReqNoLock(m_pRuntime, dwConnID,
+			ullReqID, pReqObj))
 	{
 		// wyl 2026-04-25：到这里请求已完整解析，状态从“解析中”切到“等待上层应答中”。
 		g_mapHttpConnReq.erase(dwConnID);
@@ -495,6 +613,22 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 
 	if (nullptr == pReqObj)
 		return HPR_ERROR;
+
+	if (pReqObj->HasRequestReject())
+	{
+		// 网络层拒绝不进入业务线程；完成解析后同步发送错误并关闭连接，保证客户端可收到 400。
+		pReqObj->SetKeepAlive(false);
+		pReqObj->SetResponseStatus(pReqObj->GetRequestRejectStatus());
+		pReqObj->AddResponseHead("Content-Type", "text/plain; charset=utf-8");
+		pReqObj->AddResponseHead("Connection", "close");
+		const char* p_szReason = pReqObj->GetRequestRejectReason();
+		const bool bSent = pReqObj->SendResponse(p_szReason, (int)strlen(p_szReason));
+		if (nullptr != g_CHttpSockServerObj)
+		{
+			g_CHttpSockServerObj->DelHttpAsynReq(ullReqID);
+		}
+		return bSent ? HPR_OK : HPR_ERROR;
+	}
 
 	// wyl 2026-04-25：先暂停该连接继续接收，避免 keep-alive 下第二个请求先于第一个请求完成回包而产生乱序。
 	if (!PauseHttpReceiveNoThrow(pSender, dwConnID, true, "PauseActiveRequest"))
@@ -516,7 +650,7 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 	}
 
 	// wyl 2026-04-25：到这里 HTTP 头和 BODY 都已解析完成，提交给线程池后由上层异步处理并发送响应。
-	if (!SubmitHttpRequestTask(pReqObj))
+	if (!SubmitHttpRequestTask(m_pRuntime, pReqObj))
 	{
 		pthread_mutex_lock(&g_mutexHttpReq);
 		std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq = g_mapHttpReq.find(ullReqID);
@@ -547,7 +681,7 @@ EnHttpParseResult CHttpServerListerNet::OnParseError(IHttpServer*, CONNID dwConn
 {
 	HTTP_ERROR("ConnID=%llu,ParseError=%d,Desc=%s",
 		(unsigned long long)dwConnID, iErrorCode, nullptr == lpszErrorDesc ? "" : lpszErrorDesc);
-	CleanupHttpParsingReq(dwConnID);
+	CleanupHttpParsingReq(m_pRuntime, dwConnID);
 	return HPR_ERROR;
 }
 
@@ -586,9 +720,9 @@ EnHandleResult CHttpServerListerNet::OnClose(ITcpServer*, CONNID dwConnID, EnSoc
 {
 	HTTP_INFO("ConnID=%llu,Operation=%d,ErrorCode=%d",
 		(unsigned long long)dwConnID, enOperation, iErrorCode);
-	CleanupHttpParsingReq(dwConnID);
+	CleanupHttpParsingReq(m_pRuntime, dwConnID);
 	// wyl 2026-04-25：已派发给上层但尚未释放的请求对象不能再继续持有底层 sender，避免后续误回包到失效连接。
-	DetachHttpActiveReq(dwConnID);
+	DetachHttpActiveReq(m_pRuntime, dwConnID);
 	return HR_OK;
 }
 
