@@ -2,10 +2,12 @@
 #define SOCKET_CLIENT_H
 
 // 公共虚函数布局或结构体变化时递增 ABI 版本。
-#define SOCKET_CLIENT_ABI_VERSION 1U
+#define SOCKET_CLIENT_ABI_VERSION 4U
 
 #if defined(_WIN32)
-#if defined(SOCKETCLIENT_EXPORTS)
+#if defined(SOCKETCLIENT_STATIC)
+#define SOCKETCLIENT_API
+#elif defined(SOCKETCLIENT_EXPORTS)
 #define SOCKETCLIENT_API __declspec(dllexport)
 #else
 #define SOCKETCLIENT_API __declspec(dllimport)
@@ -19,7 +21,9 @@ enum EN_SOCKET_CLIENT_TYPE
 {
     EN_SOCKET_CLIENT_TCP = 1,  // 原始 TCP 字节流。
     EN_SOCKET_CLIENT_HTTP = 2, // HTTP/1.1 请求与响应连接。
-    EN_SOCKET_CLIENT_WEB = 3   // 通过 HTTP 升级建立的 WebSocket 连接。
+    EN_SOCKET_CLIENT_WEB = 3,  // 通过 HTTP 升级建立的 WebSocket 连接。
+    EN_SOCKET_CLIENT_HTTPS = 4, // 通过 TLS 建立的 HTTP/1.1 连接。
+    EN_SOCKET_CLIENT_WSS = 5    // 通过 TLS 和 HTTP 升级建立的 WebSocket 连接。
 };
 
 // 回调事件类型；数据在回调期间借用，返回前应复制所需内容。
@@ -49,6 +53,7 @@ struct ST_SOCKET_CLIENT_EVENT
     unsigned char byOpcode;         // WEB_FRAME 的操作码，其他事件为零。
     int bFinal;                     // WEB_FRAME 的 FIN 标志，其他事件为零。
     int iErrorCode;                 // CLOSED 或 HTTP_ERROR 的底层错误码。
+    unsigned long long ullWireBodyBytes; // HTTP_COMPLETE 的线上响应正文字节数，解压前统计。
 };
 
 // 业务回调类型；上下文对象由调用方持有，客户端实例由工厂持有。
@@ -65,6 +70,7 @@ struct ST_SOCKET_CLIENT_RUNTIME_INFO
     unsigned long long ullInstanceId; // 进程内单调递增的诊断编号。
     int bStarted;                   // HP-Socket 组件是否已启动。
     int bConnected;                 // 传输连接当前是否有效。
+    int bSecure;                    // 是否使用 HPSocket TLS 客户端。
     char szName[64];                // 工厂逻辑名称，以零结束。
     char szRemoteHost[256];         // 最近一次请求连接的远端地址，以零结束。
     unsigned short usRemotePort;    // 最近一次请求连接的远端端口。
@@ -102,6 +108,11 @@ public:
     // 非默认端口需要在 p_szHost 中显式带上端口号。
     virtual bool Upgrade(const char* p_szPath, const char* p_szHost) = 0;
 
+    // 使用调用方提供的附加请求头发起升级；标准 WebSocket 头由库生成且不可覆盖。
+    virtual bool UpgradeWithHeaders(const char* p_szPath, const char* p_szHost,
+        const char* const* p_ppszHeaderNames, const char* const* p_ppszHeaderValues,
+        int p_iHeaderCount) = 0;
+
     // 使用新随机掩码发送完整 WebSocket 帧；操作码 1/2/8/9/10
     // 分别表示文本、二进制、关闭、Ping、Pong。
     virtual bool SendFrame(unsigned char p_byOpcode, const void* p_pData, int p_iLength) = 0;
@@ -116,16 +127,27 @@ extern "C"
     SOCKETCLIENT_API bool GetSocketClientRuntimeInfo(CSocketClient* p_pClient,
         ST_SOCKET_CLIENT_RUNTIME_INFO* p_pInfo);
 
+    // 在 Connect 前配置 HTTPS/WSS 的服务端证书链校验。
+    // p_szCaCertificateFile 必须是 PEM 证书链文件；关闭校验时可传空。
+    // 官方 HP-Socket 6.0.9 预编译库只校验证书链并设置 SNI，不校验连接主机名是否匹配证书。
+    // 对主机名认证有强要求的场景应在受控代理终止 TLS，或使用补齐主机名校验后自建的 HP-Socket。
+    SOCKETCLIENT_API bool ConfigureSocketClientTls(CSocketClient* p_pClient,
+        const char* p_szCaCertificateFile, int p_bVerifyPeer);
+
     // 创建独立的命名连接；同类型同名称重复创建会失败。
     SOCKETCLIENT_API CSocketClient* CreateTcpClientInstanceByName(const char* p_szName);
     SOCKETCLIENT_API CSocketClient* CreateHttpClientInstanceByName(const char* p_szName);
     SOCKETCLIENT_API CSocketClient* CreateWebClientInstanceByName(const char* p_szName);
+    SOCKETCLIENT_API CSocketClient* CreateHttpsClientInstanceByName(const char* p_szName);
+    SOCKETCLIENT_API CSocketClient* CreateWssClientInstanceByName(const char* p_szName);
 
     // 停止并销毁相应类型的实例，再将指针置空。
     // 调用方需确保删除与该实例其他公开操作不会并发。
     SOCKETCLIENT_API void DelTcpClientInstance(CSocketClient*& p_pClient);
     SOCKETCLIENT_API void DelHttpClientInstance(CSocketClient*& p_pClient);
     SOCKETCLIENT_API void DelWebClientInstance(CSocketClient*& p_pClient);
+    SOCKETCLIENT_API void DelHttpsClientInstance(CSocketClient*& p_pClient);
+    SOCKETCLIENT_API void DelWssClientInstance(CSocketClient*& p_pClient);
 }
 
 #endif

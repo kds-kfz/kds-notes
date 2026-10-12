@@ -1,0 +1,56 @@
+﻿; IceRPCPush.def : Declares the module parameters for the DLL.
+
+LIBRARY
+
+EXPORTS
+    ; Explicit exports can go here
+	CreateJsonICEServer
+	CreateJsonICEClient
+	CreateJsonICEClient2
+	RegisterJsonICEClient
+	JsonBinSrvPopfront
+	JsonBinSrvComplete
+	PushJsonICEServerData
+
+	JsonBinClientRPC
+	JsonBinClientRPCAsync
+	JsonBinClientRPC_async
+	PreJsonBinClientRPC
+	EndPreJsonBinClientRPC
+
+	JsonBinClientPUT
+	JsonBinClientPUTAsync
+	JsonBinClientPUT_async
+	PreJsonBinClientPUT
+	EndPreJsonBinClientPUT
+
+	IJsonMutiResultFree
+	DeleteJsonICERPC
+	PreJsonBinClientRPC
+	EndPreJsonBinClientRPC
+
+	JsonGetEndPoint
+	RegisterJsonICEClient2
+
+	RegServerCallBackFunc
+	JsonICEResponseData
+	RegBinaryServerCallBackFunc
+	RegBinaryServerCallBackFuncEx
+	BinaryClientRPC
+	BinaryClientRPCAsync
+	BinaryClientRPCAsyncEx
+	BinaryClientRPCAsyncEncodedEx
+	BinaryClientPUT
+	BinaryClientPUTAsync
+	BinaryClientPUTAsyncEx
+	BinaryClientPUTAsyncEncodedEx
+	BinaryResponseData
+	BinaryResponseDataEx
+	BinaryResultFree
+	BinaryDecodeEncodedBuffer
+	BinaryBufferFree
+	BinaryEncodedResultFree
+
+	IceRPCPushGetLastErrorCode
+	IceRPCPushGetLastError
+	IceRPCPushGetErrorMsg

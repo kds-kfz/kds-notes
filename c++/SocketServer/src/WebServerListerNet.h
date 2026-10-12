@@ -1,8 +1,7 @@
 ﻿#ifndef _WEB_SERVER_LISTERNET_H_
 #define _WEB_SERVER_LISTERNET_H_
 
-#include "SocketInterface.h"
-#include "HPSocket.h"
+#include "ServerPlatform.h"
 
 struct ST_WEB_SERVER_RUNTIME;
 

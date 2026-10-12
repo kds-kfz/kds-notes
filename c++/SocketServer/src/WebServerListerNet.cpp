@@ -26,12 +26,17 @@ namespace
 	// wyl 2026-03-30：按 WebSocket 标准生成握手应答值，避免并发握手时使用静态缓冲产生串包。
 	bool BuildWebSocketAcceptKey(const char* pSrcKey, char* pDstKey, size_t dwDstLen)
 	{
-		if (nullptr == pSrcKey || nullptr == pDstKey || dwDstLen == 0)
+		if (nullptr == pSrcKey || nullptr == pDstKey || dwDstLen < 29)
 			return false;
 
 		char szSourceKey[256] = { 0 };
 		unsigned char bySha1Buf[20] = { 0 };
-		sprintf_s(szSourceKey, sizeof(szSourceKey), "%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11", pSrcKey);
+		const int iSourceLength = snprintf(szSourceKey, sizeof(szSourceKey),
+			"%s258EAFA5-E914-47DA-95CA-C5AB0DC85B11", pSrcKey);
+		if (iSourceLength < 0 || static_cast<size_t>(iSourceLength) >= sizeof(szSourceKey))
+		{
+			return false;
+		}
 		if (SHA1_String(reinterpret_cast<const unsigned char*>(szSourceKey), (unsigned long)strlen(szSourceKey), bySha1Buf) <= 0)
 			return false;
 
@@ -252,12 +257,12 @@ namespace
 						(void*)pTask->pBuf, pTask->uiLen, stClientData.szIp, stClientData.unPort, pTask->szErrMsg);
 					break;
 				case enWebClose:
-					_snprintf(pTask->szErrMsg, sizeof(pTask->szErrMsg), "client close");
+					snprintf(pTask->szErrMsg, sizeof(pTask->szErrMsg), "client close");
 					p_pRuntime->pNotifyHandler((void*)pSender, (void*)pTask->ullConnID, pTask->enWebNotifyType,
 						nullptr, 0, stClientData.szIp, stClientData.unPort, pTask->szErrMsg);
 					break;
 				case enWebConnect:
-					_snprintf(pTask->szErrMsg, sizeof(pTask->szErrMsg), "client connect");
+					snprintf(pTask->szErrMsg, sizeof(pTask->szErrMsg), "client connect");
 					p_pRuntime->pNotifyHandler((void*)pSender, (void*)pTask->ullConnID, pTask->enWebNotifyType,
 						nullptr, 0, stClientData.szIp, stClientData.unPort, pTask->szErrMsg);
 					break;

@@ -2,6 +2,7 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseStatic|x64"><Configuration>ReleaseStatic</Configuration><Platform>x64</Platform></ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
@@ -21,6 +22,11 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset><CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset><CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -28,27 +34,36 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)..\..\..\lib\$(Platform)vc14\</OutDir>
+    <OutDir>$(SolutionDir)..\..\..\lib\$(Platform)vc14\share\</OutDir>
     <IntDir>$(ProjectDir)build\$(Platform)\$(Configuration)\</IntDir>
     <TargetName>libSocketClient</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)..\..\..\lib\$(Platform)vc14\</OutDir>
+    <OutDir>$(SolutionDir)..\..\..\lib\$(Platform)vc14\share\</OutDir>
     <IntDir>$(ProjectDir)build\$(Platform)\$(Configuration)\</IntDir>
     <TargetName>libSocketClient_d</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
+    <OutDir>$(SolutionDir)..\..\..\lib\$(Platform)vc14\static\</OutDir>
+    <IntDir>$(ProjectDir)build\$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>libSocketClient_static</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader><LanguageStandard>stdcpp17</LanguageStandard>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader><LanguageStandard>stdcpp17</LanguageStandard><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>SOCKETCLIENT_EXPORTS;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\..\..\include;$(SolutionDir)..\..\..\..\SocketServer\vender\hpsocket\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions Condition="'$(Configuration)'!='ReleaseStatic'">SOCKETCLIENT_EXPORTS;_SSL_SUPPORT;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)'=='ReleaseStatic'">SOCKETCLIENT_STATIC;HPSOCKET_STATIC_LIB;_SSL_SUPPORT;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\..\include;$(SolutionDir)..\..\..\vender\zlib\include;$(SolutionDir)..\..\..\vender\zlib\src;$(SolutionDir)..\..\..\vender\hpsocket\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\..\..\SocketServer\vender\hpsocket\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\..\vender\hpsocket\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>HPSocket.lib;bcrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -60,6 +75,7 @@
     <ClInclude Include="..\..\..\src\ClientInstance.h" />
     <ClInclude Include="..\..\..\src\TcpClientListener.h" />
     <ClInclude Include="..\..\..\src\HttpClientListener.h" />
+    <ClInclude Include="..\..\..\src\HttpContentDecoder.h" />
     <ClInclude Include="..\..\..\src\TcpSockClientObj.h" />
     <ClInclude Include="..\..\..\src\HttpSockClientObj.h" />
     <ClInclude Include="..\..\..\src\WebSockClientObj.h" />
@@ -70,10 +86,22 @@
     <ClCompile Include="..\..\..\src\ClientInstance.cpp" />
     <ClCompile Include="..\..\..\src\TcpClientListener.cpp" />
     <ClCompile Include="..\..\..\src\HttpClientListener.cpp" />
+    <ClCompile Include="..\..\..\src\HttpContentDecoder.cpp" />
     <ClCompile Include="..\..\..\src\TcpSockClientObj.cpp" />
     <ClCompile Include="..\..\..\src\HttpSockClientObj.cpp" />
     <ClCompile Include="..\..\..\src\WebSockClientObj.cpp" />
     <ClCompile Include="..\..\..\src\SocketClient.cpp" />
+    <ClCompile Include="..\..\..\vender\zlib\src\adler32.c"><ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="..\..\..\vender\zlib\src\crc32.c"><ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="..\..\..\vender\zlib\src\infback.c"><ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="..\..\..\vender\zlib\src\inffast.c"><ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="..\..\..\vender\zlib\src\inflate.c"><ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="..\..\..\vender\zlib\src\inftrees.c"><ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">true</ExcludedFromBuild></ClCompile>
+    <ClCompile Include="..\..\..\vender\zlib\src\zutil.c"><ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">true</ExcludedFromBuild></ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 静态归档不携带 Windows DLL 版本资源；动态配置必须把统一公司信息写入文件属性。 -->
+    <ResourceCompile Include="..\..\..\src\SocketClient.rc" Condition="'$(Configuration)'!='ReleaseStatic'" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

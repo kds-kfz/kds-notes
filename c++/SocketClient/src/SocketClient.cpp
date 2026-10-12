@@ -41,6 +41,11 @@ CSocketClient* Create(EN_SOCKET_CLIENT_TYPE p_enType, const char* p_szName)
         case EN_SOCKET_CLIENT_WEB:
             instance = new (std::nothrow) CWebSockClientObj(p_szName, id);
             break;
+        case EN_SOCKET_CLIENT_HTTPS:
+        case EN_SOCKET_CLIENT_WSS:
+            // 安全协议仍复用 ClientInstance，只由类型决定创建 HPSocket TLS 组件。
+            instance = new (std::nothrow) ClientInstance(p_enType, p_szName, id);
+            break;
         default:
             return nullptr;
         }
@@ -93,6 +98,20 @@ bool GetSocketClientRuntimeInfo(CSocketClient* p_pClient,
     return true;
 }
 
+// 只允许工厂登记的 HTTPS/WSS 实例在启动前配置 TLS，避免错误指针跨 ABI 边界。
+bool ConfigureSocketClientTls(CSocketClient* p_pClient,
+    const char* p_szCaCertificateFile, int p_bVerifyPeer)
+{
+    if (!p_pClient) return false;
+    std::lock_guard<std::mutex> lock(registryMutex);
+    const auto iterator = byPointer.find(p_pClient);
+    if (iterator == byPointer.end() ||
+        (iterator->second.first != EN_SOCKET_CLIENT_HTTPS &&
+         iterator->second.first != EN_SOCKET_CLIENT_WSS)) return false;
+    return static_cast<ClientInstance*>(p_pClient)->ConfigureTls(
+        p_szCaCertificateFile, p_bVerifyPeer != 0);
+}
+
 // 创建一条独立的 TCP 连接实例。
 CSocketClient* CreateTcpClientInstanceByName(const char* p_szName)
 { return Create(EN_SOCKET_CLIENT_TCP, p_szName); }
@@ -105,6 +124,14 @@ CSocketClient* CreateHttpClientInstanceByName(const char* p_szName)
 CSocketClient* CreateWebClientInstanceByName(const char* p_szName)
 { return Create(EN_SOCKET_CLIENT_WEB, p_szName); }
 
+// 创建一条启用服务端证书校验的 HTTPS 连接实例。
+CSocketClient* CreateHttpsClientInstanceByName(const char* p_szName)
+{ return Create(EN_SOCKET_CLIENT_HTTPS, p_szName); }
+
+// 创建一条启用 TLS 的 WebSocket 连接实例。
+CSocketClient* CreateWssClientInstanceByName(const char* p_szName)
+{ return Create(EN_SOCKET_CLIENT_WSS, p_szName); }
+
 // 仅删除类型匹配的 TCP 工厂实例。
 void DelTcpClientInstance(CSocketClient*& p_pClient)
 { Destroy(EN_SOCKET_CLIENT_TCP, p_pClient); }
@@ -116,3 +143,11 @@ void DelHttpClientInstance(CSocketClient*& p_pClient)
 // 仅删除类型匹配的 WebSocket 工厂实例。
 void DelWebClientInstance(CSocketClient*& p_pClient)
 { Destroy(EN_SOCKET_CLIENT_WEB, p_pClient); }
+
+// 仅删除类型匹配的 HTTPS 工厂实例。
+void DelHttpsClientInstance(CSocketClient*& p_pClient)
+{ Destroy(EN_SOCKET_CLIENT_HTTPS, p_pClient); }
+
+// 仅删除类型匹配的 WSS 工厂实例。
+void DelWssClientInstance(CSocketClient*& p_pClient)
+{ Destroy(EN_SOCKET_CLIENT_WSS, p_pClient); }

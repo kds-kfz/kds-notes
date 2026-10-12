@@ -15,9 +15,15 @@
 #endif
 
 #if defined(OS_IS_WINDOWS)
+#if defined(SOCKETSERVER_STATIC)
+#define SOCKETSERVER_API
+#elif defined(SOCKETSERVER_EXPORTS)
 #define SOCKETSERVER_API       __declspec(dllexport)
 #else
-#define SOCKETSERVER_API
+#define SOCKETSERVER_API       __declspec(dllimport)
+#endif
+#else
+#define SOCKETSERVER_API       __attribute__((visibility("default")))
 #endif  // defined(OS_IS_WINDOWS)
 
 #define STR_IP_LEN 32
@@ -231,7 +237,8 @@ extern "C"
 		p_uiQueueNum：处理队列数
 		p_szErr：错误信息，如果CreateHttpSock失败，则包含了出错信息，内存由外部分配，不小1024字节
 		p_szLogFold：日志路径。nullptr：默认不建立日志；default：工作路径下/Day_Logs；其他：自定义日志全路径
-		CreateHttpsSock：创建https服务
+		CreateHttpsSock：HTTPS 保留接口；当前版本明确返回 false 和 code=-3，不提供 TLS 服务端能力。
+		生产环境由 Nginx 等受控入口终止 TLS，再将明文 HTTP 转发给 SocketServer。
 		p_szPemCertFile：证书文件
 		p_szPemKeyFile：私钥文件
 		p_szKeyPassword：私钥密码（没有密码则为空）
@@ -261,7 +268,8 @@ extern "C"
 		p_uiQueueNum：处理队列数
 		p_szErr：错误信息，如果CreateWebSock失败，则包含了出错信息，内存由外部分配，不小1024字节
 		p_szLogFold：日志路径。nullptr：默认不建立日志；default：工作路径下/Day_Logs；其他：自定义日志全路径
-		CreateWebsSock：创建wss服务
+		CreateWssSock：WSS 保留接口；当前版本明确返回 false 和 code=-3，不提供 TLS 服务端能力。
+		生产环境由 Nginx 等受控入口终止 TLS，再将明文 WebSocket 转发给 SocketServer。
 		p_szPemCertFile：证书文件
 		p_szPemKeyFile：私钥文件
 		p_szKeyPassword：私钥密码（没有密码则为空）

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseStatic|x64"><Configuration>ReleaseStatic</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion><Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{E962A32C-62D2-4CF7-A6EB-514B6F71730A}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>true</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><CharacterSet>Unicode</CharacterSet><UseOfMfc>Dynamic</UseOfMfc></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>Unicode</CharacterSet><UseOfMfc>Dynamic</UseOfMfc></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'" Label="Configuration"><ConfigurationType>Application</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>Unicode</CharacterSet><UseOfMfc>Dynamic</UseOfMfc></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir Condition="'$(Configuration)'!='ReleaseStatic'">$(ProjectDir)..\..\..\bin\$(Platform)vc14\tests\</OutDir>
+    <OutDir Condition="'$(Configuration)'=='ReleaseStatic'">$(ProjectDir)..\..\..\bin\$(Platform)vc14\tests\static\</OutDir>
+    <IntDir>$(ProjectDir)build\Tests\$(Platform)\$(Configuration)\</IntDir>
+    <TargetName Condition="'$(Configuration)'!='ReleaseStatic'">MtLoadTestTests</TargetName>
+    <TargetName Condition="'$(Configuration)'=='ReleaseStatic'">MtLoadTestTestsStatic</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><LanguageStandard>stdcpp17</LanguageStandard><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions Condition="'$(Configuration)'!='ReleaseStatic'">_CONSOLE;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)'=='ReleaseStatic'">SOCKETCLIENT_STATIC;HPSOCKET_STATIC_LIB;_CONSOLE;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\src;$(ProjectDir)..\..\..;$(ProjectDir)..\..\..\vender;$(ProjectDir)..\..\..\vender\tinyxml\include;$(ProjectDir)..\..\..\..\SocketClient\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link Condition="'$(Configuration)'!='ReleaseStatic'">
+      <SubSystem>Console</SubSystem><GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\vender\tinyxml\lib\$(Platform)vc14;$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\share;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libSocketClient.lib;tinyxml.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <Link Condition="'$(Configuration)'=='ReleaseStatic'">
+      <SubSystem>Console</SubSystem><GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\vender\tinyxml\lib\$(Platform)vc14;$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\static;$(ProjectDir)..\..\..\..\SocketClient\vender\hpsocket\lib\$(Platform)vc14\static;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libSocketClient_static.lib;tinyxml.lib;HPSocket.lib;bcrypt.lib;crypt32.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent Condition="'$(Configuration)'!='ReleaseStatic'"><Command>copy /Y "$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\share\libSocketClient.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\..\SocketClient\vender\hpsocket\lib\$(Platform)vc14\HPSocket.dll" "$(OutDir)"</Command></PostBuildEvent>
+    <PostBuildEvent Condition="'$(Configuration)'=='ReleaseStatic'"><Command>if exist "$(OutDir)HPSocket.dll" del /Q "$(OutDir)HPSocket.dll"</Command></PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\tests\InterfaceContractTests.cpp" />
+    <ClCompile Include="..\..\..\interface_test\InterfaceTestModel.cpp" />
+    <ClCompile Include="..\..\..\interface_test\InterfaceTransport.cpp" />
+    <ClCompile Include="..\..\..\common\Utf8Text.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

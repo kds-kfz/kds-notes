@@ -6,9 +6,19 @@
 // 保存所属客户端引用，各实例的 HTTP 解析状态互不共享。
 HttpClientListener::HttpClientListener(ClientInstance& p_refOwner) : owner_(p_refOwner) {}
 
-// 通知实例传输连接已经建立。
+// 明文 HTTP/WebSocket 在 TCP 建连后即可发送；TLS 必须等待证书校验和握手完成。
 EnHandleResult HttpClientListener::OnConnect(ITcpClient* p_pSender, CONNID p_ullConnId)
-{ owner_.Connected(); return HR_OK; }
+{
+    if (!owner_.IsSecure()) owner_.Connected();
+    return HR_OK;
+}
+
+// HTTPS/WSS 只有收到该事件后才允许上层发送 HTTP 请求或升级报文。
+EnHandleResult HttpClientListener::OnHandShake(ITcpClient* p_pSender, CONNID p_ullConnId)
+{
+    if (owner_.IsSecure()) owner_.Connected();
+    return HR_OK;
+}
 
 // 通知实例传输连接关闭。
 EnHandleResult HttpClientListener::OnClose(ITcpClient* p_pSender, CONNID p_ullConnId,
@@ -36,16 +46,12 @@ EnHttpParseResult HttpClientListener::OnHeadersComplete(IHttpClient* p_pSender, 
 EnHttpParseResult HttpClientListener::OnBody(IHttpClient* p_pSender, CONNID p_ullConnId,
     const BYTE* p_byData, int p_iLength)
 {
-    ST_SOCKET_CLIENT_EVENT event = ClientProtocol::Event(EN_SOCKET_CLIENT_HTTP_BODY);
-    event.pData = p_byData;
-    event.iDataLength = p_iLength;
-    owner_.Notify(event);
-    return HPR_OK;
+    return owner_.HttpBody(p_byData, p_iLength) ? HPR_OK : HPR_ERROR;
 }
 
 // 通知一个 HTTP 响应已经完成。
 EnHttpParseResult HttpClientListener::OnMessageComplete(IHttpClient* p_pSender, CONNID p_ullConnId)
-{ owner_.Notify(ClientProtocol::Event(EN_SOCKET_CLIENT_HTTP_COMPLETE)); return HPR_OK; }
+{ owner_.HttpComplete(); return HPR_OK; }
 
 // 拒绝不匹配的 WebSocket 挑战应答。
 EnHttpParseResult HttpClientListener::OnUpgrade(IHttpClient* p_pSender, CONNID p_ullConnId,
@@ -56,6 +62,7 @@ EnHttpParseResult HttpClientListener::OnUpgrade(IHttpClient* p_pSender, CONNID p
 EnHttpParseResult HttpClientListener::OnParseError(IHttpClient* p_pSender, CONNID p_ullConnId,
     int p_iError, LPCSTR p_szDescription)
 {
+    owner_.HttpFailed();
     ST_SOCKET_CLIENT_EVENT event = ClientProtocol::Event(EN_SOCKET_CLIENT_HTTP_ERROR);
     event.iErrorCode = p_iError;
     event.pData = p_szDescription;

@@ -23,6 +23,12 @@ public:
     // 校验底层 HP 组件是否成功创建。
     bool Ready() const;
 
+    // 在连接开始前加载可信 CA 链并初始化 TLS 上下文。
+    bool ConfigureTls(const char* p_szCaCertificateFile, bool p_bVerifyPeer);
+
+    // 判断当前实例是否要求先完成 TLS 握手。
+    bool IsSecure() const;
+
     // 异步连接远端；已经运行时应先调用 Stop。
     bool Connect(const char* p_szHost, unsigned short p_unPort,
         SOCKET_CLIENT_NOTIFY_PROC p_pNotify, void* p_pContext) override;
@@ -43,6 +49,11 @@ public:
 
     // 仅 WebSocket 实例可发起 HTTP 升级握手。
     bool Upgrade(const char* p_szPath, const char* p_szHost) override;
+
+    // 在自动生成的标准握手头之外附加鉴权等业务请求头。
+    bool UpgradeWithHeaders(const char* p_szPath, const char* p_szHost,
+        const char* const* p_ppszNames, const char* const* p_ppszValues,
+        int p_iCount) override;
 
     // 仅握手成功的 WebSocket 实例可发送带掩码的完整帧。
     bool SendFrame(unsigned char p_byOpcode, const void* p_pData, int p_iLength) override;
@@ -68,6 +79,15 @@ public:
     // 交付 HTTP 头，或保存 WebSocket 握手应答头。
     void Header(const char* p_szName, const char* p_szValue);
 
+    // 累计线上 HTTP 正文字节；压缩响应延迟到完整接收后统一解码。
+    bool HttpBody(const BYTE* p_byData, int p_iLength);
+
+    // 解码并交付完整 HTTP 正文，同时在完成事件中保留线上字节口径。
+    void HttpComplete();
+
+    // HTTP 解析失败时释放当前请求门禁，使 Keep-Alive 连接可由调用方决定是否继续复用。
+    void HttpFailed();
+
     // 校验 101 状态和挑战应答，再进入 WebSocket 模式。
     bool WebOpened(EnHttpUpgradeType p_enUpgrade);
 
@@ -85,6 +105,8 @@ public:
 
 private:
     EN_SOCKET_CLIENT_TYPE type_; // 工厂确定的协议类型。
+    bool secure_; // HTTPS/WSS 使用 HPSocket TLS 组件；校验开启时验证 CA 链，但官方预编译库不验证主机名。
+    bool tlsConfigured_; // TLS 上下文是否已按调用方策略初始化。
     std::string name_; // 创建时确定的逻辑名称。
     unsigned long long id_; // 不复用的诊断实例编号。
     TcpClientListener tcpListener_; // TCP 专用监听器。
@@ -99,6 +121,7 @@ private:
     std::atomic<bool> upgraded_; // WebSocket 握手成功状态。
     bool stopping_; // 由控制锁保护的停机标志。
     std::atomic<unsigned short> status_; // 最近一次 HTTP 状态码。
+    std::atomic<bool> httpRequestActive_; // HTTP/HTTPS 每条连接只允许一个尚未完成的响应。
     std::string host_; // 最近一次请求连接的地址。
     unsigned short port_; // 最近一次请求连接的端口。
     std::mutex frameMutex_; // 保护 WebSocket 握手及帧缓冲区。
@@ -107,6 +130,10 @@ private:
     std::vector<BYTE> frame_; // 当前 WebSocket 帧的数据缓存。
     BYTE frameOpcode_; // 当前帧的操作码。
     bool frameFinal_; // 当前帧的 FIN 标志。
+    std::mutex httpBodyMutex_; // 保护单个 HTTP 响应的编码名称、缓存和线上字节数。
+    std::string contentEncoding_; // 服务端 Content-Encoding；空值表示未压缩正文。
+    std::vector<BYTE> encodedBody_; // 压缩响应在完成前的原始字节缓存。
+    unsigned long long wireBodyBytes_; // 当前 HTTP 响应在线路上传输的正文累计字节数。
 };
 
 #endif

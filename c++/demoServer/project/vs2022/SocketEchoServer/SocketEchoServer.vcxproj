@@ -32,6 +32,9 @@
       <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\..\SocketServer\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libSocketServer.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y "$(ProjectDir)..\..\..\..\SocketServer\lib\$(Platform)vc14\libSocketServer.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\..\SocketServer\vender\hpsocket\lib\$(Platform)vc14\HPSocket.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\..\SocketServer\vender\thread\lib\$(Platform)vc14\pthreadVC2.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup><ClCompile Include="..\..\..\src\SocketEchoServer.cpp" /></ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

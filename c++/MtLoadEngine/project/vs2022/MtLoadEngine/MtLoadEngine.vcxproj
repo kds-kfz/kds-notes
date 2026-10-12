@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseStatic|x64"><Configuration>ReleaseStatic</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion><Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{42BA4370-6092-4FBD-97F2-A68E04148952}</ProjectGuid>
+    <RootNamespace>MtLoadEngine</RootNamespace><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets"><Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" /></ImportGroup>
+  <PropertyGroup Condition="'$(Configuration)'!='ReleaseStatic'">
+    <OutDir>$(ProjectDir)..\..\..\lib\$(Platform)vc14\share\</OutDir>
+    <IntDir>$(ProjectDir)build\$(Platform)\$(Configuration)\</IntDir>
+    <TargetName Condition="'$(Configuration)'=='Debug'">MtLoadEngine_d</TargetName>
+    <TargetName Condition="'$(Configuration)'=='Release'">MtLoadEngine</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='ReleaseStatic'">
+    <OutDir>$(ProjectDir)..\..\..\lib\$(Platform)vc14\static\</OutDir>
+    <IntDir>$(ProjectDir)build\$(Platform)\$(Configuration)\</IntDir>
+    <TargetName>MtLoadEngine</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck><LanguageStandard>stdcpp17</LanguageStandard><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions Condition="'$(Configuration)'!='ReleaseStatic'">MTLOADENGINE_EXPORTS;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)'=='ReleaseStatic'">MTLOADENGINE_STATIC;SOCKETCLIENT_STATIC;XLNT_STATIC;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\include;$(ProjectDir)..\..\..\vender\tinyxml\include;$(ProjectDir)..\..\..\vender\json\include;$(ProjectDir)..\..\..\vender\xlnt\include;$(ProjectDir)..\..\..\..\SocketClient\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link Condition="'$(Configuration)'!='ReleaseStatic'">
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\vender\tinyxml\lib\$(Platform)vc14;$(ProjectDir)..\..\..\vender\json\lib\$(Platform)vc14;$(ProjectDir)..\..\..\vender\xlnt\lib\$(Platform)vc14\share;$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\share;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>tinyxml.lib;libjson.lib;xlnt.lib;libSocketClient.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <Lib Condition="'$(Configuration)'=='ReleaseStatic'">
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\vender\tinyxml\lib\$(Platform)vc14;$(ProjectDir)..\..\..\vender\json\lib\$(Platform)vc14;$(ProjectDir)..\..\..\vender\xlnt\lib\$(Platform)vc14\static;$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\static;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>tinyxml.lib;libjson.lib;xlnt.lib;libSocketClient_static.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+    <PostBuildEvent Condition="'$(Configuration)'!='ReleaseStatic'"><Command>copy /Y "$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\share\libSocketClient.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\..\SocketClient\vender\hpsocket\lib\$(Platform)vc14\HPSocket.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\vender\xlnt\bin\$(Platform)vc14\share\xlnt.dll" "$(OutDir)"</Command></PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\include\MtLoadEngine.h" /><ClInclude Include="..\..\..\include\MtLoadTypes.h" />
+    <ClInclude Include="..\..\..\src\config\LoadPlan.h" /><ClInclude Include="..\..\..\src\config\PlanParser.h" />
+    <ClInclude Include="..\..\..\src\runtime\VariableContext.h" /><ClInclude Include="..\..\..\src\codec\JsonCodec.h" />
+    <ClInclude Include="..\..\..\src\transport\HttpTransport.h" /><ClInclude Include="..\..\..\src\engine\LoadEngine.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\src\api\MtLoadEngineApi.cpp" /><ClCompile Include="..\..\..\src\config\PlanParser.cpp" />
+    <ClCompile Include="..\..\..\src\runtime\VariableContext.cpp" /><ClCompile Include="..\..\..\src\codec\JsonCodec.cpp" />
+    <ClCompile Include="..\..\..\src\transport\HttpTransport.cpp" /><ClCompile Include="..\..\..\src\engine\LoadEngine.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

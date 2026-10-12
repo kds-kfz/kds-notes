@@ -1,62 +1,40 @@
-CPP := $(CROSS)g++
-CC  := $(CROSS)gcc
+# Linux 共享库构建；Windows 仍使用 project/vs2022/SocketServer 工程。
+CXX := $(CROSS)g++
+PLATFORM ?= Lnx64
+ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)
+HP_INCLUDE ?= /usr/local/include
+HP_LIB_DIR ?= /usr/local/lib
+NSDK_INCLUDE ?= $(ROOT)/../nsdk/include
+NSDK_LIB_DIR ?= $(ROOT)/../nsdk/lib/$(PLATFORM)
+OBJ_DIR := $(ROOT)/build/$(PLATFORM)
+OUT_DIR := $(ROOT)/lib/$(PLATFORM)
+SOURCES := $(wildcard $(ROOT)/src/*.cpp)
+OBJECTS := $(patsubst $(ROOT)/src/%.cpp,$(OBJ_DIR)/%.o,$(SOURCES))
+TARGET := $(OUT_DIR)/libsocketserver.so
 
-#x64 Win32 Lnx64
-PLATFORM=Lnx64
+CPPFLAGS += -I$(ROOT)/include -I$(ROOT)/src -I$(NSDK_INCLUDE) -I$(HP_INCLUDE)
+CXXFLAGS += -std=c++17 -O2 -g -fPIC -Wall -Wextra -pthread
+LDFLAGS += -L$(HP_LIB_DIR) -L$(NSDK_LIB_DIR) -Wl,-z,defs
+LDLIBS += -lhpsocket -lnsdk -pthread -ldl
 
-SUB_DIRS := ./vs2022/SocketServer
-RELEASE_LIB_DIR := ../lib/$(PLATFORM)
-
-LDLIBS := -lstdc++ -lpthread -lm -ldl
-#LDLIBS += -lnsdk
-LDLIBS += -lhpsocket
-
-CXXFLAGS := -g -g3 -O0 -fPIC -Wall -Werror -Wno-sign-compare -Wno-unused-variable -Wno-deprecated-declarations -Wno-unused-function -std=c++17
-#不打印任何警告
-#CXXFLAGS := -g -g3 -O0 -fPIC -w -std=c++17
-
-INC_FLAGS := -I $(SUB_DIRS)
-INC_FLAGS += -I $(SUB_DIRS)/vender/nsdk/include
-INC_FLAGS += -I $(SUB_DIRS)/vender/hpsocket/include/$(PLATFORM)
-
-LDFLAGS := -L $(SUB_DIRS)/vender/hpsocket/lib/$(PLATFORM)
-#LDFLAGS += -L $(SUB_DIRS)/vender/nsdk/lib/$(PLATFORM)
-
-CPPSRC_ALL := $(foreach dir, $(SUB_DIRS), $(wildcard $(dir)/*.cpp))
-CPPOBJ := $(patsubst %.cpp,%.o,$(CPPSRC_ALL))
-
-SRC := $(foreach dir, $(SUB_DIRS), $(wildcard $(dir)/*.c))
-OBJ := $(SRC:%.c=%.o)
-
-#CFLAGS := -g -g3 -O0 -fPIC -fsigned-char -Wall -Werror
-CFLAGS := -g -g3 -O0 -fsigned-char
-CFLAGS += -Wno-int-to-pointer-cast -Wno-pointer-to-int-cast -Wno-incompatible-pointer-types
-CFLAGS += $(INC_FLAGS) -D_GNU_SOURCE
-
-SHAREDOK := true
-
-ifeq ($(SHAREDOK), true)
-TARGET := libsocketserver.so
-
+.PHONY: all check-deps clean
 all: $(TARGET)
-libsocketserver.so: $(CPPOBJ)
-	$(CPP) -fPIC -shared -o $@ $(CPPOBJ) $(LDFLAGS) $(LDLIBS)
-	mv $@ $(RELEASE_LIB_DIR)
-else
-TARGET := libsocketserver.a
 
-all: $(TARGET)
-libsocketserver.a: $(CPPOBJ)
-	ar -rv $@ $(CPPOBJ)
-	mv $@ $(RELEASE_LIB_DIR)
-endif
+check-deps:
+	@test -f "$(HP_INCLUDE)/hpsocket/HPSocket.h" -o -f "$(HP_INCLUDE)/HPSocket.h" || { echo "缺少 Linux HP-Socket 开发头文件: $(HP_INCLUDE)"; exit 1; }
+	@test -f "$(HP_LIB_DIR)/libhpsocket.so" -o -f "$(HP_LIB_DIR)/libhpsocket.a" || { echo "缺少 Linux HP-Socket 库: $(HP_LIB_DIR)"; exit 1; }
+	@test -f "$(NSDK_INCLUDE)/nsdk.h" || { echo "缺少 nsdk 开发头文件: $(NSDK_INCLUDE)"; exit 1; }
+	@test -f "$(NSDK_LIB_DIR)/libnsdk.so" -o -f "$(NSDK_LIB_DIR)/libnsdk.a" || { echo "缺少 nsdk 库: $(NSDK_LIB_DIR)"; exit 1; }
 
-%.o : %.cpp
-	$(CPP) -c $< -o $@  $(INC_FLAGS) $(CXXFLAGS) $(LDFLAGS) $(LDLIBS)
+$(TARGET): $(OBJECTS) | check-deps
+	@mkdir -p "$(OUT_DIR)"
+	$(CXX) -shared -o "$@" $^ $(LDFLAGS) $(LDLIBS)
 
-%.o : %.c
-	$(CC) -c $< -o $@  $(INC_FLAGS) $(CFLAGS)
+$(OBJ_DIR)/%.o: $(ROOT)/src/%.cpp | check-deps
+	@mkdir -p "$(OBJ_DIR)"
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c "$<" -o "$@"
+
+-include $(OBJECTS:.o=.d)
 
 clean:
-	-@rm -f $(RELEASE_LIB_DIR)/libsocketserver.*
-	-@rm -f $(CPPOBJ) $(OBJ)
+	$(RM) $(OBJECTS) $(OBJECTS:.o=.d) $(TARGET)

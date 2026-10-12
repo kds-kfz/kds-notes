@@ -42,9 +42,15 @@
 #include "nsdk_define.h"
 
 #if defined(OS_IS_WINDOWS)
+#if defined(SNAPPY_STATIC)
+#define SNAPPY_API
+#elif defined(SNAPPY_EXPORTS)
 #define SNAPPY_API       __declspec(dllexport)
 #else
-#define SNAPPY_API
+#define SNAPPY_API       __declspec(dllimport)
+#endif
+#else
+#define SNAPPY_API       __attribute__((visibility("default")))
 #endif  // defined(OS_IS_WINDOWS)
 
 #include <stddef.h>

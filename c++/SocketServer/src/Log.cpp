@@ -6,12 +6,12 @@
 #include "nsdk_atomic.h"
 #include "publicfunc.h"
 
-CLog *CLog::m_pThis = nullptr;
-CTcpLog *CTcpLog::m_pThis = nullptr;
-CWebLog *CWebLog::m_pThis = nullptr;
-CHttpLog* CHttpLog::m_pThis = nullptr;
+CSocketServerLog *CSocketServerLog::m_pThis = nullptr;
+CSocketServerTcpLog *CSocketServerTcpLog::m_pThis = nullptr;
+CSocketServerWebLog *CSocketServerWebLog::m_pThis = nullptr;
+CSocketServerHttpLog* CSocketServerHttpLog::m_pThis = nullptr;
 
-void CBaseLog::Init()
+void CSocketServerBaseLog::Init()
 {
 	m_vecLog.clear();
 	m_pLogFileThread = nullptr;
@@ -25,17 +25,17 @@ void CBaseLog::Init()
 	pthread_mutex_init(&m_mutexLog, nullptr);
 }
 
-CBaseLog::CBaseLog()
+CSocketServerBaseLog::CSocketServerBaseLog()
 {
 	Init();
 }
 
-CBaseLog::~CBaseLog()
+CSocketServerBaseLog::~CSocketServerBaseLog()
 {
 	BaseRelease();
 }
 
-void CBaseLog::Close()
+void CSocketServerBaseLog::Close()
 {
 	if (m_pFileLog)
 	{
@@ -44,7 +44,7 @@ void CBaseLog::Close()
 	}
 }
 
-int CBaseLog::InitLog(int p_iLogDate)
+int CSocketServerBaseLog::InitLog(int p_iLogDate)
 {
 	int iRet = MA_OK;
 
@@ -86,7 +86,7 @@ int CBaseLog::InitLog(int p_iLogDate)
 	}
 	else
 	{
-		m_pLogFileThread = new CLogFileThread();
+		m_pLogFileThread = new CSocketServerLogFileThread();
 		if (nullptr == m_pLogFileThread)
 		{
 			return -4;
@@ -106,7 +106,7 @@ int CBaseLog::InitLog(int p_iLogDate)
 	return MA_OK;
 }
 
-void CBaseLog::BaseRelease()
+void CSocketServerBaseLog::BaseRelease()
 {
 	if (!m_bInitStatus)
 		return;
@@ -123,7 +123,7 @@ void CBaseLog::BaseRelease()
 	Close();
 }
 
-void CBaseLog::Resume()
+void CSocketServerBaseLog::Resume()
 {
 	if (m_pLogFileThread)
 	{
@@ -131,7 +131,7 @@ void CBaseLog::Resume()
 	}
 }
 
-int CBaseLog::InitLog(const char* p_szFold, enHQLogType p_eType, const char* p_szLogFileName)
+int CSocketServerBaseLog::InitLog(const char* p_szFold, enHQLogType p_eType, const char* p_szLogFileName)
 {
 	// 日志初始化
 	if (nullptr == p_szFold)
@@ -157,7 +157,7 @@ int CBaseLog::InitLog(const char* p_szFold, enHQLogType p_eType, const char* p_s
 	return iRet;
 }
 
-void CBaseLog::SetLogLevel(char *p_strLogLevel)
+void CSocketServerBaseLog::SetLogLevel(char *p_strLogLevel)
 {
 	if (nullptr == p_strLogLevel)
 		return;
@@ -172,7 +172,7 @@ void CBaseLog::SetLogLevel(char *p_strLogLevel)
 	}
 }
 
-int CBaseLog::ThreadLog()
+int CSocketServerBaseLog::ThreadLog()
 {
 	if (!m_bInitStatus)
 		return MA_KO;
@@ -203,7 +203,7 @@ int CBaseLog::ThreadLog()
 	return MA_OK;
 }
 
-void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
+void CSocketServerBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 {
 	if (!m_bInitStatus)
 		return;
@@ -222,34 +222,30 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 	// 格式化
 	vector<char> vecBuf(HQLOG_BUF_SIZE);
 	int iRet = 0;
-	int iCount = 0;
-
-#if defined( OS_IS_WINDOWS )
-	va_list valist;
-	va_start(valist, p_szFormat);
-#else
-	va_list valist;
-	va_start(valist, p_szFormat);
-#endif
-	for (; iCount < HQLOG_BUF_MAX; iCount++)
+	for (int iCount = 0; iCount < HQLOG_BUF_MAX; ++iCount)
 	{
+		// 每次重试重新初始化参数列表；Linux 的 va_list 不能重复消费。
+		va_list valist;
+		va_start(valist, p_szFormat);
 		iRet = vsnprintf(&vecBuf[0], vecBuf.size(), p_szFormat, valist);
+		va_end(valist);
 		if (iRet > -1 && iRet < vecBuf.size()) //非负数，且小于 iRet
 		{
 			break;
 		}
-		vecBuf.resize(vecBuf.size() * 2);
+		if (iCount + 1 < HQLOG_BUF_MAX)
+		{
+			vecBuf.resize(vecBuf.size() * 2);
+		}
 	}
-
-#if defined( OS_IS_WINDOWS )
-	va_end(valist);
-#else
-	va_end(valist);
-#endif
-
-	if (iRet == vecBuf.size())//超大内容 16k
+	if (iRet < 0)
 	{
-		vecBuf[iRet - 1] = '\0';
+		return;
+	}
+	if (static_cast<size_t>(iRet) >= vecBuf.size())
+	{
+		// 超长日志只保留已格式化进缓冲区的部分，不能按返回的目标长度越界读取。
+		iRet = static_cast<int>(vecBuf.size() - 1);
 	}
 
 	// 时间
@@ -267,7 +263,7 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 	}
 
 	char szTime[HQTIME_BUF_SIZE] = { 0 };
-	_snprintf(szTime, HQTIME_BUF_SIZE - 1, "[%04d%02d%02d %02d:%02d %02d:%03d] ",
+	snprintf(szTime, HQTIME_BUF_SIZE - 1, "[%04d%02d%02d %02d:%02d %02d:%03d] ",
 		stCurrTime.tm_year + 1900, stCurrTime.tm_mon + 1, stCurrTime.tm_mday, stCurrTime.tm_hour,
 		stCurrTime.tm_min, stCurrTime.tm_sec, iMilliseconds);
 
@@ -290,16 +286,16 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 	pthread_mutex_unlock(&m_mutexLog);
 }
 
-CLog *CLog::GetInstance()
+CSocketServerLog *CSocketServerLog::GetInstance()
 {
 	if (nullptr == m_pThis)
 	{
-		m_pThis = new CLog;
+		m_pThis = new CSocketServerLog;
 	}
 	return m_pThis;
 }
 
-void CLog::Release()
+void CSocketServerLog::Release()
 {
 	if (nullptr == m_pThis)
 		return;
@@ -308,16 +304,16 @@ void CLog::Release()
 	m_pThis = nullptr;
 }
 
-CTcpLog *CTcpLog::GetInstance()
+CSocketServerTcpLog *CSocketServerTcpLog::GetInstance()
 {
 	if (nullptr == m_pThis)
 	{
-		m_pThis = new CTcpLog;
+		m_pThis = new CSocketServerTcpLog;
 	}
 	return m_pThis;
 }
 
-void CTcpLog::Release()
+void CSocketServerTcpLog::Release()
 {
 	if (nullptr == m_pThis)
 		return;
@@ -326,16 +322,16 @@ void CTcpLog::Release()
 	m_pThis = nullptr;
 }
 
-CWebLog *CWebLog::GetInstance()
+CSocketServerWebLog *CSocketServerWebLog::GetInstance()
 {
 	if (nullptr == m_pThis)
 	{
-		m_pThis = new CWebLog;
+		m_pThis = new CSocketServerWebLog;
 	}
 	return m_pThis;
 }
 
-void CWebLog::Release()
+void CSocketServerWebLog::Release()
 {
 	if (nullptr == m_pThis)
 		return;
@@ -344,16 +340,16 @@ void CWebLog::Release()
 	m_pThis = nullptr;
 }
 
-CHttpLog *CHttpLog::GetInstance()
+CSocketServerHttpLog *CSocketServerHttpLog::GetInstance()
 {
 	if (nullptr == m_pThis)
 	{
-		m_pThis = new CHttpLog;
+		m_pThis = new CSocketServerHttpLog;
 	}
 	return m_pThis;
 }
 
-void CHttpLog::Release()
+void CSocketServerHttpLog::Release()
 {
 	if (nullptr == m_pThis)
 		return;

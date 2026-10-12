@@ -36,9 +36,6 @@
     <ClInclude Include="..\..\..\include\nsdk_event.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\aes.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="nsdk.rc">
@@ -53,9 +50,6 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\nsdk_event.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\aes.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

@@ -3,7 +3,7 @@
 #include "ServerRuntimeContext.h"
 #include "Log.h"
 #include <new>
-#include <windows.h>
+#include "ServerPlatform.h"
 
 namespace
 {
@@ -35,12 +35,12 @@ namespace
 			return false;
 
 		BOOL bAlive = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bAlive = pSender->HasStarted() && pSender->IsConnected(dwConnID);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			HTTP_ERROR("ConnID=%llu,%sIsAliveException=0x%08X",
 				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "Http", dwExceptionCode);
@@ -56,12 +56,12 @@ namespace
 			return false;
 
 		BOOL bOK = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bOK = pSender->SendResponse(dwConnID, (USHORT)enStatus, nullptr, pHeaders, iHeaderCount, pBody, iBodyLen);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			// wyl 2026-05-19：HTTP 解析阶段错误回包也保护第三方库 native 异常，避免无 dump 时缺少现场。
 			HTTP_ERROR("ConnID=%llu,%sException=0x%08X,Status=%d,BodyLen=%d",
@@ -78,12 +78,12 @@ namespace
 			return false;
 
 		BOOL bOK = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bOK = pSender->PauseReceive(dwConnID, bPause);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			HTTP_ERROR("ConnID=%llu,%sException=0x%08X,Pause=%d",
 				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "PauseReceive",
@@ -99,12 +99,12 @@ namespace
 			return false;
 
 		BOOL bOK = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bOK = pSender->Release(dwConnID);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			HTTP_ERROR("ConnID=%llu,%sException=0x%08X",
 				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "ReleaseConn", dwExceptionCode);
@@ -119,13 +119,13 @@ namespace
 			return false;
 
 		BOOL bOK = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			// false 表示优雅断开，让已经进入发送队列的 HTTP 错误响应先发给客户端。
 			bOK = pSender->Disconnect(dwConnID, false);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			HTTP_ERROR("ConnID=%llu,%sException=0x%08X",
 				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "DisconnectConn", dwExceptionCode);

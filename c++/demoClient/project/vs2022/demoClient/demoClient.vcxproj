@@ -29,9 +29,12 @@
       <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\..\SocketClient\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\share;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libSocketClient.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y "$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\share\libSocketClient.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\..\SocketClient\vender\hpsocket\lib\$(Platform)vc14\HPSocket.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\ClientSession.h" />

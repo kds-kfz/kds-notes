@@ -1,0 +1,22 @@
+{
+   "AbiVersion" : 3,
+   "Metrics" : [
+      {
+         "AverageMs" : 1687.56610,
+         "Failed" : "0",
+         "Label" : "POST /quotes",
+         "P95Ms" : 1687.56610,
+         "PlannedRequests" : "1",
+         "Progress" : 1.0,
+         "Samples" : "1",
+         "Scenario" : "HTTPS static smoke",
+         "Step" : "quotes",
+         "Succeeded" : "1",
+         "ThroughputPerSec" : 0.5906674542232723
+      }
+   ],
+   "PlannedRequests" : "1",
+   "RunId" : "1",
+   "State" : 6,
+   "TotalSamples" : "1"
+}

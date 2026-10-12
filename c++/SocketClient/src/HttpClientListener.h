@@ -12,8 +12,10 @@ public:
     // 将监听器绑定到唯一所属的客户端实例。
     explicit HttpClientListener(ClientInstance& p_refOwner);
 
-    // 通知传输连接已经建立。
+    // 明文连接在 TCP 建连后即可使用；TLS 连接继续等待握手回调。
     EnHandleResult OnConnect(ITcpClient* p_pSender, CONNID p_ullConnId) override;
+    // TLS 握手成功后才向 HTTPS/WSS 调用方发布连接成功事件。
+    EnHandleResult OnHandShake(ITcpClient* p_pSender, CONNID p_ullConnId) override;
     // 通知传输连接关闭并清理协议状态。
     EnHandleResult OnClose(ITcpClient* p_pSender, CONNID p_ullConnId,
         EnSocketOperation p_enOperation, int p_iError) override;

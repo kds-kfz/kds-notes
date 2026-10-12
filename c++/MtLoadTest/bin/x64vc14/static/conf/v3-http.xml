@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  V3 HTTP/JSON 压测计划示例。
+
+  配置与界面的职责边界：
+  1. 环境地址、账号、线程数、循环次数、步骤、请求头、请求正文、断言和变量提取都只在 XML 中配置。
+  2. MFC 点击“加载”时重新读取并校验本文件，只提供环境、场景和用户选择，不修改或回写压测参数。
+  3. 修改 XML 前应先终止当前压测；保存后再次点击“加载”即可应用新配置。
+  4. 有限循环场景的计划请求总数 = threads * iterations * 当前场景全部 Request.copies 之和。
+  5. 压测引擎不判断业务请求字段是否必填：Body/Header 配置了什么就发送什么。
+     变量配置为空时按空字符串展开；不需要发送某个字段时，直接从 Body/Header 删除该字段。
+     引用了从未定义的 ${变量} 仍属于配置拼写错误，运行时会明确失败，不会猜测默认值。
+-->
+<MtLoadPlan version="1" name="V3基础查询场景">
+  <!--
+    Reports.directory 是导出目录，可填绝对路径或相对 XML 所在目录的路径。
+    留空或省略 Reports 时导出到本 XML 同目录。文件名固定为
+    LoadTest_yyyyMMdd_HHmmss.xlsx 或 LoadTest_yyyyMMdd_HHmmss.xml。
+  -->
+  <Reports directory="" />
+  <!--
+    Environments 定义可在界面选择的服务地址，default 是加载成功后的默认选项。
+    scheme 支持 http 或 https；host 只填写域名或 IP，不包含协议、路径和端口。
+    port 只在需要显式端口时填写；HTTP 默认 80，HTTPS 默认 443，不写 port=""。
+    basePath 会拼在每个 Request.path 前，例如 /api + /accounts = /api/accounts。
+  -->
+  <Environments default="dev">
+    <Environment id="dev" name="开发环境" scheme="http" host="10.0.1.11" port="8086" basePath="" />
+    <!-- test 由 CloudFront 提供 Amazon 证书链；客户端校验 CA 链并使用其信任根，禁止配置站点私钥。官方 HP-Socket 6.0.9 不校验主机名。 -->
+    <Environment id="test" name="测试环境" scheme="https" host="test.mhtradingterminal.com" basePath="/api" tlsVerify="true" tlsCaFile="F:\开发资料\MyCode\kds-notes\c++\MtLoadTest\conf\ssl\starfield-services-root-g2.pem" />
+  </Environments>
+
+  <!--
+    Users 是唯一的账号参数表。id 是场景引用键，name 是界面显示名并支持中文；version/no/login/password 会成为
+    ${Version}/${No}/${Login}/${Password}，Param 会增加同名变量（例如 ${SymbolIds}）。
+    除 id 外，压测引擎不判断这些值是否为业务必填；属性省略或值为空时变量值为空字符串。
+    PwdType 由用户参数决定并由登录模板原样发送：0=主密码，1=投资者密码。
+    Gateway 在字段省略时默认使用 1；MT5 使用主密码压测必须显式配置并发送 0。
+    threads 表示并发虚拟终端数，不表示 Login 必须唯一。同一个账号密码可以由多个线程复用，
+    用于模拟同一账号在多台终端同时登录。一个场景可引用一个或多个账号；界面选择具体用户时，
+    该用户会覆盖本轮全部线程；选择“按场景配置”时按 UserRefs 为各线程分配账号。
+  -->
+  <Users>
+    <User id="account-01" name="MT5测试账号1982827" version="5" no="1" login="1982827" password="Aa123456.">
+      <Param name="PwdType" value="0" />
+      <Param name="SymbolIds" value="" />
+      <Param name="ChartSymbolId" value="EURUSD" />
+      <Param name="ChartInterval" value="1" />
+    </User>
+    <!-- 可继续增加 User；密码只保存在 XML 和引擎内部，不会显示在界面或普通日志中。 -->
+    <User id="account-02" name="MT4测试账号3024" version="4" no="2" login="3024" password="Aa123456.">
+      <Param name="PwdType" value="0" />
+      <Param name="SymbolIds" value="EURUSD" />
+      <Param name="ChartSymbolId" value="EURUSD" />
+      <Param name="ChartInterval" value="1" />
+    </User>
+  </Users>
+
+  <!--
+    Targets 定义传输模板。当前实现 HTTP/HTTPS JSON；TCP、PB 和 Binary 保留为后续分支。
+    connectTimeoutMs/requestTimeoutMs 单位为毫秒，maxConnections 是该目标连接并发上限。
+  -->
+  <Targets>
+    <Target id="v3" transport="http" connectTimeoutMs="3000"
+            requestTimeoutMs="5000" maxConnections="100" />
+  </Targets>
+
+  <!-- 全局请求头会应用到所有 Request；Request 内部 Headers 可补充或覆盖同名请求头。 -->
+  <Headers>
+    <Header name="Content-Type" value="application/json" />
+    <Header name="Accept" value="application/json" />
+    <Header name="Accept-Encoding" value="gzip" />
+    <!--
+      压缩协商配置规则：value 可配置 gzip、zlib（标准 HTTP 服务通常返回 deflate），
+      或删除整个 Accept-Encoding 节点表示不发送。引擎按响应 Content-Encoding 解压，
+      JSON 断言使用解压正文，接收大小与速率仍按线上压缩正文累计。
+    -->
+  </Headers>
+
+  <!--
+    Scenarios 可定义多个独立场景，id 必须唯一，name 支持中文并显示在 MFC 场景下拉框中。
+    加载后可选择“全部场景”或一个场景；选择仅影响本轮调度，不修改 XML。
+  -->
+  <Scenarios>
+    <Scenario id="v3-query-flow" name="V3登录与查询">
+      <!--
+        UserRefs 引用 Users.id。threads 个虚拟终端按线程序号对引用账号循环取模绑定：
+        第 n 个线程使用 UserRefs[n % UserRefs数量]，并在全部 iterations 中保持该账号不变。
+        本例只有一个 UserRef 和 10 个线程，表示同一账号在 10 台虚拟终端同时登录。
+        如需不同账号，可增加 UserRef；账号数量不要求与 threads 相等。
+      -->
+      <UserRefs>
+        <UserRef id="account-01" />
+      </UserRefs>
+      <!--
+        Load 仅作用于当前 Scenario：threads 是并发虚拟用户数，iterations 是每个线程完整
+        执行场景的次数，rampUpMs 是线程启动展开时间（毫秒）。本例单轮 8 个请求，
+        因而计划请求总数为 10 * 1 * 8 = 80。需要每台终端执行 n 次时，将 iterations 改为 n。
+      -->
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="10" />
+      <!-- Step 按 XML 顺序串行；同一 Step 内多个 Request 并行，copies 可把一个 Request 扩为多份。 -->
+      <Step id="login" name="登录" onError="stop_iteration">
+        <Request id="verify" label="POST /verify_password" target="v3" method="POST" path="/verify_password" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"Password":"${Password}","PwdType":${PwdType}}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+          <!-- 登录应答提取的 Token 保存在线程会话作用域，供后续步骤的请求头引用。 -->
+          <Extractors><Json path="$.Data.Token" variable="Token" scope="session" required="true" /></Extractors>
+        </Request>
+      </Step>
+      <Step id="symbols" name="获取品种" onError="stop_iteration">
+        <Request id="account-symbols" label="POST /accounts/symbols" target="v3" method="POST" path="/accounts/symbols" codec="json">
+          <Headers><Header name="UserID" value="${Login}" /><Header name="Token" value="${Token}" /></Headers>
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Logins":[${Login}]}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="account" name="获取账户" onError="continue">
+        <Request id="account" label="POST /accounts" target="v3" method="POST" path="/accounts" codec="json">
+          <Headers><Header name="UserID" value="${Login}" /><Header name="Token" value="${Token}" /></Headers>
+          <!-- /accounts 使用 Logins 数组；省略该字段表示查询当前节点全部账户。 -->
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Logins":[${Login}]}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="trades" name="订单持仓成交" onError="continue">
+        <Request id="orders" label="POST /accounts/orders" target="v3" method="POST" path="/accounts/orders" codec="json">
+          <Headers><Header name="UserID" value="${Login}" /><Header name="Token" value="${Token}" /></Headers><Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login}}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+        <Request id="positions" label="POST /accounts/positions" target="v3" method="POST" path="/accounts/positions" codec="json">
+          <Headers><Header name="UserID" value="${Login}" /><Header name="Token" value="${Token}" /></Headers><Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login}}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+        <Request id="deals" label="POST /accounts/deals" target="v3" method="POST" path="/accounts/deals" codec="json">
+          <Headers><Header name="UserID" value="${Login}" /><Header name="Token" value="${Token}" /></Headers><Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"From":1788220800,"To":1790207999}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="suspensions" name="获取停牌" onError="continue">
+        <Request id="suspensions" label="POST /symbols/suspensions" target="v3" method="POST" path="/symbols/suspensions" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"OnlyRestricted":false}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="quotes" name="获取行情" onError="continue">
+        <Request id="quotes" label="POST /quotes" target="v3" method="POST" path="/quotes" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"SymbolIds":"${SymbolIds}"}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+    </Scenario>
+	<Scenario id="v3-quotes" name="V3指定品种行情查询">
+      <!--
+        本场景在 Body 中显式引用 ${SymbolIds}，因此界面选择账号后会发送该 User
+        的 SymbolIds 参数。User Param 只提供变量值，不会自动向请求增加字段。
+      -->
+	  <UserRefs><UserRef id="account-01" /></UserRefs>
+	  <Load mode="closed" threads="1" rampUpMs="0" iterations="1" />
+	  <Step id="quotes" name="获取行情" onError="continue">
+        <Request id="quotes" label="POST /quotes" target="v3" method="POST" path="/quotes" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"SymbolIds":"${SymbolIds}"}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+	</Scenario>
+	<Scenario id="v3-quotes-all" name="V3全量行情查询">
+      <!-- 本场景不引用 SymbolIds；账号只提供 Version、No，接口返回该节点全量行情。 -->
+	  <UserRefs><UserRef id="account-01" /></UserRefs>
+	  <Load mode="closed" threads="1" rampUpMs="0" iterations="1" />
+	  <Step id="quotes-all" name="获取全量行情" onError="continue">
+        <Request id="quotes-all" label="POST /quotes" target="v3" method="POST" path="/quotes" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No}}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+	</Scenario>
+
+    <!--
+      下列指标绘图场景使用引擎只读变量 ${runId}/${threadIndex}/${iterationIndex} 生成唯一数据键。
+      threadIndex 和 iterationIndex 均从 1 开始，同一账号被多个虚拟终端复用时不会互相覆盖。
+      生命周期场景固定按 OptType=1（新建）、3（修改保存）、4（查询）、2（删除）执行。
+      前置业务步骤失败后跳过剩余普通步骤，但 alwaysRun=true 的删除步骤仍会执行，减少测试数据残留。
+    -->
+    <Scenario id="v3-chart-drawing-lifecycle" name="V3图表绘图生命周期">
+      <UserRefs><UserRef id="account-01" /></UserRefs>
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="50" />
+      <Step id="drawing-create" name="新建绘图" onError="stop_iteration">
+        <Request id="drawing-create" label="POST /chart/drawings 新建" target="v3" method="POST" path="/chart/drawings" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":1,"SymbolId":"${ChartSymbolId}","Interval":${ChartInterval},"DrawingId":"loadtest-drawing-${runId}-${threadIndex}-${iterationIndex}","ToolType":"trendLine","Content":{"phase":"created","threadIndex":${threadIndex},"iterationIndex":${iterationIndex}}}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="drawing-save" name="修改保存绘图" onError="stop_iteration">
+        <Request id="drawing-save" label="POST /chart/drawings 保存" target="v3" method="POST" path="/chart/drawings" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":3,"SymbolId":"${ChartSymbolId}","Interval":${ChartInterval},"DrawingId":"loadtest-drawing-${runId}-${threadIndex}-${iterationIndex}","ToolType":"trendLine","Content":{"phase":"saved","threadIndex":${threadIndex},"iterationIndex":${iterationIndex}}}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="drawing-query" name="查询绘图" onError="stop_iteration">
+        <Request id="drawing-query" label="POST /chart/drawings 查询" target="v3" method="POST" path="/chart/drawings" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":4,"SymbolId":"${ChartSymbolId}","Interval":${ChartInterval},"DrawingId":"loadtest-drawing-${runId}-${threadIndex}-${iterationIndex}"}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /><Json path="$.Data.Drawings[0].DrawingId" operator="eq" value="loadtest-drawing-${runId}-${threadIndex}-${iterationIndex}" /><Json path="$.Data.Drawings[0].Content.phase" operator="eq" value="saved" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="drawing-delete" name="删除绘图" onError="continue" alwaysRun="true">
+        <Request id="drawing-delete" label="POST /chart/drawings 删除" target="v3" method="POST" path="/chart/drawings" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":2,"SymbolId":"${ChartSymbolId}","Interval":${ChartInterval},"DrawingId":"loadtest-drawing-${runId}-${threadIndex}-${iterationIndex}"}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+    </Scenario>
+
+    <Scenario id="v3-chart-indicator-lifecycle" name="V3图表指标生命周期">
+      <UserRefs><UserRef id="account-01" /></UserRefs>
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="50" />
+      <Step id="indicator-create" name="新建指标" onError="stop_iteration">
+        <Request id="indicator-create" label="POST /chart/indicators 新建" target="v3" method="POST" path="/chart/indicators" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":1,"IndicatorId":"loadtest-indicator-${runId}-${threadIndex}-${iterationIndex}","IndicatorType":"MA","Visible":true,"Content":{"phase":"created","period":14}}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="indicator-save" name="修改保存指标" onError="stop_iteration">
+        <Request id="indicator-save" label="POST /chart/indicators 保存" target="v3" method="POST" path="/chart/indicators" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":3,"IndicatorId":"loadtest-indicator-${runId}-${threadIndex}-${iterationIndex}","IndicatorType":"MA","Visible":true,"Content":{"phase":"saved","period":20}}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="indicator-query" name="查询指标" onError="stop_iteration">
+        <Request id="indicator-query" label="POST /chart/indicators 查询" target="v3" method="POST" path="/chart/indicators" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":4,"IndicatorId":"loadtest-indicator-${runId}-${threadIndex}-${iterationIndex}"}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /><Json path="$.Data.Indicators[0].IndicatorId" operator="eq" value="loadtest-indicator-${runId}-${threadIndex}-${iterationIndex}" /><Json path="$.Data.Indicators[0].Content.phase" operator="eq" value="saved" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="indicator-delete" name="删除指标" onError="continue" alwaysRun="true">
+        <Request id="indicator-delete" label="POST /chart/indicators 删除" target="v3" method="POST" path="/chart/indicators" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":2,"IndicatorId":"loadtest-indicator-${runId}-${threadIndex}-${iterationIndex}"}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+    </Scenario>
+
+    <Scenario id="v3-chart-config-lifecycle" name="V3图表配置生命周期">
+      <UserRefs><UserRef id="account-01" /></UserRefs>
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="50" />
+      <Step id="config-create" name="新建图表配置" onError="stop_iteration">
+        <Request id="config-create" label="POST /chart/config 新建" target="v3" method="POST" path="/chart/config" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":1,"ConfigName":["loadtest-config-${runId}-${threadIndex}-${iterationIndex}"],"Content":{"loadtest-config-${runId}-${threadIndex}-${iterationIndex}":{"phase":"created","theme":"light"}}}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="config-save" name="修改保存图表配置" onError="stop_iteration">
+        <Request id="config-save" label="POST /chart/config 保存" target="v3" method="POST" path="/chart/config" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":3,"ConfigName":["loadtest-config-${runId}-${threadIndex}-${iterationIndex}"],"Content":{"loadtest-config-${runId}-${threadIndex}-${iterationIndex}":{"phase":"saved","theme":"dark"}}}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="config-query" name="查询图表配置" onError="stop_iteration">
+        <Request id="config-query" label="POST /chart/config 查询" target="v3" method="POST" path="/chart/config" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":4,"ConfigName":["loadtest-config-${runId}-${threadIndex}-${iterationIndex}"]}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /><Json path="$.Data.ConfigName[0]" operator="eq" value="loadtest-config-${runId}-${threadIndex}-${iterationIndex}" /><Json path="$.Data.Content.loadtest-config-${runId}-${threadIndex}-${iterationIndex}.phase" operator="eq" value="saved" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="config-delete" name="删除图表配置" onError="continue" alwaysRun="true">
+        <Request id="config-delete" label="POST /chart/config 删除" target="v3" method="POST" path="/chart/config" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":2,"ConfigName":["loadtest-config-${runId}-${threadIndex}-${iterationIndex}"]}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+    </Scenario>
+
+    <!-- 批量同步接口只支持 OptType=1 保存和 OptType=2 删除，不配置不存在的修改或查询步骤。 -->
+    <Scenario id="v3-chart-drawing-sync" name="V3图表绘图批量同步">
+      <UserRefs><UserRef id="account-01" /></UserRefs>
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="50" />
+      <Step id="drawing-sync-save" name="批量保存绘图" onError="stop_iteration">
+        <Request id="drawing-sync-save" label="POST /chart/drawings/sync 保存" target="v3" method="POST" path="/chart/drawings/sync" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":1,"SymbolId":"${ChartSymbolId}","Interval":${ChartInterval},"Drawings":[{"Id":"loadtest-drawing-sync-a-${runId}-${threadIndex}-${iterationIndex}","ToolType":"trendLine","Content":{"slot":"a"}},{"Id":"loadtest-drawing-sync-b-${runId}-${threadIndex}-${iterationIndex}","ToolType":"text","Content":{"slot":"b"}}]}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+      <Step id="drawing-sync-delete" name="批量删除绘图" onError="continue" alwaysRun="true">
+        <Request id="drawing-sync-delete" label="POST /chart/drawings/sync 删除" target="v3" method="POST" path="/chart/drawings/sync" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":2,"SymbolId":"${ChartSymbolId}","Interval":${ChartInterval},"DrawingIds":"loadtest-drawing-sync-a-${runId}-${threadIndex}-${iterationIndex},loadtest-drawing-sync-b-${runId}-${threadIndex}-${iterationIndex}"}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+    </Scenario>
+  </Scenarios>
+</MtLoadPlan>

@@ -2,8 +2,7 @@
 #define H_SOCKET_SERVER_RUNTIME_CONTEXT
 
 #include "SocketServer.h"
-#include "SocketInterface.h"
-#include "HPSocket.h"
+#include "ServerPlatform.h"
 #include "Struct.h"
 
 #include <atomic>

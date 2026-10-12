@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "SocketServer.h"
-#include "SocketInterface.h"
+#include "ServerPlatform.h"
 
 struct ST_HTTP_SERVER_RUNTIME;
 

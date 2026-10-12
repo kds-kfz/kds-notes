@@ -1,7 +1,7 @@
 ﻿#ifndef _WEB_SOCKET_SEND_COORDINATOR_H_
 #define _WEB_SOCKET_SEND_COORDINATOR_H_
 
-#include "SocketInterface.h"
+#include "ServerPlatform.h"
 
 struct ST_WEB_SERVER_RUNTIME;
 

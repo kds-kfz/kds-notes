@@ -135,14 +135,14 @@ void ThreadNotifyTask(LPTSocketTask socketTask)
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		case enTcpClose:
-			_snprintf(pstTask->szErrMsg, sizeof(pstTask->szErrMsg), "client close");
+			snprintf(pstTask->szErrMsg, sizeof(pstTask->szErrMsg), "client close");
 			TCP_INFO("ip=%s,port=%d,type=%d,len=%d,msg=%s",
 				stClientData.szIp, stClientData.unPort, pstTask->enNotifyType, (int)strlen(pstTask->szErrMsg), pstTask->szErrMsg);
 			pRuntime->pNotifyHandler((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, nullptr, 0,
 				stClientData.szIp, stClientData.unPort, pstTask->szErrMsg);
 			break;
 		case enTcpConnect:
-			_snprintf(pstTask->szErrMsg, sizeof(pstTask->szErrMsg), "client connect");
+			snprintf(pstTask->szErrMsg, sizeof(pstTask->szErrMsg), "client connect");
 			TCP_INFO("ip=%s,port=%d,type=%d,len=%d,msg=%s",
 				stClientData.szIp, stClientData.unPort, pstTask->enNotifyType, (int)strlen(pstTask->szErrMsg), pstTask->szErrMsg);
 			pRuntime->pNotifyHandler((void*)pSender, (void*)pstTask->ullConnID, pstTask->enNotifyType, nullptr, 0,

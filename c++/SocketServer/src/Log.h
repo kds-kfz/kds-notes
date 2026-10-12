@@ -10,7 +10,11 @@ using namespace std;
 
 USE_NAMESPACE_NSDK
 
+#if defined(_WIN32)
 #define PATH_DELIMETER "\\"
+#else
+#define PATH_DELIMETER "/"
+#endif
 #define MA_OK 0
 #define MA_KO (-1)
 
@@ -27,13 +31,13 @@ enum enHQLogType
 	eDebug
 };
 
-class CLogFileThread;
+class CSocketServerLogFileThread;
 
-class CBaseLog
+class CSocketServerBaseLog
 {
 public:
-	CBaseLog();
-	~CBaseLog();
+	CSocketServerBaseLog();
+	~CSocketServerBaseLog();
 	int ThreadLog();
 
 	int InitLog(const char* p_szFold, enHQLogType p_eType = eInfo, const char* p_szLogFileName = "");
@@ -46,7 +50,7 @@ private:
 	pthread_mutex_t m_mutexLog;
 	std::vector<string> m_vecLog;
 
-	CLogFileThread *m_pLogFileThread;
+	CSocketServerLogFileThread *m_pLogFileThread;
 	volatile enHQLogType m_enLogType;//日志级别
 	FILE *m_pFileLog;
 	unsigned int m_uiLastDate;//日期
@@ -61,11 +65,11 @@ private:
 	void BaseRelease();
 };
 
-class CLogFileThread : public CThread
+class CSocketServerLogFileThread : public CThread
 {
 public:
-	CLogFileThread(void) : m_pParent(nullptr) {};
-	virtual ~CLogFileThread(void) { m_pParent = nullptr; }
+	CSocketServerLogFileThread(void) : m_pParent(nullptr) {};
+	virtual ~CSocketServerLogFileThread(void) { m_pParent = nullptr; }
 
 	virtual int Work(void)
 	{
@@ -76,60 +80,62 @@ public:
 	virtual bool DelNotify(CDataNotify* p_pNotify) { return false; };
 	virtual void SendNotify(unsigned long long p_lluThreadId, NotifyType p_enNotifyType, void *p_pData, int p_iDataLen) {};//通知异常数据位置
 
-	void SetThis(CBaseLog * p_pParent)
+	void SetThis(CSocketServerBaseLog * p_pParent)
 	{
 		m_pParent = p_pParent;
 	}
 private:
-	CBaseLog *m_pParent;
+	CSocketServerBaseLog *m_pParent;
 
 };
 
-class CLog : public CBaseLog
+// SocketServer 的日志实现属于库内私有类型。类名必须携带库前缀，避免静态链接到宿主
+// EXE 时与宿主工程常见的 CLog/CHttpLog/CWebLog/CTcpLog 产生全局 C++ 符号冲突。
+class CSocketServerLog : public CSocketServerBaseLog
 {
 private:
-	static CLog *m_pThis; // 通用日志单例，保留兼容旧接口
+	static CSocketServerLog *m_pThis; // 通用日志单例，仅在 SocketServer 内部使用
 public:
-	CLog() {}
-	~CLog() {}
+	CSocketServerLog() {}
+	~CSocketServerLog() {}
 	static void Release();
-	static CLog *GetInstance();
+	static CSocketServerLog *GetInstance();
 };
 
 // wyl 2026-03-30：TCP 服务独立日志单例，避免与 Web 服务共享日志路径和生命周期。
-class CTcpLog : public CBaseLog
+class CSocketServerTcpLog : public CSocketServerBaseLog
 {
 private:
-	static CTcpLog *m_pThis; // TCP 日志单例实例
+	static CSocketServerTcpLog *m_pThis; // TCP 日志单例实例
 public:
-	CTcpLog() {}
-	~CTcpLog() {}
+	CSocketServerTcpLog() {}
+	~CSocketServerTcpLog() {}
 	static void Release();
-	static CTcpLog *GetInstance();
+	static CSocketServerTcpLog *GetInstance();
 };
 
 // wyl 2026-03-30：Web 服务独立日志单例，避免与 TCP 服务共享日志路径和生命周期。
-class CWebLog : public CBaseLog
+class CSocketServerWebLog : public CSocketServerBaseLog
 {
 private:
-	static CWebLog *m_pThis; // Web 日志单例实例
+	static CSocketServerWebLog *m_pThis; // Web 日志单例实例
 public:
-	CWebLog() {}
-	~CWebLog() {}
+	CSocketServerWebLog() {}
+	~CSocketServerWebLog() {}
 	static void Release();
-	static CWebLog *GetInstance();
+	static CSocketServerWebLog *GetInstance();
 };
 
 // wyl 2026-04-07：http 服务独立日志单例，避免与 TCP 服务共享日志路径和生命周期。
-class CHttpLog : public CBaseLog
+class CSocketServerHttpLog : public CSocketServerBaseLog
 {
 private:
-	static CHttpLog* m_pThis; // Http 日志单例实例
+	static CSocketServerHttpLog* m_pThis; // Http 日志单例实例
 public:
-	CHttpLog() {}
-	~CHttpLog() {}
+	CSocketServerHttpLog() {}
+	~CSocketServerHttpLog() {}
 	static void Release();
-	static CHttpLog* GetInstance();
+	static CSocketServerHttpLog* GetInstance();
 };
 /*
 //日志宏
@@ -171,78 +177,78 @@ do{ \
 /* TCP 日志宏 */
 #define TCP_INFO(log_fmt, ... ) \
 do{ \
-	CTcpLog::GetInstance()->AddLog(eInfo, "[INFO] [TCP] " log_fmt, ##__VA_ARGS__); \
+	CSocketServerTcpLog::GetInstance()->AddLog(eInfo, "[INFO] [TCP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define TCP_DEBUG(log_fmt, ... ) \
 do{ \
-	CTcpLog::GetInstance()->AddLog(eDebug, "[DEBUG] [TCP] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
+	CSocketServerTcpLog::GetInstance()->AddLog(eDebug, "[DEBUG] [TCP] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
 } while (0)
 
 #define TCP_WARN(log_fmt, ... ) \
 do{ \
-	CTcpLog::GetInstance()->AddLog(eWarn, "[WARN] [TCP] " log_fmt, ##__VA_ARGS__); \
+	CSocketServerTcpLog::GetInstance()->AddLog(eWarn, "[WARN] [TCP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define TCP_ERROR(log_fmt, ... ) \
 do{ \
-	CTcpLog::GetInstance()->AddLog(eError, "[ERROR] [TCP] " log_fmt, ##__VA_ARGS__); \
+	CSocketServerTcpLog::GetInstance()->AddLog(eError, "[ERROR] [TCP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 /* WEB 日志宏 */
 #define WEB_HQLOG( log_type, log_fmt, ... ) \
 do{ \
-	CWebLog::GetInstance()->AddLog(log_type, "%s:%d [%s] " log_fmt, __FILE__, __LINE__, \
+	CSocketServerWebLog::GetInstance()->AddLog(log_type, "%s:%d [%s] " log_fmt, __FILE__, __LINE__, \
 	eInfo == log_type ? "INFO" : eDebug == log_type ? "DEBUG" : eWarn == log_type ? \
 	"WARN" : eError == log_type ? "ERROR" : "INFO", ##__VA_ARGS__); \
 } while (0)
 
 #define WEB_INFO(log_fmt, ... ) \
 do{ \
-	CWebLog::GetInstance()->AddLog(eInfo, "[INFO] [WEB] " log_fmt, ##__VA_ARGS__); \
+	CSocketServerWebLog::GetInstance()->AddLog(eInfo, "[INFO] [WEB] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define WEB_DEBUG(log_fmt, ... ) \
 do{ \
-	CWebLog::GetInstance()->AddLog(eDebug, "[DEBUG] [WEB] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
+	CSocketServerWebLog::GetInstance()->AddLog(eDebug, "[DEBUG] [WEB] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
 } while (0)
 
 #define WEB_WARN(log_fmt, ... ) \
 do{ \
-	CWebLog::GetInstance()->AddLog(eWarn, "[WARN] [WEB] " log_fmt, ##__VA_ARGS__); \
+	CSocketServerWebLog::GetInstance()->AddLog(eWarn, "[WARN] [WEB] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define WEB_ERROR(log_fmt, ... ) \
 do{ \
-	CWebLog::GetInstance()->AddLog(eError, "[ERROR] [WEB] " log_fmt, ##__VA_ARGS__); \
+	CSocketServerWebLog::GetInstance()->AddLog(eError, "[ERROR] [WEB] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 /* HTTP 日志宏 */
 #define HTTP_HQLOG( log_type, log_fmt, ... ) \
 do{ \
-	CHttpLog::GetInstance()->AddLog(log_type, "%s:%d [%s] " log_fmt, __FILE__, __LINE__, \
+	CSocketServerHttpLog::GetInstance()->AddLog(log_type, "%s:%d [%s] " log_fmt, __FILE__, __LINE__, \
 	eInfo == log_type ? "INFO" : eDebug == log_type ? "DEBUG" : eWarn == log_type ? \
 	"WARN" : eError == log_type ? "ERROR" : "INFO", ##__VA_ARGS__); \
 } while (0)
 
 #define HTTP_INFO(log_fmt, ... ) \
 do{ \
-	CHttpLog::GetInstance()->AddLog(eInfo, "[INFO] [HTTP] " log_fmt, ##__VA_ARGS__); \
+	CSocketServerHttpLog::GetInstance()->AddLog(eInfo, "[INFO] [HTTP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define HTTP_DEBUG(log_fmt, ... ) \
 do{ \
-	CHttpLog::GetInstance()->AddLog(eDebug, "[DEBUG] [HTTP] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
+	CSocketServerHttpLog::GetInstance()->AddLog(eDebug, "[DEBUG] [HTTP] %s:%d " log_fmt, __FILE__, __LINE__, ##__VA_ARGS__); \
 } while (0)
 
 #define HTTP_WARN(log_fmt, ... ) \
 do{ \
-	CHttpLog::GetInstance()->AddLog(eWarn, "[WARN] [HTTP] " log_fmt, ##__VA_ARGS__); \
+	CSocketServerHttpLog::GetInstance()->AddLog(eWarn, "[WARN] [HTTP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define HTTP_ERROR(log_fmt, ... ) \
 do{ \
-	CHttpLog::GetInstance()->AddLog(eError, "[ERROR] [HTTP] " log_fmt, ##__VA_ARGS__); \
+	CSocketServerHttpLog::GetInstance()->AddLog(eError, "[ERROR] [HTTP] " log_fmt, ##__VA_ARGS__); \
 } while (0)
 
 #endif // _HQLOG_H_

@@ -1,0 +1,2 @@
+Scenario,Step,Label,Samples,PlannedRequests,Progress,Succeeded,Failed,ErrorRate,AverageMs,P90Ms,P95Ms,P99Ms,ThroughputPerSec
+HTTPS static smoke,quotes,POST /quotes,1,1,1,1,0,0,1687.57,1687.57,1687.57,1687.57,0.590667

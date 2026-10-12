@@ -36,6 +36,12 @@ namespace
 	}
 
 	// 停服只释放指定 HTTP 实例，其他同协议实例继续独立运行。
+	//
+	// 关闭顺序必须固定为：先禁止业务入口并标记实例停止，再调用 HP-Socket 6.0.9 的同步 Stop()。
+	// 该 Stop() 内部已经关闭监听、等待 Accept/连接/Worker 线程并在返回前进入 SS_STOPPED，不能把它
+	// 误解为只发出异步停止通知，也不需要在返回后重复 Wait(INFINITE)。随后停止本实例的业务线程池、
+	// 清理请求状态，最后销毁 HP-Socket 对象和 Listener，避免业务任务访问已经释放的 Server。调用方
+	// 通过生命周期锁保证本函数不与同一实例的启动并发，其他命名实例拥有独立 Runtime，不受影响。
 	void DeleteHttpObj(ST_HTTP_SERVER_RUNTIME* p_pRuntime)
 	{
 		if (p_pRuntime == nullptr)
@@ -135,7 +141,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 
 	if (nullptr == p_szIp || 7 > strlen(p_szIp))
 	{
-		_snprintf(p_szErr, 1024, "code=-1,msg=init param err");
+		snprintf(p_szErr, 1024, "code=-1,msg=init param err");
 		return false;
 	}
 
@@ -148,19 +154,19 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 	if (nullptr != p_szLogFold && strlen(p_szLogFold) > 0)
 	{
 		// wyl 2026-04-07：Http 服务使用独立日志单例，避免与 TCP 服务共享日志路径和生命周期。
-		if (MA_OK == CHttpLog::GetInstance()->InitLog(p_szLogFold))
+		if (MA_OK == CSocketServerHttpLog::GetInstance()->InitLog(p_szLogFold))
 		{
-			CHttpLog::GetInstance()->Resume();//恢复工作
+			CSocketServerHttpLog::GetInstance()->Resume();//恢复工作
 			HTTP_INFO("log started");
 		}
 		else
 		{
-			_snprintf(p_szErr, 1024, "code=-2,msg=log init fail");
+			snprintf(p_szErr, 1024, "code=-2,msg=log init fail");
 			DeleteHttpObj(m_ptrRuntime.get());
 			return false;
 		}
 		// 设置日志等级
-		CHttpLog::GetInstance()->SetLogLevel((char *)"info");
+		CSocketServerHttpLog::GetInstance()->SetLogLevel((char *)"info");
 	}
 
 	// 设置任务回调
@@ -171,7 +177,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 	if (!m_ptrRuntime->clThreadPool->Start(p_uiThreadNum,
 		p_uiQueueNum, TRP_CALL_FAIL, 0))
 	{
-		_snprintf(p_szErr, 1024, "code=%d,msg=thread pool start fail", SYS_GetLastError());
+		snprintf(p_szErr, 1024, "code=%d,msg=thread pool start fail", SYS_GetLastError());
 		DeleteHttpObj(m_ptrRuntime.get());
 		return false;
 	}
@@ -186,7 +192,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 	if (nullptr == m_ptrRuntime->pListener)
 	{
 		iRet = SYS_GetLastError();
-		_snprintf(p_szErr, 1024, "code=%d,msg=create http server listener fail", iRet);
+		snprintf(p_szErr, 1024, "code=%d,msg=create http server listener fail", iRet);
 		DeleteHttpObj(m_ptrRuntime.get());
 		return false;
 	}
@@ -200,7 +206,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 
 	if (nullptr == m_ptrRuntime->pPackServer)
 	{
-		_snprintf(p_szErr, 1024, "code=%d,msg=create http server fail", SYS_GetLastError());
+		snprintf(p_szErr, 1024, "code=%d,msg=create http server fail", SYS_GetLastError());
 		DeleteHttpObj(m_ptrRuntime.get());
 		return false;
 	}
@@ -234,7 +240,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 		char szErrDesc[256] = { 0 };
 		SafeCopyCString(szErrDesc, sizeof(szErrDesc),
 			m_ptrRuntime->pPackServer->GetLastErrorDesc());
-		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
+		snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			m_ptrRuntime->pPackServer->GetLastError(), szErrDesc);
 		DeleteHttpObj(m_ptrRuntime.get());
 		return false;
@@ -254,7 +260,7 @@ bool CHttpSockServerObj::CreateHttpsSock(const char*, unsigned short, unsigned i
 	// wyl 2026-04-07：当前版本尚未实现 WSS 建链和证书装载，必须明确返回失败，避免上层误判服务已启动成功。
 	if (nullptr != p_szErr)
 	{
-		_snprintf(p_szErr, 1024, "code=-3,msg=https not implement");
+		snprintf(p_szErr, 1024, "code=-3,msg=https not implement");
 	}
 	return false;
 }

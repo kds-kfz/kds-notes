@@ -3,7 +3,7 @@
 #include "publicfunc.h"
 #include "ServerRuntimeContext.h"
 #include "Log.h"
-#include <windows.h>
+#include "ServerPlatform.h"
 
 namespace
 {
@@ -43,12 +43,12 @@ namespace
 			return false;
 
 		BOOL bAlive = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bAlive = pSender->HasStarted() && pSender->IsConnected(dwConnID);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			TCP_ERROR("ConnID=%llu,TcpSockIsAliveException=0x%08X", (unsigned long long)dwConnID, dwExceptionCode);
 			return false;
@@ -84,12 +84,12 @@ namespace
 			return false;
 
 		BOOL bSendOK = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bSendOK = pSender->Send(dwConnID, pData, iLength);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			// wyl 2026-05-19：TCP 底层发送异常不能让进程无日志退出，至少落下 ConnID、动作和异常码。
 			TCP_ERROR("ConnID=%llu,%sException=0x%08X,SendDataLen=%d",
@@ -106,12 +106,12 @@ namespace
 			return false;
 
 		BOOL bOK = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bOK = pSender->Disconnect(dwConnID, bForce);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			TCP_ERROR("ConnID=%llu,%sException=0x%08X",
 				(unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "TcpDisconnect", dwExceptionCode);
@@ -121,6 +121,12 @@ namespace
 	}
 
 	// 停服只释放指定 TCP 实例，其他同协议实例继续独立运行。
+	//
+	// 关闭顺序必须固定为：先禁止业务入口并标记实例停止，再调用 HP-Socket 6.0.9 的同步 Stop()。
+	// 该 Stop() 内部已经关闭监听、等待 Accept/连接/Worker 线程并在返回前进入 SS_STOPPED，不能把它
+	// 误解为只发出异步停止通知，也不需要在返回后重复 Wait(INFINITE)。随后必须先停止本实例的业务
+	// 线程池并清理连接/任务/请求状态，最后才能销毁 HP-Socket 对象和 Listener；旧顺序先销毁 Server，
+	// 业务线程池中的尾部任务仍可能访问失效句柄。生命周期锁保证本函数不与同一实例启动并发。
 	void DeleteObj(ST_TCP_SERVER_RUNTIME* p_pRuntime)
 	{
 		if (p_pRuntime == nullptr)
@@ -132,16 +138,19 @@ namespace
 		if (p_pRuntime->pPackServer != nullptr)
 		{
 			p_pRuntime->pPackServer->Stop();
+		}
+		p_pRuntime->clThreadPool->Stop();
+		ClearTcpRuntimeData(p_pRuntime);
+		if (p_pRuntime->pPackServer != nullptr)
+		{
 			HP_Destroy_TcpServer(p_pRuntime->pPackServer);
 			p_pRuntime->pPackServer = nullptr;
 		}
-		p_pRuntime->clThreadPool->Stop();
 		if (p_pRuntime->pListener != nullptr)
 		{
 			delete p_pRuntime->pListener;
 			p_pRuntime->pListener = nullptr;
 		}
-		ClearTcpRuntimeData(p_pRuntime);
 		p_pRuntime->pNotifyHandler = nullptr;
 		p_pRuntime->ullTaskId = 0;
 	}
@@ -237,7 +246,7 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 
 	if (nullptr == p_szIp || 7 > strlen(p_szIp))
 	{
-		_snprintf(p_szErr, 1024, "code=-1,msg=init param err");
+		snprintf(p_szErr, 1024, "code=-1,msg=init param err");
 		return false;
 	}
 
@@ -250,19 +259,19 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 	if (nullptr != p_szLogFold && strlen(p_szLogFold) > 0)
 	{
 		// wyl 2026-03-30：TCP 服务使用独立日志单例，避免与 Web 服务共享路径和生命周期。
-		if (MA_OK == CTcpLog::GetInstance()->InitLog(p_szLogFold))
+		if (MA_OK == CSocketServerTcpLog::GetInstance()->InitLog(p_szLogFold))
 		{
-			CTcpLog::GetInstance()->Resume();//恢复工作
+			CSocketServerTcpLog::GetInstance()->Resume();//恢复工作
 			TCP_INFO("log started");
 		}
 		else
 		{
-			_snprintf(p_szErr, 1024, "code=-2,msg=log init fail");
+			snprintf(p_szErr, 1024, "code=-2,msg=log init fail");
 			DeleteObj(m_ptrRuntime.get());
 			return false;
 		}
 		// 设置日志等级
-		CTcpLog::GetInstance()->SetLogLevel((char *)"info");
+		CSocketServerTcpLog::GetInstance()->SetLogLevel((char *)"info");
 	}
 
 	// 设置任务回调
@@ -272,7 +281,7 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 	g_CTcpHPThreadPool->AdjustThreadCount(p_uiThreadNum);
 	if (!g_CTcpHPThreadPool->Start(p_uiThreadNum, p_uiQueueNum, TRP_CALL_FAIL, 0))
 	{
-		_snprintf(p_szErr, 1024, "code=%d,msg=thread pool start fail", SYS_GetLastError());
+		snprintf(p_szErr, 1024, "code=%d,msg=thread pool start fail", SYS_GetLastError());
 		DeleteObj(m_ptrRuntime.get());
 		return false;
 	}
@@ -287,7 +296,7 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 	if (nullptr == g_CTcpServerListerNet)
 	{
 		iRet = SYS_GetLastError();
-		_snprintf(p_szErr, 1024, "code=%d,msg=create tcp server lister fail", iRet);
+		snprintf(p_szErr, 1024, "code=%d,msg=create tcp server lister fail", iRet);
 		DeleteObj(m_ptrRuntime.get());
 		return false;
 	}
@@ -301,7 +310,7 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 
 	if (nullptr == g_CTcpPackServer)
 	{
-		_snprintf(p_szErr, 1024, "code=%d,msg=create tcp server fail", SYS_GetLastError());
+		snprintf(p_szErr, 1024, "code=%d,msg=create tcp server fail", SYS_GetLastError());
 		DeleteObj(m_ptrRuntime.get());
 		return false;
 	}
@@ -334,7 +343,7 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 	{
 		char szErrDesc[256] = { 0 };
 		SafeCopyCString(szErrDesc, sizeof(szErrDesc), g_CTcpPackServer->GetLastErrorDesc());
-		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
+		snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			g_CTcpPackServer->GetLastError(), szErrDesc);
 		DeleteObj(m_ptrRuntime.get());
 		return false;

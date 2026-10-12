@@ -1,6 +1,7 @@
 #include "SocketClient.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <windows.h>
 #include <bcrypt.h>
 #include <wincrypt.h>
 #include <chrono>
@@ -33,6 +34,20 @@ bool ReadBytes(SOCKET p_hSocket, char* p_szData, int p_iLength)
         offset += count;
     }
     return true;
+}
+
+// 读取一条 HTTP 请求头，供普通响应、Keep-Alive 和 WebSocket Mock 共用。
+bool ReadHttpHeaders(SOCKET p_hSocket, std::string& p_refRequest)
+{
+    p_refRequest.clear();
+    char byte = 0;
+    while (p_refRequest.find("\r\n\r\n") == std::string::npos &&
+        p_refRequest.size() < 8192)
+    {
+        if (recv(p_hSocket, &byte, 1, 0) != 1) return false;
+        p_refRequest.push_back(byte);
+    }
+    return p_refRequest.find("\r\n\r\n") != std::string::npos;
 }
 
 // 测试端用系统加密 API 独立计算 Base64，避免再次实现编码算法。
@@ -75,7 +90,7 @@ std::string Accept(const std::string& p_strKey)
 class LoopbackServer
 {
 public:
-    enum Kind { Tcp, Http, Web, WebBad, Stress }; // 本实例模拟的服务端协议类型。
+    enum Kind { Tcp, Http, HttpKeepAlive, HttpEncoding, Web, WebBad, Stress }; // 本实例模拟的服务端协议类型。
 
     // 建立本地监听端口并启动独立的服务线程。
     explicit LoopbackServer(Kind p_enKind, int p_iConnections = 1)
@@ -132,21 +147,49 @@ private:
             }
             else
             {
-                std::string request;
-                char byte;
-                while (request.find("\r\n\r\n") == std::string::npos && request.size() < 8192)
+                const int responseCount = kind_ == HttpKeepAlive ? 2 : 1;
+                for (int responseIndex = 0; responseIndex < responseCount; ++responseIndex)
                 {
-                    if (recv(client, &byte, 1, 0) != 1) break;
-                    request.push_back(byte);
-                }
-                if (kind_ == Http)
-                {
-                    const char response[] = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n"
-                        "Connection: close\r\n\r\nok";
-                    send(client, response, sizeof(response) - 1, 0);
-                }
-                else
-                {
+                    std::string request;
+                    if (!ReadHttpHeaders(client, request)) break;
+                    if (kind_ == Http || kind_ == HttpKeepAlive)
+                    {
+                        // 首个响应短暂延迟，用于确定性验证同连接的第二个在途请求会被拒绝。
+                        if (kind_ == HttpKeepAlive && responseIndex == 0)
+                            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        const std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: " +
+                            std::string(kind_ == HttpKeepAlive && responseIndex == 0 ?
+                                "keep-alive" : "close") + "\r\n\r\nok";
+                        send(client, response.data(), static_cast<int>(response.size()), 0);
+                    }
+                    else if (kind_ == HttpEncoding)
+                    {
+                    static const unsigned char gzipBody[] = {
+                        0x1F,0x8B,0x08,0x00,0x00,0x00,0x00,0x00,0x00,0x0A,0xAB,0x56,0x72,
+                        0xCE,0x4F,0x49,0x55,0xB2,0x32,0xD0,0x51,0xF2,0x2D,0x4E,0x57,0xB2,
+                        0x52,0x4A,0xCE,0xCF,0x2D,0x28,0x4A,0x2D,0x2E,0x4E,0x4D,0xD1,0xCD,
+                        0xCF,0x56,0xAA,0x05,0x00,0x66,0x0D,0xC1,0xE1,0x20,0x00,0x00,0x00 };
+                    static const unsigned char zlibBody[] = {
+                        0x78,0x9C,0xAB,0x56,0x72,0xCE,0x4F,0x49,0x55,0xB2,0x32,0xD0,0x51,
+                        0xF2,0x2D,0x4E,0x57,0xB2,0x52,0x4A,0xCE,0xCF,0x2D,0x28,0x4A,0x2D,
+                        0x2E,0x4E,0x4D,0xD1,0xCD,0xCF,0x56,0xAA,0x05,0x00,0xA2,0x4D,0x0A,0x73 };
+                    static const char plainBody[] = "{\"Code\":0,\"Msg\":\"compressed-ok\"}";
+                    const bool wantsGzip = request.find("Accept-Encoding: gzip") != std::string::npos;
+                    const bool wantsZlib = request.find("Accept-Encoding: zlib") != std::string::npos;
+                    const void* body = wantsGzip ? static_cast<const void*>(gzipBody) :
+                        wantsZlib ? static_cast<const void*>(zlibBody) : static_cast<const void*>(plainBody);
+                    const size_t bodySize = wantsGzip ? sizeof(gzipBody) :
+                        wantsZlib ? sizeof(zlibBody) : sizeof(plainBody) - 1;
+                    std::string response = "HTTP/1.1 200 OK\r\nContent-Length: " +
+                        std::to_string(bodySize) + "\r\n";
+                    if (wantsGzip) response += "Content-Encoding: gzip\r\n";
+                    if (wantsZlib) response += "Content-Encoding: zlib\r\n";
+                    response += "Connection: close\r\n\r\n";
+                        send(client, response.data(), static_cast<int>(response.size()), 0);
+                        send(client, static_cast<const char*>(body), static_cast<int>(bodySize), 0);
+                    }
+                    else
+                    {
                     const std::string marker = "Sec-WebSocket-Key: ";
                     const size_t first = request.find(marker);
                     if (first != std::string::npos)
@@ -174,6 +217,7 @@ private:
                             }
                         }
                     }
+                    }
                 }
             }
             shutdown(client, SD_BOTH);
@@ -197,7 +241,9 @@ struct EventState
     int closes = 0; // 传输连接关闭次数。
     int status = 0; // 最近一次 HTTP 响应状态码。
     int opens = 0; // WebSocket 握手成功次数。
+    int completes = 0; // 已完整接收的 HTTP 响应数。
     std::string data; // 已复制的 TCP、HTTP 或 WebSocket 数据。
+    unsigned long long wireBodyBytes = 0; // HTTP 完成时报告的解压前线上正文大小。
 };
 
 // 从 HP-Socket 回调返回之前复制所借用的事件数据。
@@ -211,6 +257,11 @@ void OnEvent(CSocketClient* p_pClient, const ST_SOCKET_CLIENT_EVENT* p_pEvent,
     if (p_pEvent->enEvent == EN_SOCKET_CLIENT_CLOSED) ++state.closes;
     if (p_pEvent->enEvent == EN_SOCKET_CLIENT_HTTP_STATUS) state.status = p_pEvent->usStatus;
     if (p_pEvent->enEvent == EN_SOCKET_CLIENT_WEB_OPEN) ++state.opens;
+    if (p_pEvent->enEvent == EN_SOCKET_CLIENT_HTTP_COMPLETE)
+    {
+        ++state.completes;
+        state.wireBodyBytes = p_pEvent->ullWireBodyBytes;
+    }
     if (p_pEvent->enEvent == EN_SOCKET_CLIENT_DATA ||
         p_pEvent->enEvent == EN_SOCKET_CLIENT_HTTP_BODY ||
         p_pEvent->enEvent == EN_SOCKET_CLIENT_WEB_FRAME)
@@ -236,10 +287,13 @@ int main()
         Check(GetSocketClientAbiVersion() == SOCKET_CLIENT_ABI_VERSION, "ABI version");
         LoopbackServer tcpServer(LoopbackServer::Tcp, 3);
         LoopbackServer httpServer(LoopbackServer::Http);
+        LoopbackServer keepAliveServer(LoopbackServer::HttpKeepAlive);
+        LoopbackServer encodingServer(LoopbackServer::HttpEncoding, 3);
         LoopbackServer webServer(LoopbackServer::Web);
         LoopbackServer badServer(LoopbackServer::WebBad);
         LoopbackServer stressServer(LoopbackServer::Stress, 4);
         LoopbackServer httpStressServer(LoopbackServer::Http, 4);
+        LoopbackServer lifecycleServer(LoopbackServer::Tcp, 32);
         CSocketClient* tcp1 = CreateTcpClientInstanceByName("quote-1");
         CSocketClient* tcp2 = CreateTcpClientInstanceByName("quote-2");
         CSocketClient* http = CreateHttpClientInstanceByName("quote-1");
@@ -276,6 +330,62 @@ int main()
         Check(http->Request("GET", "/", nullptr, nullptr, 0, nullptr, 0), "HTTP request");
         Until(h, [&]() { return h.data == "ok"; }, "HTTP response");
         Check(h.status == 200, "HTTP status");
+
+        // HTTP 事件不带请求 ID，因此同一连接只允许一个在途响应；完成后允许 Keep-Alive 复用。
+        CSocketClient* keepAlive = CreateHttpClientInstanceByName("keep-alive");
+        EventState keepAliveState;
+        Check(keepAlive && keepAlive->Connect("127.0.0.1", keepAliveServer.Port(),
+            OnEvent, &keepAliveState), "Keep-Alive connect");
+        Until(keepAliveState, [&]() { return keepAliveState.connects > 0; },
+            "Keep-Alive connected");
+        Check(keepAlive->Request("GET", "/first", nullptr, nullptr, 0, nullptr, 0),
+            "Keep-Alive first request");
+        Check(!keepAlive->Request("GET", "/overlap", nullptr, nullptr, 0, nullptr, 0),
+            "overlapping HTTP request rejected");
+        Until(keepAliveState, [&]() { return keepAliveState.completes == 1; },
+            "Keep-Alive first complete");
+        Check(keepAlive->Request("GET", "/second", nullptr, nullptr, 0, nullptr, 0),
+            "Keep-Alive second request");
+        Until(keepAliveState, [&]() { return keepAliveState.completes == 2; },
+            "Keep-Alive second complete");
+        Check(keepAliveState.data == "okok", "Keep-Alive responses isolated");
+        DelHttpClientInstance(keepAlive);
+
+        // 安全协议工厂必须使用独立类型，并且只接受在启动前配置 TLS。
+        CSocketClient* https = CreateHttpsClientInstanceByName("https-factory");
+        CSocketClient* wss = CreateWssClientInstanceByName("wss-factory");
+        Check(https && wss && ConfigureSocketClientTls(https, nullptr, 0) &&
+            ConfigureSocketClientTls(wss, nullptr, 0), "secure client factories");
+        info = {};
+        info.uiStructSize = sizeof(info);
+        Check(GetSocketClientRuntimeInfo(https, &info) && info.bSecure == 1 &&
+            info.enType == EN_SOCKET_CLIENT_HTTPS, "HTTPS runtime info");
+        Check(!ConfigureSocketClientTls(http, nullptr, 0), "plain HTTP rejects TLS config");
+        DelHttpsClientInstance(https);
+        DelWssClientInstance(wss);
+
+        // 同一配置入口覆盖 gzip、zlib 和未发送 Accept-Encoding 三种请求方式。
+        const char* expectedBody = "{\"Code\":0,\"Msg\":\"compressed-ok\"}";
+        const char* encodingNames[] = {"gzip", "zlib", nullptr};
+        const unsigned long long expectedWireBytes[] = {52, 40, 32};
+        for (int index = 0; index < 3; ++index)
+        {
+            const std::string name = "encoding-" + std::to_string(index);
+            CSocketClient* encodedClient = CreateHttpClientInstanceByName(name.c_str());
+            EventState encodedState;
+            Check(encodedClient && encodedClient->Connect("127.0.0.1", encodingServer.Port(),
+                OnEvent, &encodedState), "encoding connect");
+            Until(encodedState, [&]() { return encodedState.connects > 0; }, "encoding connected");
+            const char* headerName = encodingNames[index] ? "Accept-Encoding" : nullptr;
+            Check(encodedClient->Request("GET", "/", headerName ? &headerName : nullptr,
+                encodingNames[index] ? &encodingNames[index] : nullptr,
+                encodingNames[index] ? 1 : 0, nullptr, 0), "encoding request");
+            Until(encodedState, [&]() { return encodedState.wireBodyBytes > 0; },
+                "encoding response complete");
+            Check(encodedState.data == expectedBody, "decoded HTTP body");
+            Check(encodedState.wireBodyBytes == expectedWireBytes[index], "wire body bytes");
+            DelHttpClientInstance(encodedClient);
+        }
         Check(web->Connect("127.0.0.1", webServer.Port(), OnEvent, &w), "Web connect");
         Until(w, [&]() { return w.connects > 0; }, "Web connected");
         Check(web->Upgrade("/feed", "127.0.0.1"), "Web Upgrade request");
@@ -343,6 +453,29 @@ int main()
                 "stress HTTP response");
             DelHttpClientInstance(httpClients[i]);
         }
+
+        // 多轮创建、连接、收发和销毁后，HP-Socket 工作线程及事件句柄必须全部回收。
+        DWORD handlesBefore = 0;
+        Check(GetProcessHandleCount(GetCurrentProcess(), &handlesBefore) != FALSE,
+            "read handle count before lifecycle loop");
+        for (int i = 0; i < 32; ++i)
+        {
+            const std::string name = "lifecycle-" + std::to_string(i);
+            CSocketClient* lifecycle = CreateTcpClientInstanceByName(name.c_str());
+            EventState lifecycleState;
+            Check(lifecycle && lifecycle->Connect("127.0.0.1", lifecycleServer.Port(),
+                OnEvent, &lifecycleState), "lifecycle connect");
+            Until(lifecycleState, [&]() { return lifecycleState.connects > 0; },
+                "lifecycle connected");
+            Check(lifecycle->Send("life", 4), "lifecycle send");
+            Until(lifecycleState, [&]() { return lifecycleState.data == "life"; },
+                "lifecycle echo");
+            DelTcpClientInstance(lifecycle);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        DWORD handlesAfter = 0;
+        Check(GetProcessHandleCount(GetCurrentProcess(), &handlesAfter) != FALSE &&
+            handlesAfter <= handlesBefore + 4, "SocketClient handle leak");
         DelTcpClientInstance(tcp1);
         Check(!tcp1 && tcp2, "isolated TCP deletion");
         DelTcpClientInstance(tcp2);

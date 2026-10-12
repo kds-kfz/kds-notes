@@ -29,3 +29,9 @@
 # Executables
 *.out
 *.app
+
+# Socket library integration demo outputs
+c++/demoClient/bin/
+c++/demoClient/project/vs2022/demoClient/build/
+c++/demoServer/bin/socketecho/
+c++/demoServer/project/vs2022/SocketEchoServer/build/

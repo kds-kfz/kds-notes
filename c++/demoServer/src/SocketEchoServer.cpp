@@ -64,6 +64,17 @@ bool ParseNumber(const char* p_szText, unsigned long p_ulLimit, unsigned long& p
     p_refValue = value;
     return true;
 }
+
+// 核对命名实例确实由当前 ABI 创建，并已经监听预期的协议和端口。
+bool CheckRuntime(CSocketServer* p_pServer, EN_SOCKET_SERVER_TYPE p_enType,
+    unsigned short p_usPort)
+{
+    ST_SOCKET_SERVER_RUNTIME_INFO info = {};
+    info.uiStructSize = sizeof(info);
+    return GetSocketServerRuntimeInfo(p_pServer, &info) &&
+        info.uiAbiVersion == SOCKET_SERVER_ABI_VERSION && info.enServerType == p_enType &&
+        info.bStarted == 1 && info.usPort == p_usPort;
+}
 }
 
 // 默认监听 127.0.0.1:39071/39072/39073；指定秒数后自动退出。
@@ -96,6 +107,17 @@ int main(int p_iArgc, char** p_ppszArgv)
     if (!started)
     {
         std::cerr << "start failed: " << error << std::endl;
+        StopServers();
+        return 1;
+    }
+    if (!CheckRuntime(g_pTcpServer, EN_SOCKET_SERVER_TYPE_TCP,
+            static_cast<unsigned short>(port)) ||
+        !CheckRuntime(g_pHttpServer, EN_SOCKET_SERVER_TYPE_HTTP,
+            static_cast<unsigned short>(port + 1)) ||
+        !CheckRuntime(g_pWebServer, EN_SOCKET_SERVER_TYPE_WEB,
+            static_cast<unsigned short>(port + 2)))
+    {
+        std::cerr << "SocketServer runtime info mismatch" << std::endl;
         StopServers();
         return 1;
     }

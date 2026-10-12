@@ -5,11 +5,18 @@
 // 两个平台的 HP-Socket 实现不同，不得把 Windows 头文件带入 Linux 构建。
 #if defined(_WIN32)
 #include "HPSocket.h"
+#include "HPSocket-SSL.h"
+#if HP_VERSION_MAJOR != 6 || HP_VERSION_MINOR != 0 || HP_VERSION_REVISE != 9
+#error SocketClient requires HP-Socket 6.0.9 headers. Review the adapter before upgrading HP-Socket.
+#endif
 #elif defined(__has_include)
 #if __has_include(<hpsocket/HPSocket.h>)
 #include <hpsocket/HPSocket.h>
 #elif __has_include(<HPSocket.h>)
 #include <HPSocket.h>
+#if __has_include(<HPSocket-SSL.h>)
+#include <HPSocket-SSL.h>
+#endif
 #else
 #error Linux build requires HP-Socket development headers.
 #endif

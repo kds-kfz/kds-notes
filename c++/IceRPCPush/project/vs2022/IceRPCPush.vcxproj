@@ -17,6 +17,10 @@
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseStatic|x64">
+      <Configuration>ReleaseStatic</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -52,6 +56,13 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
@@ -69,10 +80,18 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <OutDir>$(SolutionDir)..\..\lib\$(Platform)vc14\</OutDir>
     <TargetName>lib$(ProjectName)</TargetName>
+    <IntDir>$(ProjectDir)..\..\Temp\VC++\$(ProjectName)\$(Configuration)\$(Platform)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
+    <OutDir>$(SolutionDir)..\..\lib\$(Platform)vc14\static\</OutDir>
+    <TargetName>lib$(ProjectName)_static</TargetName>
     <IntDir>$(ProjectDir)..\..\Temp\VC++\$(ProjectName)\$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -128,7 +147,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;ICERPCPUSH_EXPORTS;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;JSON_NO_AUTOLINK;SNAPPY_STATIC;WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;ICERPCPUSH_EXPORTS;SNAPPY_STATIC;NSDK_STATIC;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;JSON_NO_AUTOLINK;WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
@@ -144,12 +163,32 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\vender\ice\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\snappy\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\json\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\zlib\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\tinyxml\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\SocketServer\lib\x64vc14;$(SolutionDir)..\..\vender\nsdk\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\xsdk\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\thread\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>ice38.lib;iceutil38.lib;icegrid38.lib;glacier238.lib;libSocketServer.lib;libsnappy.lib;libjson.lib;zlibstat.lib;tinyxml.lib;libnsdk.lib;libxsdk.lib;pthreadVC2.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\vender\ice\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\snappy\lib\$(Platform)vc14\static;$(SolutionDir)..\..\vender\json\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\zlib\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\tinyxml\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\SocketServer\lib\x64vc14;$(SolutionDir)..\..\vender\nsdk\lib\$(Platform)vc14\static;$(SolutionDir)..\..\vender\xsdk\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\thread\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ice38.lib;iceutil38.lib;icegrid38.lib;glacier238.lib;libSocketServer.lib;libsnappy_static.lib;libjson.lib;zlibstat.lib;tinyxml.lib;libnsdk_static.lib;common.lib;crash_generation_client.lib;exception_handler.lib;libxsdk.lib;pthreadVC2.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>..\..\include\IceRPCPush.def</ModuleDefinitionFile>
       <DisableSpecificWarnings>4099;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;ICERPCPUSH_STATIC;SNAPPY_STATIC;NSDK_STATIC;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;JSON_NO_AUTOLINK;WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\src;$(SolutionDir)..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/external:I"$(SolutionDir)..\..\vender\ice\include" /external:I"$(SolutionDir)..\..\vender\ice\include\generated\x64\Release" /external:I"$(SolutionDir)..\..\vender\snappy\include" /external:I"$(SolutionDir)..\..\vender\json\include" /external:I"$(SolutionDir)..\..\vender\zlib\include\x64" /external:I"$(SolutionDir)..\..\vender\tinyxml\include" /external:I"$(SolutionDir)..\..\vender\SocketServer\include" /external:I"$(SolutionDir)..\..\vender\nsdk\include" /external:I"$(SolutionDir)..\..\vender\xsdk\include" /external:I"$(SolutionDir)..\..\vender\thread\include" %(AdditionalOptions)</AdditionalOptions>
+      <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
+      <DisableSpecificWarnings>4200;4251;4275;4190;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Lib>
+      <LinkTimeCodeGeneration>true</LinkTimeCodeGeneration>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\include\IceRPCPush.h" />
@@ -194,7 +233,9 @@
     <ClCompile Include="..\..\src\XmlConfig.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="IceRPCPush.rc" />
+    <ResourceCompile Include="IceRPCPush.rc">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">true</ExcludedFromBuild>
+    </ResourceCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

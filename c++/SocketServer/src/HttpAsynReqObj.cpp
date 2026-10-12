@@ -2,9 +2,7 @@
 
 #include <string.h>
 #include <new>
-#include <windows.h>
-
-#include "HPSocket.h"
+#include "ServerPlatform.h"
 #include "Log.h"
 #include "publicfunc.h"
 #include "publicGlobalvar.h"
@@ -39,6 +37,21 @@ namespace
 		return (nullptr == p_szValue) ? 0 : strlen(p_szValue);
 	}
 
+	// 最多检查指定字节数，保持 Windows strnlen_s 的空指针语义。
+	size_t BoundedStringLength(const char* p_szValue, size_t p_uiLimit)
+	{
+		if (p_szValue == nullptr)
+		{
+			return 0;
+		}
+		size_t uiLength = 0;
+		while (uiLength < p_uiLimit && p_szValue[uiLength] != '\0')
+		{
+			++uiLength;
+		}
+		return uiLength;
+	}
+
 	void ClearHttpActiveReq(ST_HTTP_SERVER_RUNTIME* p_pRuntime,
 		CONNID dwConnID, unsigned long long ullReqID)
 	{
@@ -63,12 +76,12 @@ namespace
 			return false;
 
 		BOOL bAlive = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bAlive = pSender->HasStarted() && pSender->IsConnected(dwConnID);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			HTTP_ERROR("ReqID=%llu,ConnID=%llu,HttpIsAliveException=0x%08X",
 				ullReqID, (unsigned long long)dwConnID, dwExceptionCode);
@@ -94,12 +107,12 @@ namespace
 			return false;
 
 		BOOL bOK = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bOK = pSender->SendResponse(dwConnID, (USHORT)enStatus, nullptr, pHeaders, iHeaderCount, pBody, iBodyLen);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			// wyl 2026-05-19：HTTP 回包底层异常不能让进程无日志退出，至少记录请求号、连接号和异常码。
 			HTTP_ERROR("ReqID=%llu,ConnID=%llu,SendResponseException=0x%08X,Status=%d,BodyLen=%d",
@@ -115,12 +128,12 @@ namespace
 			return false;
 
 		BOOL bOK = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bOK = pSender->PauseReceive(dwConnID, bPause);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			HTTP_ERROR("ReqID=%llu,ConnID=%llu,PauseReceiveException=0x%08X,Pause=%d",
 				ullReqID, (unsigned long long)dwConnID, dwExceptionCode, (int)bPause);
@@ -135,12 +148,12 @@ namespace
 			return false;
 
 		BOOL bOK = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bOK = pSender->Release(dwConnID);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			HTTP_ERROR("ReqID=%llu,ConnID=%llu,%sException=0x%08X",
 				ullReqID, (unsigned long long)dwConnID, nullptr != p_szAction ? p_szAction : "ReleaseConn", dwExceptionCode);
@@ -396,7 +409,7 @@ EN_HTTP_QUERY_PARSE_RESULT CHttpAsynReqObj::SetRequestUrl(const char* p_szRawUrl
 	}
 
 	// 有界计算请求目标长度，异常长 URL 不再触发无上限扫描和分配。
-	p_refUiObservedRawUrlBytes = strnlen_s(p_szRawUrl, p_uiMaxRawUrlBytes + 1);
+	p_refUiObservedRawUrlBytes = BoundedStringLength(p_szRawUrl, p_uiMaxRawUrlBytes + 1);
 	if (p_refUiObservedRawUrlBytes > p_uiMaxRawUrlBytes)
 	{
 		return HTTP_QUERY_PARSE_RAW_URL_TOO_LONG;
@@ -405,7 +418,7 @@ EN_HTTP_QUERY_PARSE_RESULT CHttpAsynReqObj::SetRequestUrl(const char* p_szRawUrl
 
 	if (nullptr != p_szQuery)
 	{
-		const size_t uiQueryLength = strnlen_s(p_szQuery, p_uiMaxRawUrlBytes + 1);
+		const size_t uiQueryLength = BoundedStringLength(p_szQuery, p_uiMaxRawUrlBytes + 1);
 		if (uiQueryLength > p_uiMaxRawUrlBytes)
 		{
 			return HTTP_QUERY_PARSE_RAW_URL_TOO_LONG;

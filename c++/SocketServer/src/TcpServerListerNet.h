@@ -6,8 +6,7 @@
 #include <iostream>
 #include <algorithm>
 
-#include "SocketInterface.h"
-#include "HPSocket.h"
+#include "ServerPlatform.h"
 
 struct ST_TCP_SERVER_RUNTIME;
 

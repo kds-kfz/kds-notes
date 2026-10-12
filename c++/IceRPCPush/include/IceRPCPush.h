@@ -18,7 +18,9 @@ typedef unsigned long (*LPTHREAD_START_ROUTINE)(void*);
 #include <string>
 
 #if defined(OS_IS_WINDOWS) || defined(WIN32) || defined(WIN64) || defined(_WIN32) || defined(_WIN64) || defined(_INC_WINDOWS)
-#if defined(ICERPCPUSH_EXPORTS)
+#if defined(ICERPCPUSH_STATIC)
+#define ICERPCPUSH_API
+#elif defined(ICERPCPUSH_EXPORTS)
 // DLL 内部通过 .def 控制导出名，避免额外导出 C++ 装饰名。
 #define ICERPCPUSH_API
 #else

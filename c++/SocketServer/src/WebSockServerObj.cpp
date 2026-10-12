@@ -4,7 +4,7 @@
 #include "ServerRuntimeContext.h"
 #include "publicfunc.h"
 #include "Log.h"
-#include <windows.h>
+#include "ServerPlatform.h"
 #include <condition_variable>
 #include <memory>
 #include <mutex>
@@ -185,12 +185,12 @@ namespace
 			return false;
 
 		BOOL bAlive = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bAlive = pSender->HasStarted() && pSender->IsConnected(dwConnID);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			WEB_ERROR("ConnID=%llu,WebSockIsAliveException=0x%08X", (unsigned long long)dwConnID, dwExceptionCode);
 			return false;
@@ -231,12 +231,12 @@ namespace
 
 		BOOL bQueryOK = FALSE;
 		int iPendingBytes = 0;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bQueryOK = pSender->GetPendingDataLength(dwConnID, iPendingBytes);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			// 第三方网络库状态查询异常必须被截断，避免慢连接诊断打穿业务进程。
 			WEB_ERROR("ConnID=%llu,WebSockGetPendingDataLengthException=0x%08X",
@@ -256,12 +256,12 @@ namespace
 			return false;
 
 		BOOL bSendOK = FALSE;
-		DWORD dwExceptionCode = 0;
-		__try
+		unsigned int dwExceptionCode = 0;
+		SOCKET_SERVER_TRY
 		{
 			bSendOK = pSender->SendWSMessage(dwConnID, true, 0, iOperationCode, pData, iLength, ullBodyLen);
 		}
-		__except (dwExceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+		SOCKET_SERVER_CATCH(dwExceptionCode)
 		{
 			// wyl 2026-05-19：第三方网络库发送异常不能让进程无日志退出，至少落下 ConnID、动作和异常码。
 			WEB_ERROR("ConnID=%llu,%sException=0x%08X,Opcode=%u,SendDataLen=%d",
@@ -454,8 +454,9 @@ void DeleteWebObj(ST_WEB_SERVER_RUNTIME* p_pRuntime)
 
 	if (p_pRuntime->pPackServer != nullptr)
 	{
+		// HP-Socket 6.0.9 的 Stop() 会同步关闭监听、等待连接与工作线程退出，
+		// 返回后已经完成状态复位；这里不再追加 Wait(INFINITE)。
 		p_pRuntime->pPackServer->Stop();
-		p_pRuntime->pPackServer->Wait(INFINITE);
 	}
 
 	// wyl 2026-04-15：先等待线程池中已排队的 Web 回调自然退出，再销毁底层 server，
@@ -558,7 +559,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 
 	if (nullptr == p_szIp || 7 > strlen(p_szIp))
 	{
-		_snprintf(p_szErr, 1024, "code=-1,msg=init param err");
+		snprintf(p_szErr, 1024, "code=-1,msg=init param err");
 		return false;
 	}
 
@@ -571,19 +572,19 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 	if (nullptr != p_szLogFold && strlen(p_szLogFold) > 0)
 	{
 		// wyl 2026-03-30：Web 服务使用独立日志单例，避免与 TCP 服务共享日志路径和生命周期。
-		if (MA_OK == CWebLog::GetInstance()->InitLog(p_szLogFold))
+		if (MA_OK == CSocketServerWebLog::GetInstance()->InitLog(p_szLogFold))
 		{
-			CWebLog::GetInstance()->Resume();//恢复工作
+			CSocketServerWebLog::GetInstance()->Resume();//恢复工作
 			WEB_INFO("log started");
 		}
 		else
 		{
-			_snprintf(p_szErr, 1024, "code=-2,msg=log init fail");
+			snprintf(p_szErr, 1024, "code=-2,msg=log init fail");
 			DeleteWebObj(m_ptrRuntime.get());
 			return false;
 		}
 		// 设置日志等级
-		CWebLog::GetInstance()->SetLogLevel((char *)"info");
+		CSocketServerWebLog::GetInstance()->SetLogLevel((char *)"info");
 	}
 
 	// 设置任务回调
@@ -597,7 +598,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 	if (!m_ptrRuntime->clThreadPool->Start(p_uiThreadNum,
 		p_uiQueueNum, TRP_CALL_FAIL, 0))
 	{
-		_snprintf(p_szErr, 1024, "code=%d,msg=thread pool start fail", SYS_GetLastError());
+		snprintf(p_szErr, 1024, "code=%d,msg=thread pool start fail", SYS_GetLastError());
 		DeleteWebObj(m_ptrRuntime.get());
 		return false;
 	}
@@ -612,7 +613,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 	if (m_ptrRuntime->pListener == nullptr)
 	{
 		iRet = SYS_GetLastError();
-		_snprintf(p_szErr, 1024, "code=%d,msg=create web server lister fail", iRet);
+		snprintf(p_szErr, 1024, "code=%d,msg=create web server lister fail", iRet);
 		DeleteWebObj(m_ptrRuntime.get());
 		return false;
 	}
@@ -626,7 +627,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 
 	if (m_ptrRuntime->pPackServer == nullptr)
 	{
-		_snprintf(p_szErr, 1024, "code=%d,msg=create web server fail", SYS_GetLastError());
+		snprintf(p_szErr, 1024, "code=%d,msg=create web server fail", SYS_GetLastError());
 		DeleteWebObj(m_ptrRuntime.get());
 		return false;
 	}
@@ -660,7 +661,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 		char szErrDesc[256] = { 0 };
 		SafeCopyCString(szErrDesc, sizeof(szErrDesc),
 			m_ptrRuntime->pPackServer->GetLastErrorDesc());
-		_snprintf(p_szErr, 1024, "code=%d,msg=%s",
+		snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			m_ptrRuntime->pPackServer->GetLastError(), szErrDesc);
 		DeleteWebObj(m_ptrRuntime.get());
 		return false;
@@ -680,7 +681,7 @@ bool CWebSockServerObj::CreateWssSock(const char*, unsigned short, unsigned int,
 	// wyl 2026-03-30：当前版本尚未实现 WSS 建链和证书装载，必须明确返回失败，避免上层误判服务已启动成功。
 	if (nullptr != p_szErr)
 	{
-		_snprintf(p_szErr, 1024, "code=-3,msg=wss not implement");
+		snprintf(p_szErr, 1024, "code=-3,msg=wss not implement");
 	}
 	return false;
 }

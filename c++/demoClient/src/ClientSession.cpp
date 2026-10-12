@@ -44,6 +44,15 @@ void DeleteClient(EN_SOCKET_CLIENT_TYPE p_enType, CSocketClient*& p_refClient)
     else if (p_enType == EN_SOCKET_CLIENT_HTTP) DelHttpClientInstance(p_refClient);
     else DelWebClientInstance(p_refClient);
 }
+
+// Keep-Alive 发送下一请求前清空上一响应的业务状态；连接状态保持不变。
+void ResetHttpResponse(ClientSession& p_refState)
+{
+    std::lock_guard<std::mutex> lock(p_refState.mutex);
+    p_refState.complete = false;
+    p_refState.status = 0;
+    p_refState.data.clear();
+}
 }
 
 // 每个工作线程只操作自己的命名实例，统一检查连接和响应内容。
@@ -58,6 +67,15 @@ bool RunClient(EN_SOCKET_CLIENT_TYPE p_enType, const std::string& p_strHost,
         CreateHttpClientInstanceByName(name.c_str()) :
         CreateWebClientInstanceByName(name.c_str());
     if (!client) { p_refError = name + ": create failed"; return false; }
+    ST_SOCKET_CLIENT_RUNTIME_INFO runtime = {};
+    runtime.uiStructSize = sizeof(runtime);
+    if (!GetSocketClientRuntimeInfo(client, &runtime) ||
+        runtime.uiAbiVersion != SOCKET_CLIENT_ABI_VERSION || runtime.enType != p_enType)
+    {
+        p_refError = name + ": runtime info mismatch";
+        DeleteClient(p_enType, client);
+        return false;
+    }
     ClientSession state;
     bool ok = client->Connect(p_strHost.c_str(), p_usPort, OnClientEvent, &state);
     if (!ok || !Wait(state, [](const ClientSession& p_refState) { return p_refState.connected; }))
@@ -78,6 +96,17 @@ bool RunClient(EN_SOCKET_CLIENT_TYPE p_enType, const std::string& p_strHost,
             });
         if (!ok)
             p_refError = name + ": HTTP response mismatch";
+        else
+        {
+            // 第二次请求复用同一连接，覆盖新版客户端单在途闸门释放与 Keep-Alive 路径。
+            ResetHttpResponse(state);
+            ok = client->Request("GET", "/health?round=2", nullptr, nullptr, 0, nullptr, 0) &&
+                Wait(state, [](const ClientSession& p_refState) {
+                    return p_refState.complete && p_refState.status == 200 &&
+                        p_refState.data == "http-ok";
+                });
+            if (!ok) p_refError = name + ": HTTP Keep-Alive response mismatch";
+        }
     }
     else
     {

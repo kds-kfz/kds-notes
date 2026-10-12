@@ -1,0 +1,314 @@
+// Microsoft Visual C++ generated resource script.
+//
+#pragma code_page(65001)
+
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+// Generated from the TEXTINCLUDE 2 resource.
+#include "afxres.h"
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// 中文(简体，中国) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
+LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_MTLOADTEST_ICON     ICON                    "..\\res\\MtLoadTest.ico"
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_MAIN_MENU MENU
+BEGIN
+    POPUP "压力测试(&L)"
+    BEGIN
+        MENUITEM "打开压力测试",                      ID_MENU_LOAD_TEST
+    END
+    POPUP "接口测试(&I)"
+    BEGIN
+        MENUITEM "打开接口测试",                      ID_MENU_INTERFACE_TEST
+    END
+    POPUP "数据查看(&D)"
+    BEGIN
+        MENUITEM "打开数据查看",                      ID_MENU_DATA_VIEWER
+    END
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_MAIN_DIALOG DIALOGEX 0, 0, 210, 140
+STYLE DS_SETFONT | DS_MODALFRAME | WS_MINIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "Mt 测试与数据工具"
+MENU IDR_MAIN_MENU
+FONT 9, "Microsoft YaHei UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "选择要使用的工具",IDC_STATIC,7,7,68,11
+    PUSHBUTTON      "压力测试",IDC_OPEN_LOAD_TEST,7,22,33,18
+    PUSHBUTTON      "接口测试",IDC_OPEN_INTERFACE_TEST,47,22,33,18
+    PUSHBUTTON      "数据查看",IDC_OPEN_DATA_VIEWER,86,22,33,18
+    GROUPBOX        "功能边界",IDC_STATIC,6,53,194,55
+    LTEXT           "压力测试：读取 MtLoadEngine XML 计划并执行场景压测。",IDC_STATIC,17,67,175,14
+    LTEXT           "接口测试：使用独立配置编辑并发送单次 HTTP/TCP 请求。",IDC_STATIC,17,79,175,14
+    LTEXT           "数据查看：解析、编辑并另存 V3 本地二进制数据文件。",IDC_STATIC,17,91,175,14
+    CONTROL         "准备就绪",IDC_MAIN_STATUS,"Static",SS_LEFTNOWORDWRAP | WS_GROUP,9,126,175,8
+END
+
+IDD_MTLOADTEST_DIALOG DIALOGEX 0, 0, 620, 280
+STYLE DS_SETFONT | DS_MODALFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "MtLoadTest"
+FONT 9, "Microsoft YaHei UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "计划文件:",IDC_STATIC,6,6,48,12
+    EDITTEXT        IDC_PLAN_PATH,39,4,225,12,ES_AUTOHSCROLL | ES_READONLY
+    PUSHBUTTON      "浏览",IDC_BROWSE_PLAN,481,17,30,15
+    PUSHBUTTON      "加载",IDC_VALIDATE_PLAN,510,17,30,15
+    PUSHBUTTON      "日志",IDC_LOG_BUTTON,539,17,30,15
+    PUSHBUTTON      "导出",IDC_EXPORT_RESULTS,568,17,30,15
+    LTEXT           "运行环境:",IDC_STATIC,6,20,48,12
+    COMBOBOX        IDC_ENVIRONMENT,39,19,225,96,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "开始",IDC_START_RUN,481,32,30,15
+    PUSHBUTTON      "暂停",IDC_PAUSE_RUN,510,32,30,15
+    PUSHBUTTON      "清空",IDC_CLEAR_RESULTS,539,32,30,15
+    LTEXT           "压测场景:",IDC_STATIC,6,33,48,12
+    COMBOBOX        IDC_SCENARIO,39,32,225,104,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "压测用户:",IDC_STATIC,6,45,48,12
+    COMBOBOX        IDC_USER,39,44,225,104,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "状态: CREATED",IDC_RUN_STATE,6,57,225,12
+    CONTROL         "",IDC_METRIC_LIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | WS_BORDER | WS_TABSTOP,6,69,610,195
+    CONTROL         "准备就绪",IDC_STATUS_TEXT,"Static",SS_LEFTNOWORDWRAP | WS_GROUP,7,268,225,12
+    GROUPBOX        "功能键",IDC_STATIC,473,7,133,47
+END
+
+IDD_LOG_DIALOG DIALOGEX 0, 0, 420, 280
+STYLE DS_SETFONT | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+CAPTION "运行日志"
+FONT 9, "Microsoft YaHei UI", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_LOG_LIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | WS_BORDER | WS_TABSTOP,0,0,420,261
+    PUSHBUTTON      "清空显示",IDC_CLEAR_LOG,355,263,31,14
+    PUSHBUTTON      "打开日志",IDC_OPEN_LOG,386,263,31,14
+END
+
+IDD_INTERFACE_TEST_DIALOG DIALOGEX 0, 0, 680, 500
+STYLE DS_SETFONT | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME
+EXSTYLE WS_EX_APPWINDOW
+CAPTION "通用接口测试 - HTTP / HTTPS / Web JSON"
+FONT 9, "Microsoft YaHei UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "配置文件:",IDC_STATIC,6,7,34,10
+    EDITTEXT        IDC_INTERFACE_CONFIG_PATH,42,5,470,13,ES_AUTOHSCROLL | ES_READONLY
+    PUSHBUTTON      "浏览",IDC_INTERFACE_BROWSE,516,4,38,15
+    PUSHBUTTON      "加载",IDC_INTERFACE_LOAD,556,4,38,15
+    PUSHBUTTON      "保存",IDC_INTERFACE_SAVE,596,4,38,15
+    PUSHBUTTON      "关闭",IDCANCEL,636,4,38,15
+
+    LTEXT           "环境:",IDC_STATIC,6,24,34,10
+    COMBOBOX        IDC_INTERFACE_ENV,42,22,118,96,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "服务类型:",IDC_STATIC,166,24,42,10
+    COMBOBOX        IDC_INTERFACE_TRANSPORT,210,22,86,96,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "服务器:",IDC_STATIC,302,24,34,10
+    COMBOBOX        IDC_INTERFACE_SERVER,338,22,174,96,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "连接",IDC_INTERFACE_CONNECT,516,21,38,15
+    PUSHBUTTON      "断开",IDC_INTERFACE_DISCONNECT,556,21,38,15
+    PUSHBUTTON      "发送",IDC_INTERFACE_SEND,596,21,38,15
+    PUSHBUTTON      "取消",IDC_INTERFACE_CANCEL,636,21,38,15
+
+    LTEXT           "报文协议:",IDC_STATIC,6,41,34,10
+    COMBOBOX        IDC_INTERFACE_PROTOCOL,42,39,118,96,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "变量组:",IDC_STATIC,166,41,42,10
+    COMBOBOX        IDC_INTERFACE_VARIABLE_SET,210,39,86,96,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "接口分类:",IDC_STATIC,302,41,34,10
+    COMBOBOX        IDC_INTERFACE_CATEGORY,338,39,174,96,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "日志",IDC_INTERFACE_LOG,516,38,38,15
+    PUSHBUTTON      "清空消息",IDC_INTERFACE_WEB_CLEAR,556,38,38,15
+
+    LTEXT           "接口名称:",IDC_STATIC,6,58,34,10
+    COMBOBOX        IDC_INTERFACE_CASE,42,56,254,160,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "方法:",IDC_STATIC,302,58,24,10
+    EDITTEXT        IDC_INTERFACE_METHOD,328,56,50,13,ES_AUTOHSCROLL
+    LTEXT           "路径:",IDC_STATIC,382,58,24,10
+    EDITTEXT        IDC_INTERFACE_PATH,408,56,266,13,ES_AUTOHSCROLL
+
+    GROUPBOX        "接口说明",IDC_STATIC,6,72,668,43
+    EDITTEXT        IDC_INTERFACE_DESCRIPTION,12,82,656,27,ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL
+
+    GROUPBOX        "字段表",IDC_STATIC,6,117,402,118
+    CONTROL         "",IDC_INTERFACE_FIELD_LIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | WS_BORDER | WS_TABSTOP,12,128,390,85
+    LTEXT           "Pointer:",IDC_STATIC,12,218,34,10
+    EDITTEXT        IDC_INTERFACE_FIELD_PATH,47,216,112,13,ES_AUTOHSCROLL
+    LTEXT           "类型:",IDC_STATIC,164,218,22,10
+    COMBOBOX        IDC_INTERFACE_FIELD_TYPE,188,216,58,80,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "值:",IDC_STATIC,250,218,14,10
+    EDITTEXT        IDC_INTERFACE_FIELD_VALUE,266,216,74,13,ES_AUTOHSCROLL
+    PUSHBUTTON      "应用",IDC_INTERFACE_FIELD_APPLY,343,215,28,15
+    PUSHBUTTON      "新增",IDC_INTERFACE_FIELD_ADD,373,215,28,15
+
+    GROUPBOX        "原始 JSON",IDC_STATIC,412,117,262,118
+    EDITTEXT        IDC_INTERFACE_REQUEST,418,128,250,85,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | WS_HSCROLL | WS_VSCROLL
+    PUSHBUTTON      "同步到字段表",IDC_INTERFACE_JSON_APPLY,590,215,78,15
+    PUSHBUTTON      "删除字段",IDC_INTERFACE_FIELD_DELETE,510,215,76,15
+
+    GROUPBOX        "请求头（配置表达式）",IDC_STATIC,6,237,214,68
+    EDITTEXT        IDC_INTERFACE_HEADERS,12,249,202,50,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | WS_HSCROLL | WS_VSCROLL
+    GROUPBOX        "实际请求（敏感值脱敏）",IDC_STATIC,224,237,450,68
+    EDITTEXT        IDC_INTERFACE_ACTUAL_REQUEST,230,249,438,50,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | WS_HSCROLL | WS_VSCROLL
+
+    GROUPBOX        "应答",IDC_STATIC,6,307,668,94
+    EDITTEXT        IDC_INTERFACE_RESPONSE_STATUS,12,318,656,13,ES_AUTOHSCROLL | ES_READONLY
+    EDITTEXT        IDC_INTERFACE_RESPONSE_HEADERS,12,334,202,59,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | WS_HSCROLL | WS_VSCROLL
+    EDITTEXT        IDC_INTERFACE_RESPONSE,218,334,450,59,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | WS_HSCROLL | WS_VSCROLL
+
+    GROUPBOX        "WebSocket 消息（最多保留配置上限，默认 5000 条）",IDC_STATIC,6,403,668,81
+    CONTROL         "",IDC_INTERFACE_WEB_LIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | WS_BORDER | WS_TABSTOP,12,414,440,64
+    EDITTEXT        IDC_INTERFACE_WEB_DETAIL,456,414,212,64,ES_MULTILINE | ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | WS_HSCROLL | WS_VSCROLL
+    LTEXT           "准备就绪",IDC_INTERFACE_STATUS,8,487,666,10,SS_LEFTNOWORDWRAP
+END
+
+IDD_DATA_VIEWER_DIALOG DIALOGEX 0, 0, 420, 280
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "V3 二进制数据查看"
+FONT 9, "Microsoft YaHei UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "数据查看",IDC_RESERVED_TITLE,18,18,460,20
+    LTEXT           "",IDC_RESERVED_MESSAGE,18,52,484,72
+    DEFPUSHBUTTON   "关闭",IDOK,335,255,82,22
+END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#define APSTUDIO_READONLY_SYMBOLS\r\n"
+    "/////////////////////////////////////////////////////////////////////////////\r\n"
+    "// Generated from the TEXTINCLUDE 2 resource.\r\n"
+    "#include ""afxres.h""\r\n"
+    "/////////////////////////////////////////////////////////////////////////////\r\n"
+    "#undef APSTUDIO_READONLY_SYMBOLS\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO
+BEGIN
+    IDD_MAIN_DIALOG, DIALOG
+    BEGIN
+    END
+
+    IDD_MTLOADTEST_DIALOG, DIALOG
+    BEGIN
+        RIGHTMARGIN, 480
+    END
+
+    IDD_LOG_DIALOG, DIALOG
+    BEGIN
+    END
+
+    IDD_INTERFACE_TEST_DIALOG, DIALOG
+    BEGIN
+        VERTGUIDE, 257
+    END
+
+    IDD_DATA_VIEWER_DIALOG, DIALOG
+    BEGIN
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// AFX_DIALOG_LAYOUT
+//
+
+IDD_MTLOADTEST_DIALOG AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+IDD_MAIN_DIALOG AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+IDD_LOG_DIALOG AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+IDD_INTERFACE_TEST_DIALOG AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+IDD_DATA_VIEWER_DIALOG AFX_DIALOG_LAYOUT
+BEGIN
+    0
+END
+
+#endif    // 中文(简体，中国) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

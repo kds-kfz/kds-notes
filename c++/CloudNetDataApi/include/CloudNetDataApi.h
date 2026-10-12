@@ -2,7 +2,9 @@
 #define H_CLOUDNETDATA_API
 
 #if defined(OS_IS_WINDOWS) || defined(WIN32) || defined(WIN64) || defined(_WIN32) || defined(_WIN64) || defined(_INC_WINDOWS)
-#if defined(CLOUDNETDATAAPI_EXPORTS)
+#if defined(CLOUDNETDATAAPI_STATIC)
+#define CLOUDNETDATA_API
+#elif defined(CLOUDNETDATAAPI_EXPORTS)
 // DLL 内部通过 .def 控制导出名，避免额外导出 C++ 装饰名。
 #define CLOUDNETDATA_API
 #else
