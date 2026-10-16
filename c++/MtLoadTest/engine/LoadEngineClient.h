@@ -34,6 +34,9 @@ public:
     std::vector<MTLOAD_SCENARIO> GetScenarios() const;
     // 选择唯一场景；空 ID 表示全部场景。
     bool SelectScenario(const std::string& scenarioId, std::wstring& error);
+    // 取得独立工作负载列表并选择其中一个。
+    std::vector<MTLOAD_WORKLOAD> GetWorkloads() const;
+    bool SelectWorkload(const std::string& workloadId, std::wstring& error);
     // 取得不含密码的用户摘要副本。
     std::vector<MTLOAD_USER> GetUsers() const;
     // 选择统一用户；空 ID 恢复场景 UserRefs。
@@ -52,6 +55,9 @@ public:
     bool GetState(MTLOAD_RUN_STATE& state) const;
     // 取得指标行副本，失败时返回空集合。
     std::vector<MTLOAD_METRIC_ROW> GetMetrics() const;
+    // 取得独立业务事务汇总和运行终点阈值结果。
+    std::vector<MTLOAD_SCENARIO_METRIC_ROW> GetScenarioMetrics() const;
+    std::vector<MTLOAD_THRESHOLD_RESULT> GetThresholdResults() const;
     // 取得脱敏错误样本副本，失败时返回空集合。
     std::vector<MTLOAD_ERROR_SAMPLE> GetErrorSamples() const;
     // 按 XML 报告目录导出单一格式并返回实际路径。
@@ -84,6 +90,8 @@ private:
     decltype(&MtLoad_SelectEnvironment) selectEnvironment_ = nullptr; // 环境选择入口。
     decltype(&MtLoad_GetScenarios) getScenarios_ = nullptr; // 场景查询入口。
     decltype(&MtLoad_SelectScenario) selectScenario_ = nullptr; // 场景选择入口。
+    decltype(&MtLoad_GetWorkloads) getWorkloads_ = nullptr; // 工作负载查询入口。
+    decltype(&MtLoad_SelectWorkload) selectWorkload_ = nullptr; // 工作负载选择入口。
     decltype(&MtLoad_GetUsers) getUsers_ = nullptr; // 用户摘要查询入口。
     decltype(&MtLoad_SelectUser) selectUser_ = nullptr; // 用户选择入口。
     decltype(&MtLoad_Start) start_ = nullptr; // 异步启动入口。
@@ -94,6 +102,8 @@ private:
     decltype(&MtLoad_Wait) wait_ = nullptr; // 终态等待入口。
     decltype(&MtLoad_GetRunState) getRunState_ = nullptr; // 状态快照入口。
     decltype(&MtLoad_GetMetricRows) getMetricRows_ = nullptr; // 指标查询入口。
+    decltype(&MtLoad_GetScenarioMetricRows) getScenarioMetricRows_ = nullptr; // 事务指标入口。
+    decltype(&MtLoad_GetThresholdResults) getThresholdResults_ = nullptr; // 阈值结果入口。
     decltype(&MtLoad_GetErrorSamples) getErrorSamples_ = nullptr; // 错误样本查询入口。
     decltype(&MtLoad_ExportConfiguredReport) exportConfiguredReport_ = nullptr; // 配置化导出入口。
     decltype(&MtLoad_GetLastError) getLastError_ = nullptr; // 最近错误查询入口。

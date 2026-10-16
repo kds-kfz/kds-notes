@@ -46,6 +46,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\tests\InterfaceContractTests.cpp" />
     <ClCompile Include="..\..\..\interface_test\InterfaceTestModel.cpp" />
+    <ClCompile Include="..\..\..\interface_test\JsonMessage.cpp" />
     <ClCompile Include="..\..\..\interface_test\InterfaceTransport.cpp" />
     <ClCompile Include="..\..\..\common\Utf8Text.cpp" />
   </ItemGroup>

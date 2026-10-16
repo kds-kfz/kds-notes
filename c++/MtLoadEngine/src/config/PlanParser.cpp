@@ -5,6 +5,7 @@
 #include <tinyxml.h>
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -33,6 +34,18 @@ uint32_t UnsignedAttribute(const TiXmlElement* element, const char* name,
     if (element != nullptr && element->QueryIntAttribute(name, &value) == TIXML_SUCCESS && value >= 0)
     {
         return static_cast<uint32_t>(value);
+    }
+    return defaultValue;
+}
+
+// 读取浮点属性并保留负数等已成功解析的原值；具体取值范围由后续语义校验决定，
+// 避免解析阶段把错误配置静默替换成可通过校验的默认值。
+double DoubleAttribute(const TiXmlElement* element, const char* name, double defaultValue)
+{
+    double value = 0.0;
+    if (element != nullptr && element->QueryDoubleAttribute(name, &value) == TIXML_SUCCESS)
+    {
+        return value;
     }
     return defaultValue;
 }
@@ -247,6 +260,54 @@ void ParseRequest(const TiXmlElement* element, Request& request)
         }
     }
 }
+
+// 将 Scenario 或 Workload 下的 Load 映射为统一模型。阶段顺序即执行顺序，
+// 每段目标速率由上一段目标线性过渡，解析阶段不做上限判断。
+void ParseLoad(const TiXmlElement* element, Load& load)
+{
+    if (element == nullptr) return;
+    load.mode = Attribute(element, "mode", "closed");
+    load.threads = UnsignedAttribute(element, "threads",
+        UnsignedAttribute(element, "users", 1));
+    load.rampUpMs = UnsignedAttribute(element, "rampUpMs", 0);
+    load.durationMs = UnsignedAttribute(element, "durationMs", 0);
+    load.iterations = UnsignedAttribute(element, "iterations", load.durationMs == 0 ? 1 : 0);
+    load.ratePerSec = DoubleAttribute(element, "ratePerSec", 0.0);
+    load.preAllocatedUsers = UnsignedAttribute(element, "preAllocatedUsers", 1);
+    load.maxUsers = UnsignedAttribute(element, "maxUsers", load.preAllocatedUsers);
+    for (const TiXmlElement* stage = element->FirstChildElement("Stage"); stage != nullptr;
+        stage = stage->NextSiblingElement("Stage"))
+    {
+        load.stages.push_back({ UnsignedAttribute(stage, "durationMs", 0),
+            DoubleAttribute(stage, "targetRatePerSec", 0.0) });
+    }
+}
+
+// 计算有限 closed 工作负载中某场景按确定性权重周期获得的事务数。
+// 校验阶段只使用整数运算，结果与运行时调度器保持一致。
+uint64_t WeightedScenarioIterations(const Workload& workload, const std::string& scenarioId)
+{
+    const uint64_t totalIterations = static_cast<uint64_t>(workload.load.threads) *
+        workload.load.iterations;
+    uint64_t totalWeight = 0;
+    uint64_t before = 0;
+    uint32_t ownWeight = 0;
+    for (const WorkloadScenarioRef& reference : workload.scenarios)
+    {
+        if (reference.scenarioId == scenarioId)
+        {
+            before = totalWeight;
+            ownWeight = reference.weight;
+        }
+        totalWeight += reference.weight;
+    }
+    if (totalWeight == 0 || ownWeight == 0) return 0;
+    const uint64_t fullCycles = totalIterations / totalWeight;
+    const uint64_t remainder = totalIterations % totalWeight;
+    const uint64_t remainderCount = remainder <= before ? 0 :
+        (std::min)(static_cast<uint64_t>(ownWeight), remainder - before);
+    return fullCycles * ownWeight + remainderCount;
+}
 }
 
 // 关键实现：先在局部 Plan 中完成整份 XML/CSV 转换，全部成功后才覆盖 outPlan。
@@ -425,15 +486,7 @@ int ParsePlan(const std::string& pathUtf8, Plan& outPlan, std::string& outError)
                         userRef != nullptr; userRef = userRef->NextSiblingElement("UserRef"))
                         scenario.userIds.push_back(Attribute(userRef, "id"));
                 }
-                if (const TiXmlElement* load = scenarioNode->FirstChildElement("Load"))
-                {
-                    scenario.load.mode = Attribute(load, "mode", "closed");
-                    scenario.load.threads = UnsignedAttribute(load, "threads",
-                        UnsignedAttribute(load, "users", 1));
-                    scenario.load.rampUpMs = UnsignedAttribute(load, "rampUpMs", 0);
-                    scenario.load.durationMs = UnsignedAttribute(load, "durationMs", 0);
-                    scenario.load.iterations = UnsignedAttribute(load, "iterations", scenario.load.durationMs == 0 ? 1 : 0);
-                }
+                ParseLoad(scenarioNode->FirstChildElement("Load"), scenario.load);
                 for (const TiXmlElement* stepNode = scenarioNode->FirstChildElement("Step"); stepNode != nullptr;
                     stepNode = stepNode->NextSiblingElement("Step"))
                 {
@@ -453,6 +506,72 @@ int ParsePlan(const std::string& pathUtf8, Plan& outPlan, std::string& outError)
                 }
                 plan.scenarios.push_back(std::move(scenario));
             }
+        }
+
+        // 阶段五：独立工作负载复用场景定义。没有 Workloads 时生成兼容项，保证
+        // 旧 Scenario.Load、单场景选择和“全部场景”执行语义保持不变。
+        if (const TiXmlElement* workloads = root->FirstChildElement("Workloads"))
+        {
+            plan.defaultWorkloadId = Attribute(workloads, "default");
+            for (const TiXmlElement* node = workloads->FirstChildElement("Workload"); node != nullptr;
+                node = node->NextSiblingElement("Workload"))
+            {
+                Workload workload;
+                workload.id = Attribute(node, "id");
+                workload.name = Attribute(node, "name", workload.id);
+                workload.testType = Attribute(node, "type", "average");
+                ParseLoad(node->FirstChildElement("Load"), workload.load);
+                for (const TiXmlElement* reference = node->FirstChildElement("ScenarioRef");
+                    reference != nullptr; reference = reference->NextSiblingElement("ScenarioRef"))
+                {
+                    workload.scenarios.push_back({ Attribute(reference, "id"),
+                        UnsignedAttribute(reference, "weight", 1) });
+                }
+                if (const TiXmlElement* thresholds = node->FirstChildElement("Thresholds"))
+                {
+                    for (const TiXmlElement* item = thresholds->FirstChildElement("Threshold");
+                        item != nullptr; item = item->NextSiblingElement("Threshold"))
+                    {
+                        Threshold threshold;
+                        threshold.id = Attribute(item, "id");
+                        threshold.name = Attribute(item, "name", threshold.id);
+                        threshold.scope = Attribute(item, "scope", "run");
+                        threshold.metric = Attribute(item, "metric");
+                        threshold.target = Attribute(item, "target");
+                        threshold.comparison = Attribute(item, "operator", "lte");
+                        threshold.value = DoubleAttribute(item, "value", 0.0);
+                        workload.thresholds.push_back(std::move(threshold));
+                    }
+                }
+                plan.workloads.push_back(std::move(workload));
+            }
+        }
+        const bool hadExplicitWorkloads = !plan.workloads.empty();
+        if (!hadExplicitWorkloads)
+        {
+            plan.defaultWorkloadId = "legacy-all";
+        }
+        else if (plan.defaultWorkloadId.empty())
+        {
+            plan.defaultWorkloadId = plan.workloads.front().id;
+        }
+        Workload all;
+        all.id = "legacy-all";
+        all.name = "全部场景（兼容模式）";
+        all.implicit = true;
+        all.useScenarioLoads = true;
+        for (const Scenario& scenario : plan.scenarios)
+            all.scenarios.push_back({ scenario.id, 1 });
+        plan.workloads.push_back(std::move(all));
+        for (const Scenario& scenario : plan.scenarios)
+        {
+            Workload single;
+            single.id = "legacy-" + scenario.id;
+            single.name = scenario.name + "（兼容模式）";
+            single.load = scenario.load;
+            single.scenarios.push_back({ scenario.id, 1 });
+            single.implicit = true;
+            plan.workloads.push_back(std::move(single));
         }
         // 只有完整解析成功才提交局部模型，失败不会留下半份计划。
         outPlan = std::move(plan);
@@ -523,6 +642,7 @@ int ValidatePlan(const Plan& plan, std::string& outError)
     }
     // 场景级校验沿执行层级向下，确保每个 ID 唯一且引用闭合。
     std::set<std::string> scenarioIds;
+    std::set<std::string> requestLabels;
     uint64_t plannedTotal = 0;
     for (const Scenario& scenario : plan.scenarios)
     {
@@ -533,8 +653,8 @@ int ValidatePlan(const Plan& plan, std::string& outError)
         }
         if (scenario.load.mode != "closed")
         {
-            outError = "当前里程碑仅实现 closed 负载模型";
-            return MTLOAD_E_UNSUPPORTED;
+            outError = "Scenario.Load 兼容入口只允许 closed；arrival 必须放在 Workload.Load: " + scenario.id;
+            return MTLOAD_E_CONFIG_SEMANTIC;
         }
         if (scenario.load.threads == 0 || scenario.load.threads > 10000 ||
             (scenario.load.durationMs == 0 && scenario.load.iterations == 0))
@@ -593,6 +713,7 @@ int ValidatePlan(const Plan& plan, std::string& outError)
                     outError = "Request 的 id、path、target 或 copies 无效: " + request.id;
                     return MTLOAD_E_CONFIG_SEMANTIC;
                 }
+                requestLabels.insert(request.label);
                 if (request.codec != "json")
                 {
                     outError = "首版仅实现 codec=json，当前值: " + request.codec;
@@ -638,6 +759,172 @@ int ValidatePlan(const Plan& plan, std::string& outError)
             }
             plannedTotal += scenarioTotal;
         }
+    }
+
+    // 工作负载在场景语义校验完成后检查，确保引用、阶段曲线和阈值目标闭合。
+    if (plan.workloads.empty())
+    {
+        outError = "计划至少需要一个 Workload 或可转换的 Scenario.Load";
+        return MTLOAD_E_CONFIG_SEMANTIC;
+    }
+    std::set<std::string> workloadIds;
+    bool defaultFound = false;
+    for (const Workload& workload : plan.workloads)
+    {
+        if (workload.id.empty() || !workloadIds.insert(workload.id).second || workload.scenarios.empty())
+        {
+            outError = "Workload id 为空、重复或没有 ScenarioRef: " + workload.id;
+            return MTLOAD_E_CONFIG_SEMANTIC;
+        }
+        if (workload.id == plan.defaultWorkloadId) defaultFound = true;
+        uint64_t totalWeight = 0;
+        std::set<std::string> workloadScenarioIds;
+        for (const WorkloadScenarioRef& reference : workload.scenarios)
+        {
+            if (reference.weight == 0 || scenarioIds.find(reference.scenarioId) == scenarioIds.end() ||
+                !workloadScenarioIds.insert(reference.scenarioId).second)
+            {
+                outError = "Workload ScenarioRef 不存在、重复或权重为 0: " + reference.scenarioId;
+                return MTLOAD_E_CONFIG_SEMANTIC;
+            }
+            totalWeight += reference.weight;
+        }
+        if (totalWeight > 100000)
+        {
+            outError = "Workload 场景权重总和超过 100000: " + workload.id;
+            return MTLOAD_E_CONFIG_SEMANTIC;
+        }
+        if (!workload.useScenarioLoads)
+        {
+            const Load& load = workload.load;
+            if (load.mode == "closed")
+            {
+                if (load.threads == 0 || load.threads > 10000 ||
+                    (load.durationMs == 0 && load.iterations == 0))
+                {
+                    outError = "closed Workload 的 users 或结束条件无效: " + workload.id;
+                    return MTLOAD_E_CONFIG_SEMANTIC;
+                }
+                // 有限 closed 计划必须能用 uint64_t 精确表示，否则进度、吞吐和报告总数会失真。
+                if (load.durationMs == 0)
+                {
+                    uint64_t workloadPlanned = 0;
+                    for (const WorkloadScenarioRef& reference : workload.scenarios)
+                    {
+                        const Scenario* scenario = nullptr;
+                        for (const Scenario& candidate : plan.scenarios)
+                            if (candidate.id == reference.scenarioId) { scenario = &candidate; break; }
+                        if (scenario == nullptr) continue;
+                        uint64_t requestsPerIteration = 0;
+                        for (const Step& step : scenario->steps)
+                            for (const Request& request : step.requests)
+                                requestsPerIteration += request.copies;
+                        const uint64_t scenarioIterations = WeightedScenarioIterations(workload,
+                            reference.scenarioId);
+                        if (requestsPerIteration != 0 && scenarioIterations >
+                            (std::numeric_limits<uint64_t>::max)() / requestsPerIteration)
+                        {
+                            outError = "closed Workload 计划请求数溢出: " + workload.id;
+                            return MTLOAD_E_CONFIG_SEMANTIC;
+                        }
+                        const uint64_t scenarioRequests = scenarioIterations * requestsPerIteration;
+                        if (workloadPlanned > (std::numeric_limits<uint64_t>::max)() - scenarioRequests)
+                        {
+                            outError = "closed Workload 计划请求总数溢出: " + workload.id;
+                            return MTLOAD_E_CONFIG_SEMANTIC;
+                        }
+                        workloadPlanned += scenarioRequests;
+                    }
+                }
+            }
+            else if (load.mode == "arrival")
+            {
+                if (load.preAllocatedUsers == 0 || load.maxUsers < load.preAllocatedUsers ||
+                    load.maxUsers > 10000)
+                {
+                    outError = "arrival Workload 的 preAllocatedUsers/maxUsers 无效: " + workload.id;
+                    return MTLOAD_E_CONFIG_SEMANTIC;
+                }
+                double maximumRate = load.ratePerSec;
+                uint64_t stageDuration = 0;
+                for (const LoadStage& stage : load.stages)
+                {
+                    if (stage.durationMs == 0 || !std::isfinite(stage.targetRatePerSec) ||
+                        stage.targetRatePerSec < 0.0)
+                    {
+                        outError = "arrival Stage durationMs 或 targetRatePerSec 无效: " + workload.id;
+                        return MTLOAD_E_CONFIG_SEMANTIC;
+                    }
+                    stageDuration += stage.durationMs;
+                    maximumRate = (std::max)(maximumRate, stage.targetRatePerSec);
+                }
+                if (!std::isfinite(load.ratePerSec) || load.ratePerSec < 0.0 || maximumRate <= 0.0 ||
+                    (load.stages.empty() && load.durationMs == 0))
+                {
+                    outError = "arrival Workload 需要正到达率和 durationMs 或 Stage: " + workload.id;
+                    return MTLOAD_E_CONFIG_SEMANTIC;
+                }
+                if (!load.stages.empty() && load.durationMs != 0 && load.durationMs != stageDuration)
+                {
+                    outError = "arrival Workload 的 durationMs 必须等于 Stage 总时长或省略: " + workload.id;
+                    return MTLOAD_E_CONFIG_SEMANTIC;
+                }
+            }
+            else
+            {
+                outError = "Workload.Load mode 只支持 closed/arrival: " + workload.id;
+                return MTLOAD_E_UNSUPPORTED;
+            }
+        }
+
+        std::set<std::string> thresholdIds;
+        for (const Threshold& threshold : workload.thresholds)
+        {
+            if (threshold.id.empty() || !thresholdIds.insert(threshold.id).second ||
+                !std::isfinite(threshold.value) || threshold.value < 0.0 ||
+                (threshold.comparison != "lte" && threshold.comparison != "gte" && threshold.comparison != "eq"))
+            {
+                outError = "Threshold id 或 operator 无效: " + threshold.id;
+                return MTLOAD_E_CONFIG_SEMANTIC;
+            }
+            if (threshold.scope == "run")
+            {
+                if (threshold.metric != "errorRate" && threshold.metric != "throughputPerSec" &&
+                    threshold.metric != "droppedIterations")
+                {
+                    outError = "run Threshold metric 无效: " + threshold.metric;
+                    return MTLOAD_E_CONFIG_SEMANTIC;
+                }
+            }
+            else if (threshold.scope == "request")
+            {
+                if ((threshold.metric != "p95Ms" && threshold.metric != "p99Ms") ||
+                    requestLabels.find(threshold.target) == requestLabels.end())
+                {
+                    outError = "request Threshold metric 或 target 无效: " + threshold.id;
+                    return MTLOAD_E_CONFIG_SEMANTIC;
+                }
+            }
+            else if (threshold.scope == "scenario")
+            {
+                if ((threshold.metric != "p95Ms" && threshold.metric != "errorRate") ||
+                    scenarioIds.find(threshold.target) == scenarioIds.end())
+                {
+                    outError = "scenario Threshold metric 或 target 无效: " + threshold.id;
+                    return MTLOAD_E_CONFIG_SEMANTIC;
+                }
+            }
+            else
+            {
+                outError = "Threshold scope 只支持 run/request/scenario: " + threshold.id;
+                return MTLOAD_E_CONFIG_SEMANTIC;
+            }
+        }
+    }
+    if (!defaultFound)
+    {
+        outError = "Workloads default 引用了不存在的工作负载: " + plan.defaultWorkloadId;
+        return MTLOAD_E_CONFIG_SEMANTIC;
     }
     outError.clear();
     return MTLOAD_OK;

@@ -503,6 +503,13 @@ int wmain(int argc, wchar_t* argv[])
             server.RequestCountContaining(" /skipped ") == skippedBefore &&
             server.RequestCountContaining(" /cleanup ") == cleanupBefore + 1,
             "alwaysRun cleanup after failure");
+        uint32_t cleanupTransactionCount = 0;
+        Check(MtLoad_GetScenarioMetricRows(handle, nullptr, &cleanupTransactionCount) == MTLOAD_E_BUFFER_TOO_SMALL &&
+            cleanupTransactionCount == 1, "cleanup transaction count");
+        std::vector<MTLOAD_SCENARIO_METRIC_ROW> cleanupTransactions(cleanupTransactionCount);
+        Check(MtLoad_GetScenarioMetricRows(handle, cleanupTransactions.data(), &cleanupTransactionCount) == MTLOAD_OK &&
+            cleanupTransactions[0].completed == 1 && cleanupTransactions[0].succeeded == 0 &&
+            cleanupTransactions[0].failed == 1, "cleanup failure belongs to complete failed transaction");
         Check(MtLoad_Destroy(handle) == MTLOAD_OK, "isolation destroy");
 
         // 以 16 个并发虚拟终端执行 20 轮回环请求，覆盖高频创建、关闭和句柄释放。
@@ -546,8 +553,8 @@ int wmain(int argc, wchar_t* argv[])
         };
         runStressCycle();
         const DWORD handlesAfterWarmup = CurrentHandleCount();
-        runStressCycle();
-        Check(stressServer.RequestCount() == 640, "stress server request count");
+        for (int cycle = 1; cycle < 10; ++cycle) runStressCycle();
+        Check(stressServer.RequestCount() == 3200, "ten stress cycles request count");
         DWORD handlesAfterStress = 0;
         if (!WaitForHandleCount(handlesAfterWarmup + 8, 3000, handlesAfterStress))
         {
@@ -555,6 +562,150 @@ int wmain(int argc, wchar_t* argv[])
                 ", second=" << handlesAfterStress << '\n';
             Check(false, "stress handle release");
         }
+
+        // V4 工作负载覆盖确定性权重、阶段到达率、最大用户丢弃和阈值终态。
+        MockHttpServer arrivalFast;
+        MockHttpServer arrivalSlow(80);
+        const auto workloadXml = root / "workloads-v4.xml";
+        std::ofstream(workloadXml) <<
+            "<MtLoadPlan version=\"1\" name=\"workloads-v4\"><Targets>"
+            "<Target id=\"fast\" transport=\"http\" host=\"127.0.0.1\" port=\"" << arrivalFast.Port() << "\"/>"
+            "<Target id=\"slow\" transport=\"http\" host=\"127.0.0.1\" port=\"" << arrivalSlow.Port() << "\"/>"
+            "</Targets><Scenarios>"
+            "<Scenario id=\"a\"><Load mode=\"closed\" users=\"1\" iterations=\"1\"/><Step id=\"one\"><Request id=\"a\" label=\"a\" target=\"fast\" method=\"GET\" path=\"/a\" codec=\"json\"><Assertions><Json path=\"$.Code\" operator=\"eq\" value=\"0\"/></Assertions></Request></Step></Scenario>"
+            "<Scenario id=\"b\"><Load mode=\"closed\" users=\"1\" iterations=\"1\"/><Step id=\"one\"><Request id=\"b\" label=\"b\" target=\"fast\" method=\"GET\" path=\"/b\" codec=\"json\"><Assertions><Json path=\"$.Code\" operator=\"eq\" value=\"0\"/></Assertions></Request></Step></Scenario>"
+            "<Scenario id=\"slow\"><Load mode=\"closed\" users=\"1\" iterations=\"1\"/><Step id=\"one\"><Request id=\"slow\" label=\"slow\" target=\"slow\" method=\"GET\" path=\"/slow\" codec=\"json\"><Assertions><Json path=\"$.Code\" operator=\"eq\" value=\"0\"/></Assertions></Request></Step></Scenario>"
+            "</Scenarios><Workloads default=\"weighted\">"
+            "<Workload id=\"weighted\" name=\"weighted\" type=\"average\"><Load mode=\"closed\" users=\"1\" iterations=\"30\"/><ScenarioRef id=\"a\" weight=\"2\"/><ScenarioRef id=\"b\" weight=\"1\"/><Thresholds><Threshold id=\"errors\" scope=\"run\" metric=\"errorRate\" operator=\"eq\" value=\"0\"/></Thresholds></Workload>"
+            "<Workload id=\"staged\" name=\"staged\" type=\"stress\"><Load mode=\"arrival\" ratePerSec=\"10\" preAllocatedUsers=\"2\" maxUsers=\"8\"><Stage durationMs=\"500\" targetRatePerSec=\"20\"/><Stage durationMs=\"500\" targetRatePerSec=\"20\"/></Load><ScenarioRef id=\"a\" weight=\"1\"/></Workload>"
+            "<Workload id=\"drop\" name=\"drop\" type=\"spike\"><Load mode=\"arrival\" ratePerSec=\"100\" durationMs=\"400\" preAllocatedUsers=\"1\" maxUsers=\"1\"/><ScenarioRef id=\"slow\" weight=\"1\"/><Thresholds><Threshold id=\"no-drop\" scope=\"run\" metric=\"droppedIterations\" operator=\"eq\" value=\"0\"/></Thresholds></Workload>"
+            "</Workloads></MtLoadPlan>";
+        options = {};
+        options.structSize = sizeof(options);
+        Check(MtLoad_InitOptions(&options) == MTLOAD_OK, "V4 options");
+        handle = nullptr;
+        Check(MtLoad_Create(&options, &handle) == MTLOAD_OK, "V4 create");
+        Check(MtLoad_LoadPlan(handle, workloadXml.u8string().c_str()) == MTLOAD_OK, "V4 load");
+        Check(MtLoad_ValidatePlan(handle) == MTLOAD_OK, "V4 validate");
+        uint32_t workloadCount = 0;
+        Check(MtLoad_GetWorkloads(handle, nullptr, &workloadCount) == MTLOAD_E_BUFFER_TOO_SMALL &&
+            workloadCount == 7, "explicit and compatibility workloads");
+        std::vector<MTLOAD_WORKLOAD> workloads(workloadCount);
+        Check(MtLoad_GetWorkloads(handle, workloads.data(), &workloadCount) == MTLOAD_OK,
+            "V4 workload rows");
+        Check(MtLoad_SelectWorkload(handle, "weighted") == MTLOAD_OK, "weighted select");
+        Check(MtLoad_Start(handle, "weighted") == MTLOAD_OK && MtLoad_Wait(handle, 10000) == MTLOAD_OK,
+            "weighted run");
+        state = {};
+        state.structSize = sizeof(state);
+        state.abiVersion = MTLOAD_ABI_VERSION;
+        Check(MtLoad_GetRunState(handle, &state) == MTLOAD_OK && state.totalSamples == 30 &&
+            state.scheduledIterations == 30 && state.completedIterations == 30 &&
+            state.droppedIterations == 0, "weighted run state");
+        metricCount = 0;
+        Check(MtLoad_GetMetricRows(handle, nullptr, &metricCount) == MTLOAD_E_BUFFER_TOO_SMALL &&
+            metricCount == 2, "weighted request metric count");
+        metrics.assign(metricCount, {});
+        Check(MtLoad_GetMetricRows(handle, metrics.data(), &metricCount) == MTLOAD_OK,
+            "weighted request metrics");
+        double requestThroughputSum = 0.0;
+        for (const auto& row : metrics) requestThroughputSum += row.throughputPerSec;
+        Check(std::abs(requestThroughputSum - state.totalThroughputPerSec) < 0.001,
+            "interface throughput sum equals total throughput");
+        uint32_t transactionCount = 0;
+        Check(MtLoad_GetScenarioMetricRows(handle, nullptr, &transactionCount) == MTLOAD_E_BUFFER_TOO_SMALL &&
+            transactionCount == 2, "transaction count");
+        std::vector<MTLOAD_SCENARIO_METRIC_ROW> transactions(transactionCount);
+        Check(MtLoad_GetScenarioMetricRows(handle, transactions.data(), &transactionCount) == MTLOAD_OK,
+            "transaction rows");
+        uint64_t aCompleted = 0;
+        uint64_t bCompleted = 0;
+        for (const auto& row : transactions)
+        {
+            if (std::string(row.scenarioId) == "a") aCompleted = row.completed;
+            if (std::string(row.scenarioId) == "b") bCompleted = row.completed;
+        }
+        Check(aCompleted == 20 && bCompleted == 10, "deterministic 2:1 workload weights");
+
+        Check(MtLoad_SelectWorkload(handle, "staged") == MTLOAD_OK, "staged select");
+        Check(MtLoad_Start(handle, "staged") == MTLOAD_OK, "staged start");
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        Check(MtLoad_Pause(handle) == MTLOAD_OK, "staged pause");
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        Check(MtLoad_Resume(handle) == MTLOAD_OK, "staged resume");
+        Check(MtLoad_Wait(handle, 10000) == MTLOAD_OK, "staged wait");
+        Check(MtLoad_GetRunState(handle, &state) == MTLOAD_OK &&
+            state.scheduledIterations >= 15 && state.scheduledIterations <= 19 &&
+            state.completedIterations == state.scheduledIterations && state.droppedIterations == 0 &&
+            state.effectiveElapsedMs >= 900 && state.effectiveElapsedMs <= 1300,
+            "staged arrival precision and active duration");
+
+        // arrival 在运行中收到 Stop 后必须立即停止调度、排空取消记账并退出工作池；
+        // 随后的工作负载还能复用同一引擎实例，防止 STOPPING 死锁或残留线程。
+        Check(MtLoad_Start(handle, "staged-stop") == MTLOAD_OK, "arrival stop start");
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        Check(MtLoad_Stop(handle) == MTLOAD_OK, "arrival stop request");
+        Check(MtLoad_Wait(handle, 3000) == MTLOAD_OK, "arrival stop converges");
+        Check(MtLoad_GetRunState(handle, &state) == MTLOAD_OK &&
+            state.state == MTLOAD_STATE_COMPLETED && state.activeUsers == 0 &&
+            state.activeRequests == 0 && state.completedIterations + state.droppedIterations ==
+            state.scheduledIterations, "arrival stop accounting and terminal state");
+
+        Check(MtLoad_SelectWorkload(handle, "drop") == MTLOAD_OK, "drop select");
+        Check(MtLoad_Start(handle, "drop") == MTLOAD_OK && MtLoad_Wait(handle, 10000) == MTLOAD_OK,
+            "drop run");
+        Check(MtLoad_GetRunState(handle, &state) == MTLOAD_OK && state.state == MTLOAD_STATE_COMPLETED &&
+            state.lastResult == MTLOAD_E_THRESHOLD_FAILED && state.droppedIterations > 0 &&
+            state.peakActiveUsers == 1 && state.completedIterations + state.droppedIterations ==
+            state.scheduledIterations, "drop accounting and threshold result");
+        uint32_t thresholdCount = 0;
+        Check(MtLoad_GetThresholdResults(handle, nullptr, &thresholdCount) == MTLOAD_E_BUFFER_TOO_SMALL &&
+            thresholdCount == 1, "threshold count");
+        std::vector<MTLOAD_THRESHOLD_RESULT> thresholdRows(thresholdCount);
+        Check(MtLoad_GetThresholdResults(handle, thresholdRows.data(), &thresholdCount) == MTLOAD_OK &&
+            thresholdRows[0].passed == 0, "threshold failure detail");
+
+        const auto v4ReportDirectory = root / "workloads-v4-reports";
+        const auto v4Json = v4ReportDirectory / "MtLoadResult.json";
+        const auto v4Xml = root / "workloads-v4-report.xml";
+        const auto v4Xlsx = root / "workloads-v4.xlsx";
+        Check(MtLoad_ExportReport(handle, v4ReportDirectory.u8string().c_str(), MTLOAD_REPORT_JSON) == MTLOAD_OK,
+            "V4 JSON report export");
+        Check(MtLoad_ExportReportFile(handle, v4Xml.u8string().c_str(), MTLOAD_REPORT_XML) == MTLOAD_OK,
+            "V4 XML report export");
+        Check(MtLoad_ExportReportFile(handle, v4Xlsx.u8string().c_str(), MTLOAD_REPORT_XLSX) == MTLOAD_OK &&
+            std::filesystem::file_size(v4Xlsx) > 0, "V4 XLSX report export");
+        std::ifstream v4JsonStream(v4Json, std::ios::binary);
+        const std::string v4JsonText((std::istreambuf_iterator<char>(v4JsonStream)),
+            std::istreambuf_iterator<char>());
+        std::ifstream v4XmlStream(v4Xml, std::ios::binary);
+        const std::string v4XmlText((std::istreambuf_iterator<char>(v4XmlStream)),
+            std::istreambuf_iterator<char>());
+        Check(v4JsonText.find("\"Transactions\"") != std::string::npos &&
+            v4JsonText.find("\"Thresholds\"") != std::string::npos &&
+            v4JsonText.find("no-drop") != std::string::npos,
+            "V4 JSON transaction and threshold content");
+        Check(v4XmlText.find(u8"业务事务列表") != std::string::npos &&
+            v4XmlText.find(u8"阈值列表") != std::string::npos &&
+            v4XmlText.find(u8"结果码=\"1302\"") != std::string::npos,
+            "V4 XML transaction and threshold content");
+
+        // 到达率允许降到 0，但任何负初始值或负阶段目标都必须在校验期拒绝。
+        const auto invalidRateXml = root / "invalid-arrival-rate.xml";
+        std::ofstream(invalidRateXml) <<
+            "<MtLoadPlan version=\"1\" name=\"invalid-rate\"><Targets>"
+            "<Target id=\"fast\" transport=\"http\" host=\"127.0.0.1\" port=\"" << arrivalFast.Port() << "\"/>"
+            "</Targets><Scenarios><Scenario id=\"a\"><Load mode=\"closed\" users=\"1\" iterations=\"1\"/>"
+            "<Step id=\"one\"><Request id=\"a\" label=\"a\" target=\"fast\" method=\"GET\" path=\"/a\" codec=\"json\"/>"
+            "</Step></Scenario></Scenarios><Workloads default=\"invalid\">"
+            "<Workload id=\"invalid\"><Load mode=\"arrival\" ratePerSec=\"10\" preAllocatedUsers=\"1\" maxUsers=\"1\">"
+            "<Stage durationMs=\"100\" targetRatePerSec=\"-1\"/></Load><ScenarioRef id=\"a\" weight=\"1\"/>"
+            "</Workload></Workloads></MtLoadPlan>";
+        Check(MtLoad_LoadPlan(handle, invalidRateXml.u8string().c_str()) == MTLOAD_OK,
+            "invalid arrival rate parse");
+        Check(MtLoad_ValidatePlan(handle) == MTLOAD_E_CONFIG_SEMANTIC,
+            "negative arrival rate rejected");
+        Check(MtLoad_Destroy(handle) == MTLOAD_OK, "V4 destroy");
         std::cout << "MtLoadEngine ABI/lifecycle: PASS\n";
         return 0;
     }

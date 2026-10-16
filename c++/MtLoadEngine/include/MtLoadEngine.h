@@ -56,6 +56,14 @@ MTLOAD_API int32_t MTLOAD_CALL MtLoad_GetScenarios(MTLOAD_HANDLE handle,
 MTLOAD_API int32_t MTLOAD_CALL MtLoad_SelectScenario(MTLOAD_HANDLE handle,
     const char* scenarioIdUtf8);
 
+// 两次调用取得工作负载列表。工作负载独立定义场景组合、负载曲线和阈值。
+MTLOAD_API int32_t MTLOAD_CALL MtLoad_GetWorkloads(MTLOAD_HANDLE handle,
+    MTLOAD_WORKLOAD* rows, uint32_t* inoutCount);
+
+// 选择本轮工作负载。旧配置会把 Scenario.Load 转换为可选择的隐式工作负载。
+MTLOAD_API int32_t MTLOAD_CALL MtLoad_SelectWorkload(MTLOAD_HANDLE handle,
+    const char* workloadIdUtf8);
+
 // 两次调用取得 Users 中的用户摘要；不返回密码和扩展参数。
 MTLOAD_API int32_t MTLOAD_CALL MtLoad_GetUsers(MTLOAD_HANDLE handle,
     MTLOAD_USER* rows, uint32_t* inoutCount);
@@ -90,6 +98,14 @@ MTLOAD_API int32_t MTLOAD_CALL MtLoad_GetRunState(MTLOAD_HANDLE handle,
 // 两次调用取得指标。rows 为空时 *inoutCount 返回所需行数。
 MTLOAD_API int32_t MTLOAD_CALL MtLoad_GetMetricRows(MTLOAD_HANDLE handle,
     MTLOAD_METRIC_ROW* rows, uint32_t* inoutCount);
+
+// 两次调用取得业务事务指标。事务统计不混入接口请求指标。
+MTLOAD_API int32_t MTLOAD_CALL MtLoad_GetScenarioMetricRows(MTLOAD_HANDLE handle,
+    MTLOAD_SCENARIO_METRIC_ROW* rows, uint32_t* inoutCount);
+
+// 两次调用取得本轮阈值判定明细；运行前或尚未评估时返回 0 行。
+MTLOAD_API int32_t MTLOAD_CALL MtLoad_GetThresholdResults(MTLOAD_HANDLE handle,
+    MTLOAD_THRESHOLD_RESULT* rows, uint32_t* inoutCount);
 
 // 两次调用取得错误样本，数组由调用方持有。
 MTLOAD_API int32_t MTLOAD_CALL MtLoad_GetErrorSamples(MTLOAD_HANDLE handle,

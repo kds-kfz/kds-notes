@@ -4,6 +4,7 @@
 
 #include "interface_test/InterfaceTestModel.h"
 #include "interface_test/InterfaceTransport.h"
+#include "interface_test/JsonMessage.h"
 
 #include <atomic>
 #include <chrono>
@@ -146,6 +147,42 @@ int wmain(int argc, wchar_t* argv[])
         Check(roundTrip.cases.size() == config.cases.size(), "config round trip");
         std::error_code removeError;
         std::filesystem::remove(saved, removeError);
+
+        // 使用正式验密用例覆盖变量展开、类型构造和敏感字段脱敏，防止界面
+        // 虽然能编译但实际发送正文仍泄露密码或生成错误 JSON。
+        const auto* verifyCase = config.FindCase("verify-password");
+        const auto* variableSet = config.FindVariableSet(config.defaultVariableSetId);
+        Check(verifyCase != nullptr && variableSet != nullptr, "verify case and variables");
+        interface_test::SessionVariables session;
+        for (const auto& variable : variableSet->variables)
+        {
+            session.values[variable.name] = variable.value;
+            if (variable.sensitive) session.sensitiveNames.insert(variable.name);
+        }
+        std::string body, redacted, jsonError;
+        Check(interface_test::BuildJsonFromFields(verifyCase->fields, verifyCase->rootType,
+            session, body, redacted, jsonError), jsonError.c_str());
+        Check(body.find(session.values["Password"]) != std::string::npos,
+            "actual password expansion");
+        Check(redacted.find(session.values["Password"]) == std::string::npos &&
+            redacted.find("******") != std::string::npos, "password redaction");
+
+        std::vector<interface_test::FieldDefinition> synchronized = verifyCase->fields;
+        std::string rootType;
+        Check(interface_test::SynchronizeFieldsFromJson(body, synchronized, rootType, jsonError),
+            jsonError.c_str());
+        Check(rootType == "object" && !synchronized.empty(), "JSON field synchronization");
+        std::vector<std::string> extracted;
+        Check(interface_test::ApplyExtractRules("{\"Data\":{\"Token\":\"token-value\"}}",
+            verifyCase->extracts, session, extracted, jsonError), jsonError.c_str());
+        Check(session.values["Token"] == "token-value" &&
+            session.sensitiveNames.count("Token") == 1, "response extraction");
+
+        const auto* arrayCase = config.FindCase("place-order");
+        Check(arrayCase != nullptr, "root array case");
+        Check(interface_test::BuildJsonFromFields(arrayCase->fields, arrayCase->rootType,
+            session, body, redacted, jsonError), jsonError.c_str());
+        Check(!body.empty() && body.front() == '[', "root array JSON");
 
         MockHttpServer server;
         interface_test::SocketHttpTransport transport;

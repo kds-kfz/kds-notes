@@ -45,6 +45,6 @@
 - 源码、资源、工程文件和配置必须同步更新，不允许只改实现。
 - 链接方式改动至少执行相关测试、`Release|x64` 与 `ReleaseStatic|x64` 构建、EXE 导入表检查和 `git diff --check`。
 - 网络改动需要 Mock 验证；涉及真实 HTTP/HTTPS 规则时再进行真实 V3 联调，并明确区分 Mock 通过、真实联调通过和生产验收。
-- 新增、删除或移动源码时同步更新 `.vcxproj`、`.vcxproj.filters` 和 `docs/README.md`。
+- 新增、删除或移动源码时同步更新 `.vcxproj`、`.vcxproj.filters` 和 `doc/README.md`。
 - 每批改动追加 `doc/版本说明.md`，记录问题、方案、影响、验证和未完成风险。
 

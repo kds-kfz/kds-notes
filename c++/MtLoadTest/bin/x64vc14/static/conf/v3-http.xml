@@ -183,7 +183,7 @@
     -->
     <Scenario id="v3-chart-drawing-lifecycle" name="V3图表绘图生命周期">
       <UserRefs><UserRef id="account-01" /></UserRefs>
-      <Load mode="closed" threads="10" rampUpMs="0" iterations="50" />
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="10" />
       <Step id="drawing-create" name="新建绘图" onError="stop_iteration">
         <Request id="drawing-create" label="POST /chart/drawings 新建" target="v3" method="POST" path="/chart/drawings" codec="json">
           <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":1,"SymbolId":"${ChartSymbolId}","Interval":${ChartInterval},"DrawingId":"loadtest-drawing-${runId}-${threadIndex}-${iterationIndex}","ToolType":"trendLine","Content":{"phase":"created","threadIndex":${threadIndex},"iterationIndex":${iterationIndex}}}]]></Body>
@@ -212,7 +212,7 @@
 
     <Scenario id="v3-chart-indicator-lifecycle" name="V3图表指标生命周期">
       <UserRefs><UserRef id="account-01" /></UserRefs>
-      <Load mode="closed" threads="10" rampUpMs="0" iterations="50" />
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="10" />
       <Step id="indicator-create" name="新建指标" onError="stop_iteration">
         <Request id="indicator-create" label="POST /chart/indicators 新建" target="v3" method="POST" path="/chart/indicators" codec="json">
           <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":1,"IndicatorId":"loadtest-indicator-${runId}-${threadIndex}-${iterationIndex}","IndicatorType":"MA","Visible":true,"Content":{"phase":"created","period":14}}]]></Body>
@@ -241,7 +241,7 @@
 
     <Scenario id="v3-chart-config-lifecycle" name="V3图表配置生命周期">
       <UserRefs><UserRef id="account-01" /></UserRefs>
-      <Load mode="closed" threads="10" rampUpMs="0" iterations="50" />
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="10" />
       <Step id="config-create" name="新建图表配置" onError="stop_iteration">
         <Request id="config-create" label="POST /chart/config 新建" target="v3" method="POST" path="/chart/config" codec="json">
           <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":1,"ConfigName":["loadtest-config-${runId}-${threadIndex}-${iterationIndex}"],"Content":{"loadtest-config-${runId}-${threadIndex}-${iterationIndex}":{"phase":"created","theme":"light"}}}]]></Body>
@@ -271,7 +271,7 @@
     <!-- 批量同步接口只支持 OptType=1 保存和 OptType=2 删除，不配置不存在的修改或查询步骤。 -->
     <Scenario id="v3-chart-drawing-sync" name="V3图表绘图批量同步">
       <UserRefs><UserRef id="account-01" /></UserRefs>
-      <Load mode="closed" threads="10" rampUpMs="0" iterations="50" />
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="10" />
       <Step id="drawing-sync-save" name="批量保存绘图" onError="stop_iteration">
         <Request id="drawing-sync-save" label="POST /chart/drawings/sync 保存" target="v3" method="POST" path="/chart/drawings/sync" codec="json">
           <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":1,"SymbolId":"${ChartSymbolId}","Interval":${ChartInterval},"Drawings":[{"Id":"loadtest-drawing-sync-a-${runId}-${threadIndex}-${iterationIndex}","ToolType":"trendLine","Content":{"slot":"a"}},{"Id":"loadtest-drawing-sync-b-${runId}-${threadIndex}-${iterationIndex}","ToolType":"text","Content":{"slot":"b"}}]}]]></Body>
@@ -285,5 +285,162 @@
         </Request>
       </Step>
     </Scenario>
+
+    <!-- 查询基准场景不创建测试数据，只校验三个指标绘图查询入口可用。 -->
+    <Scenario id="v3-chart-drawing-query" name="V3绘图查询">
+      <UserRefs><UserRef id="account-01" /></UserRefs>
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="100" />
+      <Step id="drawing-query-only" name="查询绘图" onError="continue">
+        <Request id="drawing-query-only" label="POST /chart/drawings 查询基准" target="v3" method="POST" path="/chart/drawings" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":4,"SymbolId":"${ChartSymbolId}","Interval":${ChartInterval}}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+    </Scenario>
+    <Scenario id="v3-chart-indicator-query" name="V3指标查询">
+      <UserRefs><UserRef id="account-01" /></UserRefs>
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="100" />
+      <Step id="indicator-query-only" name="查询指标" onError="continue">
+        <Request id="indicator-query-only" label="POST /chart/indicators 查询基准" target="v3" method="POST" path="/chart/indicators" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":4}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+    </Scenario>
+    <Scenario id="v3-chart-config-query" name="V3图表配置查询">
+      <UserRefs><UserRef id="account-01" /></UserRefs>
+      <Load mode="closed" threads="10" rampUpMs="0" iterations="100" />
+      <Step id="config-query-only" name="查询图表配置" onError="continue">
+        <Request id="config-query-only" label="POST /chart/config 查询基准" target="v3" method="POST" path="/chart/config" codec="json">
+          <Body><![CDATA[{"Version":${Version},"No":${No},"Login":${Login},"OptType":4,"ConfigName":[]}]]></Body>
+          <Assertions><HttpStatus min="200" max="299" /><Json path="$.Code" operator="eq" value="0" /></Assertions>
+        </Request>
+      </Step>
+    </Scenario>
   </Scenarios>
+
+  <!--
+    工作负载只定义业务事务组合和负载曲线。权重是完整场景迭代比例，
+    生命周期事务虽然包含四个 HTTP 请求，但在权重中仍只算一个业务迭代。
+  -->
+  <Workloads default="chart-smoke">
+    <Workload id="chart-smoke" name="指标绘图冒烟" type="smoke">
+      <Load mode="closed" users="1" iterations="6" />
+      <ScenarioRef id="v3-chart-drawing-query" weight="1" />
+      <ScenarioRef id="v3-chart-indicator-query" weight="1" />
+      <ScenarioRef id="v3-chart-config-query" weight="1" />
+      <ScenarioRef id="v3-chart-drawing-lifecycle" weight="1" />
+      <ScenarioRef id="v3-chart-indicator-lifecycle" weight="1" />
+      <ScenarioRef id="v3-chart-config-lifecycle" weight="1" />
+      <Thresholds>
+        <Threshold id="smoke-errors" name="接口错误率为零" scope="run" metric="errorRate" operator="eq" value="0" />
+        <Threshold id="smoke-dropped" name="丢弃事务为零" scope="run" metric="droppedIterations" operator="eq" value="0" />
+      </Thresholds>
+    </Workload>
+
+    <Workload id="drawing-query-baseline" name="绘图查询单接口基准" type="average">
+      <Load mode="closed" users="10" iterations="100" />
+      <ScenarioRef id="v3-chart-drawing-query" weight="1" />
+      <Thresholds><Threshold id="drawing-query-errors" name="接口错误率为零" scope="run" metric="errorRate" operator="eq" value="0" /></Thresholds>
+    </Workload>
+    <Workload id="indicator-query-baseline" name="指标查询单接口基准" type="average">
+      <Load mode="closed" users="10" iterations="100" />
+      <ScenarioRef id="v3-chart-indicator-query" weight="1" />
+      <Thresholds><Threshold id="indicator-query-errors" name="接口错误率为零" scope="run" metric="errorRate" operator="eq" value="0" /></Thresholds>
+    </Workload>
+    <Workload id="config-query-baseline" name="配置查询单接口基准" type="average">
+      <Load mode="closed" users="10" iterations="100" />
+      <ScenarioRef id="v3-chart-config-query" weight="1" />
+      <Thresholds><Threshold id="config-query-errors" name="接口错误率为零" scope="run" metric="errorRate" operator="eq" value="0" /></Thresholds>
+    </Workload>
+
+    <Workload id="drawing-lifecycle-baseline" name="绘图生命周期基准（400请求）" type="average">
+      <Load mode="closed" users="10" iterations="10" />
+      <ScenarioRef id="v3-chart-drawing-lifecycle" weight="1" />
+      <Thresholds><Threshold id="drawing-life-errors" name="接口错误率为零" scope="run" metric="errorRate" operator="eq" value="0" /></Thresholds>
+    </Workload>
+    <Workload id="indicator-lifecycle-baseline" name="指标生命周期基准（400请求）" type="average">
+      <Load mode="closed" users="10" iterations="10" />
+      <ScenarioRef id="v3-chart-indicator-lifecycle" weight="1" />
+      <Thresholds><Threshold id="indicator-life-errors" name="接口错误率为零" scope="run" metric="errorRate" operator="eq" value="0" /></Thresholds>
+    </Workload>
+    <Workload id="config-lifecycle-baseline" name="配置生命周期基准（400请求）" type="average">
+      <Load mode="closed" users="10" iterations="10" />
+      <ScenarioRef id="v3-chart-config-lifecycle" weight="1" />
+      <Thresholds><Threshold id="config-life-errors" name="接口错误率为零" scope="run" metric="errorRate" operator="eq" value="0" /></Thresholds>
+    </Workload>
+
+    <Workload id="chart-mixed-10m" name="指标绘图读写混合 20tx/s 10分钟" type="average">
+      <Load mode="arrival" ratePerSec="20" durationMs="600000" preAllocatedUsers="20" maxUsers="100" />
+      <ScenarioRef id="v3-chart-drawing-query" weight="27" />
+      <ScenarioRef id="v3-chart-indicator-query" weight="27" />
+      <ScenarioRef id="v3-chart-config-query" weight="26" />
+      <ScenarioRef id="v3-chart-drawing-lifecycle" weight="7" />
+      <ScenarioRef id="v3-chart-indicator-lifecycle" weight="7" />
+      <ScenarioRef id="v3-chart-config-lifecycle" weight="6" />
+      <Thresholds>
+        <Threshold id="mixed-errors" name="接口错误率为零" scope="run" metric="errorRate" operator="eq" value="0" />
+        <Threshold id="mixed-dropped" name="丢弃事务为零" scope="run" metric="droppedIterations" operator="eq" value="0" />
+      </Thresholds>
+    </Workload>
+    <Workload id="chart-soak-60m" name="指标绘图耐久 10tx/s 60分钟" type="soak">
+      <Load mode="arrival" ratePerSec="10" durationMs="3600000" preAllocatedUsers="10" maxUsers="100" />
+      <ScenarioRef id="v3-chart-drawing-query" weight="27" />
+      <ScenarioRef id="v3-chart-indicator-query" weight="27" />
+      <ScenarioRef id="v3-chart-config-query" weight="26" />
+      <ScenarioRef id="v3-chart-drawing-lifecycle" weight="7" />
+      <ScenarioRef id="v3-chart-indicator-lifecycle" weight="7" />
+      <ScenarioRef id="v3-chart-config-lifecycle" weight="6" />
+      <Thresholds>
+        <Threshold id="soak-errors" name="接口错误率为零" scope="run" metric="errorRate" operator="eq" value="0" />
+        <Threshold id="soak-dropped" name="丢弃事务为零" scope="run" metric="droppedIterations" operator="eq" value="0" />
+      </Thresholds>
+    </Workload>
+
+    <!-- 以下极限曲线只供人工选择，不是 test 环境默认自动任务。 -->
+    <Workload id="chart-stress-example" name="示例：阶梯压力" type="stress">
+      <Load mode="arrival" ratePerSec="10" preAllocatedUsers="20" maxUsers="200">
+        <Stage durationMs="120000" targetRatePerSec="20" />
+        <Stage durationMs="120000" targetRatePerSec="40" />
+        <Stage durationMs="120000" targetRatePerSec="60" />
+        <Stage durationMs="120000" targetRatePerSec="60" />
+        <Stage durationMs="120000" targetRatePerSec="10" />
+      </Load>
+      <ScenarioRef id="v3-chart-drawing-query" weight="27" />
+      <ScenarioRef id="v3-chart-indicator-query" weight="27" />
+      <ScenarioRef id="v3-chart-config-query" weight="26" />
+      <ScenarioRef id="v3-chart-drawing-lifecycle" weight="7" />
+      <ScenarioRef id="v3-chart-indicator-lifecycle" weight="7" />
+      <ScenarioRef id="v3-chart-config-lifecycle" weight="6" />
+    </Workload>
+    <Workload id="chart-spike-example" name="示例：突增压力" type="spike">
+      <Load mode="arrival" ratePerSec="10" preAllocatedUsers="20" maxUsers="300">
+        <Stage durationMs="60000" targetRatePerSec="10" />
+        <Stage durationMs="15000" targetRatePerSec="100" />
+        <Stage durationMs="15000" targetRatePerSec="100" />
+        <Stage durationMs="60000" targetRatePerSec="10" />
+      </Load>
+      <ScenarioRef id="v3-chart-drawing-query" weight="27" />
+      <ScenarioRef id="v3-chart-indicator-query" weight="27" />
+      <ScenarioRef id="v3-chart-config-query" weight="26" />
+      <ScenarioRef id="v3-chart-drawing-lifecycle" weight="7" />
+      <ScenarioRef id="v3-chart-indicator-lifecycle" weight="7" />
+      <ScenarioRef id="v3-chart-config-lifecycle" weight="6" />
+    </Workload>
+    <Workload id="chart-breakpoint-example" name="示例：容量拐点" type="breakpoint">
+      <Load mode="arrival" ratePerSec="10" preAllocatedUsers="20" maxUsers="300">
+        <Stage durationMs="60000" targetRatePerSec="20" />
+        <Stage durationMs="60000" targetRatePerSec="40" />
+        <Stage durationMs="60000" targetRatePerSec="80" />
+        <Stage durationMs="60000" targetRatePerSec="120" />
+        <Stage durationMs="60000" targetRatePerSec="160" />
+      </Load>
+      <ScenarioRef id="v3-chart-drawing-query" weight="27" />
+      <ScenarioRef id="v3-chart-indicator-query" weight="27" />
+      <ScenarioRef id="v3-chart-config-query" weight="26" />
+      <ScenarioRef id="v3-chart-drawing-lifecycle" weight="7" />
+      <ScenarioRef id="v3-chart-indicator-lifecycle" weight="7" />
+      <ScenarioRef id="v3-chart-config-lifecycle" weight="6" />
+    </Workload>
+  </Workloads>
 </MtLoadPlan>

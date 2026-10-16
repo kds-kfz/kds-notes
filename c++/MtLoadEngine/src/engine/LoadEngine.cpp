@@ -5,8 +5,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <ctime>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -110,14 +112,22 @@ std::string ReportTimestamp()
 // 把同一运行状态和指标快照序列化为 UTF-8 XML，写入失败通过异常上抛给导出边界。
 void WriteXmlReport(const std::filesystem::path& path, const MTLOAD_RUN_STATE& state,
     const std::vector<MTLOAD_METRIC_ROW>& metrics,
+    const std::vector<MTLOAD_SCENARIO_METRIC_ROW>& scenarios,
+    const std::vector<MTLOAD_THRESHOLD_RESULT>& thresholds,
     const std::vector<MTLOAD_ERROR_SAMPLE>& errors)
 {
     std::ofstream stream(path, std::ios::binary | std::ios::trunc);
     if (!stream) throw std::runtime_error("无法创建 XML 报告");
     stream << "<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n"
         << "<压测结果 运行编号=\"" << state.runId << "\" 状态=\"" << state.state
+        << "\" 结果码=\"" << state.lastResult
         << "\" 已请求=\"" << state.totalSamples << "\" 总请求=\""
-        << state.plannedRequests << "\">\r\n  <指标列表>\r\n";
+        << state.plannedRequests << "\" 有效运行毫秒=\"" << state.effectiveElapsedMs
+        << "\" 总吞吐每秒请求数=\"" << state.totalThroughputPerSec
+        << "\" 峰值用户=\"" << state.peakActiveUsers << "\" 峰值在途请求=\""
+        << state.peakActiveRequests << "\" 已调度事务=\"" << state.scheduledIterations
+        << "\" 已完成事务=\"" << state.completedIterations << "\" 丢弃事务=\""
+        << state.droppedIterations << "\">\r\n  <指标列表>\r\n";
     for (const auto& row : metrics)
     {
         const double progress = row.plannedRequests == 0 ? 0.0 :
@@ -132,7 +142,26 @@ void WriteXmlReport(const std::filesystem::path& path, const MTLOAD_RUN_STATE& s
             << row.averageMs << "\" P95耗时毫秒=\"" << row.p95Ms
             << "\" 吞吐每秒请求数=\"" << row.throughputPerSec << "\" />\r\n";
     }
-    stream << "  </指标列表>\r\n  <错误列表>\r\n";
+    stream << "  </指标列表>\r\n  <业务事务列表>\r\n";
+    for (const auto& row : scenarios)
+    {
+        stream << "    <业务事务 场景ID=\"" << XmlEscape(row.scenarioId) << "\" 场景=\""
+            << XmlEscape(row.scenario) << "\" 启动=\"" << row.started << "\" 完成=\""
+            << row.completed << "\" 成功=\"" << row.succeeded << "\" 失败=\"" << row.failed
+            << "\" 丢弃=\"" << row.dropped << "\" 平均耗时毫秒=\"" << row.averageMs
+            << "\" P95耗时毫秒=\"" << row.p95Ms << "\" 吞吐每秒事务数=\""
+            << row.throughputPerSec << "\" />\r\n";
+    }
+    stream << "  </业务事务列表>\r\n  <阈值列表>\r\n";
+    for (const auto& row : thresholds)
+    {
+        stream << "    <阈值 ID=\"" << XmlEscape(row.id) << "\" 名称=\"" << XmlEscape(row.name)
+            << "\" 范围=\"" << XmlEscape(row.scope) << "\" 指标=\"" << XmlEscape(row.metric)
+            << "\" 目标=\"" << XmlEscape(row.target) << "\" 比较=\"" << XmlEscape(row.comparison)
+            << "\" 期望=\"" << row.expected << "\" 实际=\"" << row.actual
+            << "\" 通过=\"" << row.passed << "\" />\r\n";
+    }
+    stream << "  </阈值列表>\r\n  <错误列表>\r\n";
     for (const auto& item : errors)
     {
         stream << "    <错误 场景=\"" << XmlEscape(item.scenario) << "\" 步骤=\""
@@ -148,18 +177,73 @@ void WriteXmlReport(const std::filesystem::path& path, const MTLOAD_RUN_STATE& s
 // 使用 xlnt 创建指标工作簿，并按固定列顺序写入运行状态和聚合值。
 void WriteXlsxReport(const std::filesystem::path& path, const MTLOAD_RUN_STATE& state,
     const std::vector<MTLOAD_METRIC_ROW>& metrics,
+    const std::vector<MTLOAD_SCENARIO_METRIC_ROW>& scenarios,
+    const std::vector<MTLOAD_THRESHOLD_RESULT>& thresholds,
     const std::vector<MTLOAD_ERROR_SAMPLE>& errors)
 {
     xlnt::workbook workbook;
     xlnt::worksheet summary = workbook.active_sheet();
     summary.title(u8"汇总");
-    const char* summaryNames[] = { u8"运行编号", u8"状态", u8"已请求", u8"总请求" };
+    const char* summaryNames[] = { u8"运行编号", u8"状态", u8"结果码", u8"已请求", u8"总请求",
+        u8"有效运行(ms)", u8"总吞吐(req/s)", u8"峰值用户", u8"峰值在途请求",
+        u8"已调度事务", u8"已完成事务", u8"丢弃事务" };
     const std::string summaryValues[] = { std::to_string(state.runId), std::to_string(state.state),
-        std::to_string(state.totalSamples), std::to_string(state.plannedRequests) };
-    for (int index = 0; index < 4; ++index)
+        std::to_string(state.lastResult), std::to_string(state.totalSamples),
+        std::to_string(state.plannedRequests), std::to_string(state.effectiveElapsedMs),
+        std::to_string(state.totalThroughputPerSec), std::to_string(state.peakActiveUsers),
+        std::to_string(state.peakActiveRequests), std::to_string(state.scheduledIterations),
+        std::to_string(state.completedIterations), std::to_string(state.droppedIterations) };
+    for (int index = 0; index < static_cast<int>(_countof(summaryNames)); ++index)
     {
         summary.cell(xlnt::cell_reference(1, index + 1)).value(summaryNames[index]);
         summary.cell(xlnt::cell_reference(2, index + 1)).value(summaryValues[index]);
+    }
+
+    xlnt::worksheet scenarioSheet = workbook.create_sheet();
+    scenarioSheet.title(u8"业务事务");
+    const char* scenarioHeaders[] = { u8"场景ID", u8"场景", u8"启动", u8"完成", u8"成功",
+        u8"失败", u8"丢弃", u8"平均耗时(ms)", u8"P50(ms)", u8"P90(ms)", u8"P95(ms)",
+        u8"P99(ms)", u8"事务吞吐(tx/s)" };
+    for (int column = 0; column < static_cast<int>(_countof(scenarioHeaders)); ++column)
+        scenarioSheet.cell(xlnt::cell_reference(column + 1, 1)).value(scenarioHeaders[column]);
+    for (int index = 0; index < static_cast<int>(scenarios.size()); ++index)
+    {
+        const auto& row = scenarios[index];
+        const int line = index + 2;
+        scenarioSheet.cell(xlnt::cell_reference(1, line)).value(row.scenarioId);
+        scenarioSheet.cell(xlnt::cell_reference(2, line)).value(row.scenario);
+        scenarioSheet.cell(xlnt::cell_reference(3, line)).value(std::to_string(row.started));
+        scenarioSheet.cell(xlnt::cell_reference(4, line)).value(std::to_string(row.completed));
+        scenarioSheet.cell(xlnt::cell_reference(5, line)).value(std::to_string(row.succeeded));
+        scenarioSheet.cell(xlnt::cell_reference(6, line)).value(std::to_string(row.failed));
+        scenarioSheet.cell(xlnt::cell_reference(7, line)).value(std::to_string(row.dropped));
+        scenarioSheet.cell(xlnt::cell_reference(8, line)).value(row.averageMs);
+        scenarioSheet.cell(xlnt::cell_reference(9, line)).value(row.medianMs);
+        scenarioSheet.cell(xlnt::cell_reference(10, line)).value(row.p90Ms);
+        scenarioSheet.cell(xlnt::cell_reference(11, line)).value(row.p95Ms);
+        scenarioSheet.cell(xlnt::cell_reference(12, line)).value(row.p99Ms);
+        scenarioSheet.cell(xlnt::cell_reference(13, line)).value(row.throughputPerSec);
+    }
+
+    xlnt::worksheet thresholdSheet = workbook.create_sheet();
+    thresholdSheet.title(u8"阈值结果");
+    const char* thresholdHeaders[] = { u8"ID", u8"名称", u8"范围", u8"指标", u8"目标",
+        u8"比较", u8"期望", u8"实际", u8"通过" };
+    for (int column = 0; column < static_cast<int>(_countof(thresholdHeaders)); ++column)
+        thresholdSheet.cell(xlnt::cell_reference(column + 1, 1)).value(thresholdHeaders[column]);
+    for (int index = 0; index < static_cast<int>(thresholds.size()); ++index)
+    {
+        const auto& row = thresholds[index];
+        const int line = index + 2;
+        thresholdSheet.cell(xlnt::cell_reference(1, line)).value(row.id);
+        thresholdSheet.cell(xlnt::cell_reference(2, line)).value(row.name);
+        thresholdSheet.cell(xlnt::cell_reference(3, line)).value(row.scope);
+        thresholdSheet.cell(xlnt::cell_reference(4, line)).value(row.metric);
+        thresholdSheet.cell(xlnt::cell_reference(5, line)).value(row.target);
+        thresholdSheet.cell(xlnt::cell_reference(6, line)).value(row.comparison);
+        thresholdSheet.cell(xlnt::cell_reference(7, line)).value(row.expected);
+        thresholdSheet.cell(xlnt::cell_reference(8, line)).value(row.actual);
+        thresholdSheet.cell(xlnt::cell_reference(9, line)).value(row.passed == 1 ? u8"通过" : u8"失败");
     }
 
     xlnt::worksheet metricSheet = workbook.create_sheet();
@@ -232,19 +316,99 @@ uint64_t RequestsPerIteration(const Scenario& scenario)
     return total;
 }
 
-// 汇总所选场景的有限计划请求数；选择为空时覆盖全部场景。
-uint64_t PlannedRequests(const Plan& plan, const std::string& selectedScenarioId)
+// 通过稳定 ID 查找只读场景，调用方在已校验计划内使用。
+const Scenario* FindScenario(const Plan& plan, const std::string& scenarioId)
+{
+    for (const Scenario& scenario : plan.scenarios)
+        if (scenario.id == scenarioId) return &scenario;
+    return nullptr;
+}
+
+// 通过稳定 ID 查找只读工作负载，调用方在已校验计划内使用。
+const Workload* FindWorkload(const Plan& plan, const std::string& workloadId)
+{
+    for (const Workload& workload : plan.workloads)
+        if (workload.id == workloadId) return &workload;
+    return nullptr;
+}
+
+// 确定性权重轮询：序号在权重周期内依次落入对应场景，不依赖随机数种子。
+const Scenario* SelectWeightedScenario(const Plan& plan, const Workload& workload,
+    uint64_t sequence)
+{
+    uint64_t totalWeight = 0;
+    for (const WorkloadScenarioRef& reference : workload.scenarios) totalWeight += reference.weight;
+    if (totalWeight == 0) return nullptr;
+    const uint64_t position = sequence % totalWeight;
+    uint64_t upper = 0;
+    for (const WorkloadScenarioRef& reference : workload.scenarios)
+    {
+        upper += reference.weight;
+        if (position < upper) return FindScenario(plan, reference.scenarioId);
+    }
+    return nullptr;
+}
+
+// 计算有限 closed 工作负载中某场景被选择的精确事务次数。
+uint64_t PlannedScenarioIterations(const Workload& workload, const std::string& scenarioId)
+{
+    if (workload.load.mode != "closed" || workload.load.durationMs != 0 ||
+        workload.load.iterations == 0) return 0;
+    const uint64_t totalIterations = static_cast<uint64_t>(workload.load.threads) *
+        workload.load.iterations;
+    uint64_t totalWeight = 0;
+    uint64_t before = 0;
+    uint32_t ownWeight = 0;
+    for (const WorkloadScenarioRef& reference : workload.scenarios)
+    {
+        if (reference.scenarioId == scenarioId)
+        {
+            before = totalWeight;
+            ownWeight = reference.weight;
+        }
+        totalWeight += reference.weight;
+    }
+    if (totalWeight == 0 || ownWeight == 0) return 0;
+    const uint64_t fullCycles = totalIterations / totalWeight;
+    const uint64_t remainder = totalIterations % totalWeight;
+    const uint64_t remainderCount = remainder <= before ? 0 :
+        (std::min)(static_cast<uint64_t>(ownWeight), remainder - before);
+    return fullCycles * ownWeight + remainderCount;
+}
+
+// 汇总工作负载有限计划请求数；持续时间和 arrival 模式返回 0。
+uint64_t PlannedRequests(const Plan& plan, const Workload& workload)
 {
     uint64_t total = 0;
-    for (const Scenario& scenario : plan.scenarios)
+    if (workload.useScenarioLoads)
     {
-        if (!selectedScenarioId.empty() && scenario.id != selectedScenarioId) continue;
-        if (scenario.load.durationMs != 0 || scenario.load.iterations == 0) return 0;
-        for (const Step& step : scenario.steps)
-            for (const Request& request : step.requests)
-                total += PlannedRequests(scenario, request);
+        for (const WorkloadScenarioRef& reference : workload.scenarios)
+        {
+            const Scenario* scenario = FindScenario(plan, reference.scenarioId);
+            if (scenario == nullptr || scenario->load.durationMs != 0 || scenario->load.iterations == 0)
+                return 0;
+            total += static_cast<uint64_t>(scenario->load.threads) * scenario->load.iterations *
+                RequestsPerIteration(*scenario);
+        }
+        return total;
+    }
+    if (workload.load.mode != "closed" || workload.load.durationMs != 0 ||
+        workload.load.iterations == 0) return 0;
+    for (const WorkloadScenarioRef& reference : workload.scenarios)
+    {
+        const Scenario* scenario = FindScenario(plan, reference.scenarioId);
+        if (scenario != nullptr)
+            total += PlannedScenarioIterations(workload, scenario->id) * RequestsPerIteration(*scenario);
     }
     return total;
+}
+
+// 计算工作负载中单个请求行的有限计划样本数，开放或持续时间模型返回 0。
+uint64_t PlannedRequests(const Plan&, const Workload& workload,
+    const Scenario& scenario, const Request& request)
+{
+    if (workload.useScenarioLoads) return PlannedRequests(scenario, request);
+    return PlannedScenarioIterations(workload, scenario.id) * request.copies;
 }
 }
 
@@ -279,6 +443,13 @@ void PermitPool::WakeAll()
 LoadEngine::LoadEngine(const MTLOAD_ENGINE_OPTIONS& options)
     : options_(options), permits_(options.maxConnections)
 {
+}
+
+// 关键实现：只在观测值更大时推进峰值，多个请求和用户线程可无锁竞争。
+void LoadEngine::UpdatePeak(std::atomic<uint32_t>& peak, uint32_t value)
+{
+    uint32_t current = peak.load();
+    while (current < value && !peak.compare_exchange_weak(current, value)) {}
 }
 
 // 关键实现：复用 Stop 并联结顶层线程，析构返回时不再有线程访问成员。
@@ -324,6 +495,7 @@ int LoadEngine::LoadPlanFile(const std::string& path)
     plan_ = std::move(parsed);
     selectedEnvironmentId_ = plan_.defaultEnvironmentId;
     selectedScenarioId_.clear();
+    selectedWorkloadId_ = plan_.defaultWorkloadId;
     selectedUserId_.clear();
     hasPlan_ = true;
     validated_ = false;
@@ -339,6 +511,8 @@ int LoadEngine::LoadPlanFile(const std::string& path)
     {
         std::lock_guard<std::mutex> metricGuard(metricsMutex_);
         metrics_.clear();
+        scenarioMetrics_.clear();
+        thresholdResults_.clear();
         errors_.clear();
     }
     return MTLOAD_OK;
@@ -361,7 +535,8 @@ int LoadEngine::Validate()
         {
             validated_ = true;
             state_ = MTLOAD_STATE_VALIDATED;
-            plannedRequests_ = PlannedRequests(copy, selectedScenarioId_);
+            const Workload* workload = FindWorkload(copy, selectedWorkloadId_);
+            plannedRequests_ = workload == nullptr ? 0 : PlannedRequests(copy, *workload);
             lastError_.clear();
         }
         else
@@ -372,7 +547,7 @@ int LoadEngine::Validate()
         }
         lastResult_ = result;
     }
-    if (result == MTLOAD_OK) ResetMetricDefinitions(copy, selectedScenarioId_);
+    if (result == MTLOAD_OK) ResetMetricDefinitions(copy, selectedWorkloadId_);
     return result;
 }
 
@@ -464,12 +639,81 @@ int LoadEngine::SelectScenario(const std::string& scenarioId)
             return lastResult_;
         }
         selectedScenarioId_ = scenarioId;
-        plannedRequests_ = PlannedRequests(plan_, selectedScenarioId_);
+        selectedWorkloadId_ = scenarioId.empty() ? "legacy-all" : "legacy-" + scenarioId;
+        const Workload* workload = FindWorkload(plan_, selectedWorkloadId_);
+        if (workload == nullptr)
+        {
+            lastResult_ = MTLOAD_E_NOT_FOUND;
+            lastError_ = "兼容工作负载不存在: " + selectedWorkloadId_;
+            return lastResult_;
+        }
+        plannedRequests_ = PlannedRequests(plan_, *workload);
         lastResult_ = MTLOAD_OK;
         lastError_.clear();
         planCopy = plan_;
     }
-    ResetMetricDefinitions(planCopy, scenarioId);
+    ResetMetricDefinitions(planCopy, selectedWorkloadId_);
+    return MTLOAD_OK;
+}
+
+// 关键实现：把内部工作负载转换为稳定 POD，旧配置兼容项也明确标记 implicit。
+std::vector<MTLOAD_WORKLOAD> LoadEngine::GetWorkloads() const
+{
+    std::lock_guard<std::mutex> guard(stateMutex_);
+    std::vector<MTLOAD_WORKLOAD> rows;
+    rows.reserve(plan_.workloads.size());
+    for (const Workload& source : plan_.workloads)
+    {
+        MTLOAD_WORKLOAD row{};
+        row.structSize = sizeof(row);
+        row.abiVersion = MTLOAD_ABI_VERSION;
+        CopyText(row.id, source.id);
+        CopyText(row.name, source.name);
+        CopyText(row.mode, source.useScenarioLoads ? "closed" : source.load.mode);
+        CopyText(row.testType, source.testType);
+        row.scenarioCount = static_cast<uint32_t>(source.scenarios.size());
+        row.users = source.load.mode == "arrival" ? source.load.preAllocatedUsers : source.load.threads;
+        row.maxUsers = source.load.mode == "arrival" ? source.load.maxUsers : source.load.threads;
+        row.stageCount = static_cast<uint32_t>(source.load.stages.size());
+        uint64_t stageDuration = 0;
+        for (const LoadStage& stage : source.load.stages) stageDuration += stage.durationMs;
+        row.durationMs = source.load.durationMs != 0 ? source.load.durationMs : stageDuration;
+        row.ratePerSec = source.load.ratePerSec;
+        row.selected = source.id == selectedWorkloadId_ ? 1U : 0U;
+        row.implicit = source.implicit ? 1U : 0U;
+        rows.push_back(row);
+    }
+    return rows;
+}
+
+// 关键实现：工作负载切换与场景兼容选择互斥，切换后重建接口和事务零值行。
+int LoadEngine::SelectWorkload(const std::string& workloadId)
+{
+    Plan planCopy;
+    {
+        std::lock_guard<std::mutex> guard(stateMutex_);
+        if (!validated_ || workloadId.empty()) return MTLOAD_E_INVALID_ARGUMENT;
+        if (state_ == MTLOAD_STATE_STARTING || state_ == MTLOAD_STATE_RUNNING ||
+            state_ == MTLOAD_STATE_PAUSING || state_ == MTLOAD_STATE_PAUSED ||
+            state_ == MTLOAD_STATE_STOPPING)
+            return MTLOAD_E_INVALID_STATE;
+        const Workload* workload = FindWorkload(plan_, workloadId);
+        if (workload == nullptr)
+        {
+            lastResult_ = MTLOAD_E_NOT_FOUND;
+            lastError_ = "工作负载不存在: " + workloadId;
+            return lastResult_;
+        }
+        selectedWorkloadId_ = workloadId;
+        selectedScenarioId_.clear();
+        if (workload->implicit && workload->scenarios.size() == 1)
+            selectedScenarioId_ = workload->scenarios.front().scenarioId;
+        plannedRequests_ = PlannedRequests(plan_, *workload);
+        lastResult_ = MTLOAD_OK;
+        lastError_.clear();
+        planCopy = plan_;
+    }
+    ResetMetricDefinitions(planCopy, workloadId);
     return MTLOAD_OK;
 }
 
@@ -547,7 +791,15 @@ int LoadEngine::Start(const std::string& runName)
     pauseRequested_.store(false);
     pausedDurationMs_ = 0;
     totalSamples_.store(0);
-    ResetMetricDefinitions(plan_, selectedScenarioId_);
+    activeScenarios_.store(0);
+    activeUsers_.store(0);
+    activeRequests_.store(0);
+    peakActiveUsers_.store(0);
+    peakActiveRequests_.store(0);
+    scheduledIterations_.store(0);
+    completedIterations_.store(0);
+    droppedIterations_.store(0);
+    ResetMetricDefinitions(plan_, selectedWorkloadId_);
     try
     {
         worker_ = std::thread(&LoadEngine::Run, this);
@@ -635,10 +887,17 @@ int LoadEngine::ClearResults()
     endUnixMs_ = 0;
     pausedDurationMs_ = 0;
     totalSamples_.store(0);
+    peakActiveUsers_.store(0);
+    peakActiveRequests_.store(0);
+    scheduledIterations_.store(0);
+    completedIterations_.store(0);
+    droppedIterations_.store(0);
     lastResult_ = MTLOAD_OK;
     lastError_.clear();
     std::lock_guard<std::mutex> metricGuard(metricsMutex_);
     metrics_.clear();
+    scenarioMetrics_.clear();
+    thresholdResults_.clear();
     errors_.clear();
     return MTLOAD_OK;
 }
@@ -680,7 +939,8 @@ void LoadEngine::SetTerminalState(int state, int result)
     stateChanged_.notify_all();
 }
 
-// 关键实现：复制所选场景后逐一执行，捕获所有异常并确保最终只设置一次终态。
+// 关键实现：按已选择工作负载进入 closed、arrival 或旧全部场景路径，
+// 所有工作完成后统一评估阈值；阈值失败仍保持 COMPLETED 终态。
 void LoadEngine::Run()
 {
     try
@@ -691,15 +951,14 @@ void LoadEngine::Run()
             if (state_ == MTLOAD_STATE_STARTING) state_ = MTLOAD_STATE_RUNNING;
         }
         stateChanged_.notify_all();
-        // 每个选中场景独立调度，顶层线程统一 join 后再发布终态。
-        std::vector<std::thread> scenarios;
-        for (const Scenario& scenario : plan_.scenarios)
-        {
-            if (!selectedScenarioId_.empty() && scenario.id != selectedScenarioId_) continue;
-            scenarios.emplace_back(&LoadEngine::RunScenario, this, std::cref(scenario));
-        }
-        for (auto& thread : scenarios) thread.join();
-        SetTerminalState(MTLOAD_STATE_COMPLETED, MTLOAD_OK);
+        const Workload* workload = FindWorkload(plan_, selectedWorkloadId_);
+        if (workload == nullptr) throw std::runtime_error("所选工作负载不存在");
+        if (workload->useScenarioLoads) RunLegacyAll(*workload);
+        else if (workload->load.mode == "arrival") RunArrivalWorkload(*workload);
+        else RunClosedWorkload(*workload);
+        const bool thresholdsPassed = EvaluateThresholds(*workload);
+        SetTerminalState(MTLOAD_STATE_COMPLETED,
+            thresholdsPassed ? MTLOAD_OK : MTLOAD_E_THRESHOLD_FAILED);
     }
     catch (const std::exception& exception)
     {
@@ -711,17 +970,83 @@ void LoadEngine::Run()
     }
 }
 
-// 关键实现：一个线程对应一个虚拟用户，ramp-up 仅延迟启动，不共享变量上下文。
-void LoadEngine::RunScenario(const Scenario& scenario)
+// 关键实现：兼容旧“全部场景”语义，每个场景沿用自身 Load 并彼此并行。
+void LoadEngine::RunLegacyAll(const Workload& workload)
+{
+    std::vector<std::thread> scenarios;
+    for (const WorkloadScenarioRef& reference : workload.scenarios)
+    {
+        const Scenario* scenario = FindScenario(plan_, reference.scenarioId);
+        if (scenario != nullptr)
+            scenarios.emplace_back(&LoadEngine::RunScenario, this, std::cref(*scenario), std::cref(scenario->load));
+    }
+    for (auto& thread : scenarios) thread.join();
+}
+
+// 关键实现：closed 工作负载的每个线程代表一个虚拟用户；多场景按全局事务序号
+// 进行确定性权重轮询，权重对应完整事务而不是 HTTP 请求数量。
+void LoadEngine::RunClosedWorkload(const Workload& workload)
+{
+    activeScenarios_.fetch_add(1);
+    std::atomic<uint64_t> sequence{ 0 };
+    std::vector<std::thread> users;
+    for (uint32_t index = 0; index < workload.load.threads && !stopping_.load(); ++index)
+    {
+        users.emplace_back([&, index]()
+        {
+            const uint32_t active = activeUsers_.fetch_add(1) + 1;
+            UpdatePeak(peakActiveUsers_, active);
+            struct UserGuard
+            {
+                std::atomic<uint32_t>& count;
+                ~UserGuard() { count.fetch_sub(1); }
+            } userGuard{ activeUsers_ };
+            if (workload.load.rampUpMs > 0 && workload.load.threads > 1)
+            {
+                const uint64_t delayMs = static_cast<uint64_t>(workload.load.rampUpMs) *
+                    index / workload.load.threads;
+                if (!WaitForActiveDelay(delayMs)) return;
+            }
+            if (!WaitUntilRunnable()) return;
+            const auto started = std::chrono::steady_clock::now();
+            const uint64_t pausedAtStart = PausedDurationMs();
+            uint64_t localIteration = 0;
+            while (!stopping_.load())
+            {
+                if (workload.load.iterations > 0 && localIteration >= workload.load.iterations) break;
+                if (workload.load.durationMs > 0)
+                {
+                    const uint64_t wallMs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - started).count());
+                    const uint64_t pausedMs = PausedDurationMs() - pausedAtStart;
+                    if (wallMs >= pausedMs + workload.load.durationMs) break;
+                }
+                if (!WaitUntilRunnable()) break;
+                const uint64_t current = sequence.fetch_add(1);
+                const Scenario* scenario = SelectWeightedScenario(plan_, workload, current);
+                if (scenario == nullptr) break;
+                scheduledIterations_.fetch_add(1);
+                RunIteration(*scenario, index, current);
+                ++localIteration;
+            }
+        });
+    }
+    for (auto& user : users) user.join();
+    activeScenarios_.fetch_sub(1);
+}
+
+// 关键实现：旧单场景 closed 调度器保留原有线程、迭代、持续时间和 ramp-up 语义。
+void LoadEngine::RunScenario(const Scenario& scenario, const Load& load)
 {
     activeScenarios_.fetch_add(1);
     // 每个用户线程拥有独立迭代位置和变量上下文，相同账号也不共享可变会话值。
     std::vector<std::thread> users;
-    for (uint32_t index = 0; index < scenario.load.threads && !stopping_.load(); ++index)
+    for (uint32_t index = 0; index < load.threads && !stopping_.load(); ++index)
     {
         users.emplace_back([&, index]()
         {
-            activeUsers_.fetch_add(1);
+            const uint32_t active = activeUsers_.fetch_add(1) + 1;
+            UpdatePeak(peakActiveUsers_, active);
             // 栈守卫保证提前停止、延迟取消和异常路径均能归还活动用户计数。
             struct UserGuard
             {
@@ -729,10 +1054,9 @@ void LoadEngine::RunScenario(const Scenario& scenario)
                 // 用户线程离开作用域时只执行一次计数回收。
                 ~UserGuard() { count.fetch_sub(1); }
             } userGuard{ activeUsers_ };
-            if (scenario.load.rampUpMs > 0 && scenario.load.threads > 1)
+            if (load.rampUpMs > 0 && load.threads > 1)
             {
-                const uint64_t delayMs = static_cast<uint64_t>(scenario.load.rampUpMs) *
-                    index / scenario.load.threads;
+                const uint64_t delayMs = static_cast<uint64_t>(load.rampUpMs) * index / load.threads;
                 if (!WaitForActiveDelay(delayMs)) return;
             }
             if (!WaitUntilRunnable()) return;
@@ -742,15 +1066,16 @@ void LoadEngine::RunScenario(const Scenario& scenario)
             uint64_t iteration = 0;
             while (!stopping_.load())
             {
-                if (scenario.load.iterations > 0 && iteration >= scenario.load.iterations) break;
-                if (scenario.load.durationMs > 0)
+                if (load.iterations > 0 && iteration >= load.iterations) break;
+                if (load.durationMs > 0)
                 {
                     const uint64_t wallMs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::steady_clock::now() - started).count());
                     const uint64_t pausedMs = PausedDurationMs() - pausedAtStart;
-                    if (wallMs >= pausedMs + scenario.load.durationMs) break;
+                    if (wallMs >= pausedMs + load.durationMs) break;
                 }
                 if (!WaitUntilRunnable()) break;
+                scheduledIterations_.fetch_add(1);
                 RunIteration(scenario, index, iteration++);
             }
         });
@@ -759,9 +1084,158 @@ void LoadEngine::RunScenario(const Scenario& scenario)
     activeScenarios_.fetch_sub(1);
 }
 
-// 关键实现：为当前用户选择账号/数据行，步骤串行、步骤内请求副本并行并等待屏障。
-bool LoadEngine::RunIteration(const Scenario& scenario, uint32_t userIndex, uint64_t iteration)
+// 关键实现：开放模型按活动时间积分生成到达事件。空闲用户不足时立即丢弃，
+// 工作队列只承载已获得执行容量的事务，因此不会形成隐藏排队和协调遗漏。
+void LoadEngine::RunArrivalWorkload(const Workload& workload)
 {
+    struct Job
+    {
+        const Scenario* scenario = nullptr;
+        uint64_t sequence = 0;
+    };
+    activeScenarios_.fetch_add(1);
+    std::mutex poolMutex;
+    std::condition_variable poolChanged;
+    std::deque<Job> jobs;
+    std::vector<std::thread> workers;
+    uint32_t idleWorkers = 0;
+    bool shutdown = false;
+
+    auto spawnWorker = [&](uint32_t workerIndex)
+    {
+        workers.emplace_back([&, workerIndex]()
+        {
+            std::unique_lock<std::mutex> lock(poolMutex);
+            for (;;)
+            {
+                ++idleWorkers;
+                poolChanged.notify_all();
+                poolChanged.wait(lock, [&]() { return shutdown || stopping_.load() || !jobs.empty(); });
+                --idleWorkers;
+                if ((shutdown || stopping_.load()) && jobs.empty()) break;
+                if (jobs.empty()) continue;
+                const Job job = jobs.front();
+                jobs.pop_front();
+                lock.unlock();
+                const uint32_t active = activeUsers_.fetch_add(1) + 1;
+                UpdatePeak(peakActiveUsers_, active);
+                RunIteration(*job.scenario, workerIndex, job.sequence);
+                activeUsers_.fetch_sub(1);
+                lock.lock();
+            }
+            poolChanged.notify_all();
+        });
+    };
+
+    for (uint32_t index = 0; index < workload.load.preAllocatedUsers; ++index) spawnWorker(index);
+    {
+        std::unique_lock<std::mutex> lock(poolMutex);
+        poolChanged.wait(lock, [&]() { return idleWorkers == workers.size(); });
+    }
+
+    auto rateAt = [&](uint64_t activeMs)
+    {
+        if (workload.load.stages.empty()) return workload.load.ratePerSec;
+        uint64_t offset = 0;
+        double startRate = workload.load.ratePerSec;
+        for (const LoadStage& stage : workload.load.stages)
+        {
+            const uint64_t end = offset + stage.durationMs;
+            if (activeMs <= end)
+            {
+                const double progress = static_cast<double>(activeMs - offset) / stage.durationMs;
+                return startRate + (stage.targetRatePerSec - startRate) * progress;
+            }
+            offset = end;
+            startRate = stage.targetRatePerSec;
+        }
+        return startRate;
+    };
+    uint64_t durationMs = workload.load.durationMs;
+    if (!workload.load.stages.empty())
+    {
+        durationMs = 0;
+        for (const LoadStage& stage : workload.load.stages) durationMs += stage.durationMs;
+    }
+    const auto started = std::chrono::steady_clock::now();
+    const uint64_t pausedAtStart = PausedDurationMs();
+    uint64_t lastActiveMs = 0;
+    uint64_t sequence = 0;
+    double dueCredit = 0.0;
+    while (!stopping_.load())
+    {
+        if (!WaitUntilRunnable()) break;
+        const uint64_t wallMs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - started).count());
+        const uint64_t pausedMs = PausedDurationMs() - pausedAtStart;
+        const uint64_t activeMs = wallMs > pausedMs ? wallMs - pausedMs : 0;
+        if (activeMs >= durationMs) break;
+        const uint64_t deltaMs = activeMs - lastActiveMs;
+        if (deltaMs > 0)
+        {
+            dueCredit += (rateAt(lastActiveMs) + rateAt(activeMs)) * 0.5 * deltaMs / 1000.0;
+            lastActiveMs = activeMs;
+        }
+        while (dueCredit >= 1.0 && !stopping_.load())
+        {
+            dueCredit -= 1.0;
+            const Scenario* scenario = SelectWeightedScenario(plan_, workload, sequence);
+            if (scenario == nullptr) break;
+            scheduledIterations_.fetch_add(1);
+            bool accepted = false;
+            {
+                std::lock_guard<std::mutex> lock(poolMutex);
+                if (idleWorkers > jobs.size())
+                {
+                    jobs.push_back({ scenario, sequence });
+                    accepted = true;
+                }
+                else if (workers.size() < workload.load.maxUsers)
+                {
+                    jobs.push_back({ scenario, sequence });
+                    spawnWorker(static_cast<uint32_t>(workers.size()));
+                    accepted = true;
+                }
+            }
+            if (accepted) poolChanged.notify_one();
+            else RecordDroppedTransaction(*scenario);
+            ++sequence;
+        }
+        if (!WaitForActiveDelay(5)) break;
+    }
+
+    // 调度结束后直接关闭工作池。工作线程只在队列为空时退出，因此正常完成仍会
+    // 排空已接收任务；停止时任务会沿 stopping_ 快速完成取消记账。这里不能等待
+    // idleWorkers == workers.size()，因为收到停止通知的空闲线程会直接退出，不会再
+    // 回到空闲计数，继续等待将使顶层运行线程永久卡在 STOPPING。
+    {
+        std::lock_guard<std::mutex> lock(poolMutex);
+        shutdown = true;
+    }
+    poolChanged.notify_all();
+    for (auto& worker : workers) worker.join();
+    activeScenarios_.fetch_sub(1);
+}
+
+// 关键实现：为当前用户选择账号/数据行，步骤串行、步骤内请求副本并行并等待屏障；
+// 任一步失败都会使事务失败，即使 onError=continue，alwaysRun 清理仍纳入完整耗时。
+LoadEngine::IterationOutcome LoadEngine::RunIteration(const Scenario& scenario,
+    uint32_t userIndex, uint64_t iteration)
+{
+    IterationOutcome result;
+    const auto transactionStarted = std::chrono::steady_clock::now();
+    RecordTransactionStarted(scenario);
+    // 所有退出路径统一完成事务记账。手工终止会取消后续 HTTP 请求，但已被调度的
+    // 事务仍必须闭合 started/completed，否则界面和报告会永久残留未完成事务。
+    auto finishTransaction = [&](bool success)
+    {
+        result.completed = true;
+        result.success = success;
+        result.elapsedMs = std::chrono::duration<double, std::milli>(
+            std::chrono::steady_clock::now() - transactionStarted).count();
+        RecordTransactionCompleted(scenario, result);
+        return result;
+    };
     // 为本轮选择统一用户、UserRefs 或数据行，复制后交给该用户独占。
     std::map<std::string, std::string> row;
     if (!selectedUserId_.empty())
@@ -784,13 +1258,14 @@ bool LoadEngine::RunIteration(const Scenario& scenario, uint32_t userIndex, uint
     runtimeVariables["threadIndex"] = std::to_string(static_cast<uint64_t>(userIndex) + 1ULL);
     runtimeVariables["iterationIndex"] = std::to_string(iteration + 1ULL);
     VariableContext variables(row, std::move(runtimeVariables));
-    bool iterationFailed = false;
+    bool anyFailure = false;
+    bool stopNormalSteps = false;
     // 步骤严格串行；业务失败后跳过普通步骤，但仍扫描并执行 alwaysRun 清理步骤。
     for (const Step& step : scenario.steps)
     {
-        if (stopping_.load()) return false;
-        if (iterationFailed && !step.alwaysRun) continue;
-        if (!WaitUntilRunnable()) return false;
+        if (stopping_.load()) return finishTransaction(false);
+        if (stopNormalSteps && !step.alwaysRun) continue;
+        if (!WaitUntilRunnable()) return finishTransaction(false);
         std::vector<std::future<RequestOutcome>> futures;
         std::vector<const Request*> requests;
         // copies 展开为独立异步任务，但全部读取进入步骤时的同一只读变量上下文。
@@ -817,9 +1292,13 @@ bool LoadEngine::RunIteration(const Scenario& scenario, uint32_t userIndex, uint
         }
         for (const RequestOutcome& outcome : outcomes)
             for (const auto& pair : outcome.extracted) variables.SetSession(pair.first, pair.second);
-        if (!stepOk && step.onError != "continue") iterationFailed = true;
+        if (!stepOk)
+        {
+            anyFailure = true;
+            if (step.onError != "continue") stopNormalSteps = true;
+        }
     }
-    return !iterationFailed;
+    return finishTransaction(!anyFailure);
 }
 
 // 关键实现：展开路径/正文/请求头，取得并发许可后执行 HTTP，再统一断言、提取和统计。
@@ -949,26 +1428,34 @@ Target LoadEngine::ResolveTarget(const Target& configured) const
     return resolved;
 }
 
-// 关键实现：预创建所有选中请求的累加器，并设置各自计划请求数。
-void LoadEngine::ResetMetricDefinitions(const Plan& plan, const std::string& selectedScenarioId)
+// 关键实现：按工作负载引用预创建接口和事务累加器，并设置有限 closed 计划请求数。
+void LoadEngine::ResetMetricDefinitions(const Plan& plan, const std::string& selectedWorkloadId)
 {
     std::lock_guard<std::mutex> guard(metricsMutex_);
     metrics_.clear();
+    scenarioMetrics_.clear();
+    thresholdResults_.clear();
     errors_.clear();
-    for (const Scenario& scenario : plan.scenarios)
+    const Workload* workload = FindWorkload(plan, selectedWorkloadId);
+    if (workload == nullptr) return;
+    for (const WorkloadScenarioRef& reference : workload->scenarios)
     {
-        if (!selectedScenarioId.empty() && scenario.id != selectedScenarioId) continue;
-        for (const Step& step : scenario.steps)
+        const Scenario* scenario = FindScenario(plan, reference.scenarioId);
+        if (scenario == nullptr) continue;
+        ScenarioAccumulator& transaction = scenarioMetrics_[scenario->id];
+        transaction.scenarioId = scenario->id;
+        transaction.scenario = scenario->name;
+        for (const Step& step : scenario->steps)
         {
             for (const Request& request : step.requests)
             {
-                MetricAccumulator& metric = metrics_[MetricKey(scenario, step, request)];
-                metric.scenario = scenario.name;
+                MetricAccumulator& metric = metrics_[MetricKey(*scenario, step, request)];
+                metric.scenario = scenario->name;
                 metric.step = step.name;
                 metric.label = request.label;
                 metric.method = request.method;
                 metric.path = request.path;
-                metric.plannedRequests = PlannedRequests(scenario, request);
+                metric.plannedRequests = PlannedRequests(plan, *workload, *scenario, request);
             }
         }
     }
@@ -989,7 +1476,8 @@ bool LoadEngine::BeginRequest()
     pauseChanged_.wait(lock, [this]() { return !pauseRequested_.load() || stopping_.load(); });
     if (stopping_.load()) return false;
     // 与 Pause 共用 pauseMutex_，保证暂停观察到的 activeRequests_ 不漏掉刚放行的请求。
-    activeRequests_.fetch_add(1);
+    const uint32_t active = activeRequests_.fetch_add(1) + 1;
+    UpdatePeak(peakActiveRequests_, active);
     return true;
 }
 
@@ -1055,6 +1543,46 @@ void LoadEngine::RecordMetric(const Scenario& scenario, const Step& step,
     totalSamples_.fetch_add(1);
 }
 
+// 关键实现：事务开始与接口请求分开计数，避免四步生命周期被误显示为四个事务。
+void LoadEngine::RecordTransactionStarted(const Scenario& scenario)
+{
+    std::lock_guard<std::mutex> guard(metricsMutex_);
+    ScenarioAccumulator& metric = scenarioMetrics_[scenario.id];
+    metric.scenarioId = scenario.id;
+    metric.scenario = scenario.name;
+    ++metric.started;
+}
+
+// 关键实现：仅完整到达事务终点时计 completed，并把任一步失败归入事务失败。
+void LoadEngine::RecordTransactionCompleted(const Scenario& scenario,
+    const IterationOutcome& outcome)
+{
+    if (!outcome.completed) return;
+    {
+        std::lock_guard<std::mutex> guard(metricsMutex_);
+        ScenarioAccumulator& metric = scenarioMetrics_[scenario.id];
+        metric.scenarioId = scenario.id;
+        metric.scenario = scenario.name;
+        ++metric.completed;
+        outcome.success ? ++metric.succeeded : ++metric.failed;
+        metric.latencyMs.push_back(outcome.elapsedMs);
+    }
+    completedIterations_.fetch_add(1);
+}
+
+// 关键实现：arrival 达到 maxUsers 时按已经选定的场景记录丢弃，不进入等待队列。
+void LoadEngine::RecordDroppedTransaction(const Scenario& scenario)
+{
+    {
+        std::lock_guard<std::mutex> guard(metricsMutex_);
+        ScenarioAccumulator& metric = scenarioMetrics_[scenario.id];
+        metric.scenarioId = scenario.id;
+        metric.scenario = scenario.name;
+        ++metric.dropped;
+    }
+    droppedIterations_.fetch_add(1);
+}
+
 // 关键实现：构造固定布局脱敏样本并限制保留数量，避免错误洪峰耗尽内存。
 void LoadEngine::RecordError(const Scenario& scenario, const Step& step,
     const Request& request, const RequestOutcome& outcome)
@@ -1095,6 +1623,23 @@ int LoadEngine::GetState(MTLOAD_RUN_STATE& out) const
     out.activeConnections = activeRequests_.load();
     out.totalSamples = totalSamples_.load();
     out.plannedRequests = plannedRequests_;
+    const int64_t wallMs = startUnixMs_ == 0 ? 0 :
+        (endUnixMs_ == 0 ? UnixMs() : endUnixMs_) - startUnixMs_;
+    uint64_t pausedMs = pausedDurationMs_;
+    if (pauseRequested_.load())
+    {
+        pausedMs += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - pauseStarted_).count());
+    }
+    out.effectiveElapsedMs = wallMs <= static_cast<int64_t>(pausedMs) ? 0 :
+        static_cast<uint64_t>(wallMs - static_cast<int64_t>(pausedMs));
+    const double seconds = (std::max)(0.001, out.effectiveElapsedMs / 1000.0);
+    out.totalThroughputPerSec = out.totalSamples / seconds;
+    out.peakActiveUsers = peakActiveUsers_.load();
+    out.peakActiveRequests = peakActiveRequests_.load();
+    out.scheduledIterations = scheduledIterations_.load();
+    out.completedIterations = completedIterations_.load();
+    out.droppedIterations = droppedIterations_.load();
     return MTLOAD_OK;
 }
 
@@ -1158,6 +1703,131 @@ std::vector<MTLOAD_METRIC_ROW> LoadEngine::GetMetrics() const
     return rows;
 }
 
+// 关键实现：在锁内复制事务累加器，在锁外按完整事务耗时计算分位数和吞吐。
+std::vector<MTLOAD_SCENARIO_METRIC_ROW> LoadEngine::GetScenarioMetrics() const
+{
+    uint64_t elapsedMs = 0;
+    {
+        MTLOAD_RUN_STATE state{};
+        GetState(state);
+        elapsedMs = state.effectiveElapsedMs;
+    }
+    const double seconds = (std::max)(0.001, elapsedMs / 1000.0);
+    std::lock_guard<std::mutex> guard(metricsMutex_);
+    std::vector<MTLOAD_SCENARIO_METRIC_ROW> rows;
+    rows.reserve(scenarioMetrics_.size());
+    for (const auto& item : scenarioMetrics_)
+    {
+        const ScenarioAccumulator& source = item.second;
+        MTLOAD_SCENARIO_METRIC_ROW row{};
+        row.structSize = sizeof(row);
+        row.abiVersion = MTLOAD_ABI_VERSION;
+        CopyText(row.scenarioId, source.scenarioId);
+        CopyText(row.scenario, source.scenario);
+        row.started = source.started;
+        row.completed = source.completed;
+        row.succeeded = source.succeeded;
+        row.failed = source.failed;
+        row.dropped = source.dropped;
+        if (!source.latencyMs.empty())
+        {
+            row.minMs = *std::min_element(source.latencyMs.begin(), source.latencyMs.end());
+            row.maxMs = *std::max_element(source.latencyMs.begin(), source.latencyMs.end());
+            double total = 0.0;
+            for (double value : source.latencyMs) total += value;
+            row.averageMs = total / source.latencyMs.size();
+            row.medianMs = Percentile(source.latencyMs, 0.50);
+            row.p90Ms = Percentile(source.latencyMs, 0.90);
+            row.p95Ms = Percentile(source.latencyMs, 0.95);
+            row.p99Ms = Percentile(source.latencyMs, 0.99);
+        }
+        row.throughputPerSec = row.completed / seconds;
+        rows.push_back(row);
+    }
+    return rows;
+}
+
+// 关键实现：阈值结果在运行终点一次性生成，查询只返回不可变 POD 副本。
+std::vector<MTLOAD_THRESHOLD_RESULT> LoadEngine::GetThresholdResults() const
+{
+    std::lock_guard<std::mutex> guard(metricsMutex_);
+    return thresholdResults_;
+}
+
+// 关键实现：从同一轮请求、事务和运行快照计算阈值；目标不存在按失败处理，
+// 防止配置拼写错误被当作 0 值而意外通过。
+bool LoadEngine::EvaluateThresholds(const Workload& workload)
+{
+    const auto requestRows = GetMetrics();
+    const auto scenarioRows = GetScenarioMetrics();
+    MTLOAD_RUN_STATE state{};
+    GetState(state);
+    uint64_t failedRequests = 0;
+    for (const auto& row : requestRows) failedRequests += row.failed;
+    std::vector<MTLOAD_THRESHOLD_RESULT> results;
+    bool allPassed = true;
+    for (const Threshold& threshold : workload.thresholds)
+    {
+        MTLOAD_THRESHOLD_RESULT result{};
+        result.structSize = sizeof(result);
+        result.abiVersion = MTLOAD_ABI_VERSION;
+        CopyText(result.id, threshold.id);
+        CopyText(result.name, threshold.name);
+        CopyText(result.scope, threshold.scope);
+        CopyText(result.metric, threshold.metric);
+        CopyText(result.target, threshold.target);
+        CopyText(result.comparison, threshold.comparison);
+        result.expected = threshold.value;
+        bool found = true;
+        if (threshold.scope == "run")
+        {
+            if (threshold.metric == "errorRate")
+                result.actual = state.totalSamples == 0 ? 0.0 :
+                    static_cast<double>(failedRequests) / state.totalSamples;
+            else if (threshold.metric == "throughputPerSec")
+                result.actual = state.totalThroughputPerSec;
+            else if (threshold.metric == "droppedIterations")
+                result.actual = static_cast<double>(state.droppedIterations);
+            else found = false;
+        }
+        else if (threshold.scope == "request")
+        {
+            found = false;
+            for (const auto& row : requestRows)
+            {
+                if (threshold.target != row.label) continue;
+                const double value = threshold.metric == "p95Ms" ? row.p95Ms : row.p99Ms;
+                result.actual = found ? (std::max)(result.actual, value) : value;
+                found = true;
+            }
+        }
+        else if (threshold.scope == "scenario")
+        {
+            found = false;
+            for (const auto& row : scenarioRows)
+            {
+                if (threshold.target != row.scenarioId) continue;
+                result.actual = threshold.metric == "p95Ms" ? row.p95Ms :
+                    (row.completed == 0 ? 0.0 : static_cast<double>(row.failed) / row.completed);
+                found = true;
+                break;
+            }
+        }
+        const double epsilon = 1e-9;
+        const bool passed = found && (threshold.comparison == "lte" ? result.actual <= result.expected :
+            threshold.comparison == "gte" ? result.actual >= result.expected :
+            std::abs(result.actual - result.expected) <= epsilon);
+        result.passed = passed ? 1U : 0U;
+        allPassed = allPassed && passed;
+        results.push_back(result);
+    }
+    {
+        std::lock_guard<std::mutex> guard(metricsMutex_);
+        thresholdResults_ = std::move(results);
+    }
+    return allPassed;
+}
+
 // 关键实现：在指标锁内返回错误样本副本，调用方不持有内部引用。
 std::vector<MTLOAD_ERROR_SAMPLE> LoadEngine::GetErrors() const
 {
@@ -1174,8 +1844,18 @@ std::string LoadEngine::GetSnapshotJson() const
     root["AbiVersion"] = MTLOAD_ABI_VERSION;
     root["RunId"] = std::to_string(state.runId);
     root["State"] = state.state;
+    root["Result"] = state.lastResult;
     root["TotalSamples"] = std::to_string(state.totalSamples);
     root["PlannedRequests"] = std::to_string(state.plannedRequests);
+    root["EffectiveElapsedMs"] = std::to_string(state.effectiveElapsedMs);
+    root["TotalThroughputPerSec"] = state.totalThroughputPerSec;
+    root["CurrentUsers"] = state.activeUsers;
+    root["PeakUsers"] = state.peakActiveUsers;
+    root["CurrentInflightRequests"] = state.activeRequests;
+    root["PeakInflightRequests"] = state.peakActiveRequests;
+    root["ScheduledIterations"] = std::to_string(state.scheduledIterations);
+    root["CompletedIterations"] = std::to_string(state.completedIterations);
+    root["DroppedIterations"] = std::to_string(state.droppedIterations);
     Json::Value metrics(Json::arrayValue);
     for (const auto& row : GetMetrics())
     {
@@ -1195,6 +1875,42 @@ std::string LoadEngine::GetSnapshotJson() const
         metrics.append(item);
     }
     root["Metrics"] = metrics;
+    Json::Value transactions(Json::arrayValue);
+    for (const auto& row : GetScenarioMetrics())
+    {
+        Json::Value item;
+        item["ScenarioId"] = row.scenarioId;
+        item["Scenario"] = row.scenario;
+        item["Started"] = std::to_string(row.started);
+        item["Completed"] = std::to_string(row.completed);
+        item["Succeeded"] = std::to_string(row.succeeded);
+        item["Failed"] = std::to_string(row.failed);
+        item["Dropped"] = std::to_string(row.dropped);
+        item["AverageMs"] = row.averageMs;
+        item["P50Ms"] = row.medianMs;
+        item["P90Ms"] = row.p90Ms;
+        item["P95Ms"] = row.p95Ms;
+        item["P99Ms"] = row.p99Ms;
+        item["ThroughputPerSec"] = row.throughputPerSec;
+        transactions.append(item);
+    }
+    root["Transactions"] = transactions;
+    Json::Value thresholds(Json::arrayValue);
+    for (const auto& row : GetThresholdResults())
+    {
+        Json::Value item;
+        item["Id"] = row.id;
+        item["Name"] = row.name;
+        item["Scope"] = row.scope;
+        item["Metric"] = row.metric;
+        item["Target"] = row.target;
+        item["Operator"] = row.comparison;
+        item["Expected"] = row.expected;
+        item["Actual"] = row.actual;
+        item["Passed"] = row.passed == 1;
+        thresholds.append(item);
+    }
+    root["Thresholds"] = thresholds;
     Json::StyledWriter writer;
     return writer.write(root);
 }
@@ -1236,10 +1952,10 @@ int LoadEngine::Export(const std::string& directory, uint32_t formats)
         }
         if ((formats & MTLOAD_REPORT_XML) != 0)
             WriteXmlReport(root / "MtLoadResult.xml", [&]() { MTLOAD_RUN_STATE value{}; GetState(value); return value; }(),
-                GetMetrics(), GetErrors());
+                GetMetrics(), GetScenarioMetrics(), GetThresholdResults(), GetErrors());
         if ((formats & MTLOAD_REPORT_XLSX) != 0)
             WriteXlsxReport(root / "MtLoadResult.xlsx", [&]() { MTLOAD_RUN_STATE value{}; GetState(value); return value; }(),
-                GetMetrics(), GetErrors());
+                GetMetrics(), GetScenarioMetrics(), GetThresholdResults(), GetErrors());
         return MTLOAD_OK;
     }
     catch (...) { return MTLOAD_E_REPORT; }
@@ -1258,9 +1974,11 @@ int LoadEngine::ExportFile(const std::string& absoluteFilePath, uint32_t format)
         MTLOAD_RUN_STATE state{};
         GetState(state);
         const auto metrics = GetMetrics();
+        const auto scenarios = GetScenarioMetrics();
+        const auto thresholds = GetThresholdResults();
         const auto errors = GetErrors();
-        if (format == MTLOAD_REPORT_XLSX) WriteXlsxReport(path, state, metrics, errors);
-        else WriteXmlReport(path, state, metrics, errors);
+        if (format == MTLOAD_REPORT_XLSX) WriteXlsxReport(path, state, metrics, scenarios, thresholds, errors);
+        else WriteXmlReport(path, state, metrics, scenarios, thresholds, errors);
         return MTLOAD_OK;
     }
     catch (...) { return MTLOAD_E_REPORT; }

@@ -33,7 +33,7 @@ protected:
     afx_msg void OnValidatePlan();
     // 将当前环境下拉项提交给引擎并刷新状态。
     afx_msg void OnEnvironmentChanged();
-    // 将当前场景下拉项提交给引擎并刷新计划请求数。
+    // 将当前工作负载下拉项提交给引擎并刷新计划请求数。
     afx_msg void OnScenarioChanged();
     // 将当前账号选择提交给引擎；密码始终留在 DLL 内部。
     afx_msg void OnUserChanged();
@@ -49,7 +49,7 @@ protected:
     afx_msg void OnShowLog();
     // 定时拉取不可变状态、指标和错误样本。
     afx_msg void OnTimer(UINT_PTR eventId);
-    // 窗口缩放时按客户区重排指标列宽。
+    // 窗口缩放时按客户区重排事务和指标列宽。
     afx_msg void OnSize(UINT type, int cx, int cy);
     DECLARE_MESSAGE_MAP()
 
@@ -69,13 +69,17 @@ private:
     void LogEngineErrors();
     // 本轮第一次进入终态时记录一次聚合摘要。
     void LogTerminalSummary(const MTLOAD_RUN_STATE& state,
-        const std::vector<MTLOAD_METRIC_ROW>& metrics);
+        const std::vector<MTLOAD_METRIC_ROW>& metrics,
+        const std::vector<MTLOAD_SCENARIO_METRIC_ROW>& transactions,
+        const std::vector<MTLOAD_THRESHOLD_RESULT>& thresholds);
     // 从引擎重新填充环境下拉并保持 selected 标记。
     void RefreshEnvironmentChoices();
-    // 从引擎重新填充场景下拉和请求总数摘要。
+    // 从引擎重新填充工作负载下拉和负载模型摘要。
     void RefreshScenarioChoices();
     // 从引擎重新填充不含密码的用户摘要。
     void RefreshUserChoices();
+    // 依据列表客户区宽度分配全部事务列并避免空白尾列。
+    void ResizeTransactionColumns();
     // 依据列表客户区宽度分配全部指标列并避免空白尾列。
     void ResizeMetricColumns();
     // 根据状态机统一设置开始、暂停、检测、导出等控件可用性。
@@ -90,12 +94,13 @@ private:
     CStatic runStateText_;                      // 顶部运行状态和总进度文本。
     CStatic statusText_;                        // 底部操作结果提示。
     CListCtrl metricList_;                      // JMeter 风格聚合指标列表。
+    CListCtrl transactionList_;                 // 独立业务事务汇总列表。
     CLoadEngineClient engine_;                  // DLL 的唯一界面适配器和句柄所有者。
     CAppLog appLog_;                            // 应用级线程安全日志存储。
     HICON mainIcon_ = nullptr;                  // 从资源借用的窗口图标句柄。
     std::unique_ptr<CLogDlg> logDialog_;        // 唯一非模态日志窗口所有权。
     std::vector<MTLOAD_ENVIRONMENT> environments_; // 当前环境摘要快照。
-    std::vector<MTLOAD_SCENARIO> scenarios_;    // 当前场景摘要快照。
+    std::vector<MTLOAD_WORKLOAD> workloads_;    // 当前工作负载摘要快照。
     std::vector<MTLOAD_USER> users_;            // 当前用户摘要快照，不含密码。
     bool engineLoaded_ = false;                 // DLL 与引擎句柄是否可用。
     bool planValidated_ = false;                // 当前路径计划是否已通过校验。

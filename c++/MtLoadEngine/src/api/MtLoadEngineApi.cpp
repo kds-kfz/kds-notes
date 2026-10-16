@@ -145,6 +145,25 @@ int32_t MTLOAD_CALL MtLoad_SelectScenario(MTLOAD_HANDLE handle,
     catch (...) { return MTLOAD_E_INTERNAL; }
 }
 
+// 关键实现：返回场景组合、负载模型和当前选择，不暴露内部 vector 引用。
+int32_t MTLOAD_CALL MtLoad_GetWorkloads(MTLOAD_HANDLE handle,
+    MTLOAD_WORKLOAD* rows, uint32_t* inoutCount)
+{
+    if (Engine(handle) == nullptr) return MTLOAD_E_INVALID_ARGUMENT;
+    try { return CopyRows(Engine(handle)->GetWorkloads(), rows, inoutCount); }
+    catch (...) { return MTLOAD_E_INTERNAL; }
+}
+
+// 关键实现：拒绝空 ID，具体存在性和运行状态由引擎统一校验。
+int32_t MTLOAD_CALL MtLoad_SelectWorkload(MTLOAD_HANDLE handle,
+    const char* workloadId)
+{
+    if (Engine(handle) == nullptr || workloadId == nullptr || *workloadId == '\0')
+        return MTLOAD_E_INVALID_ARGUMENT;
+    try { return Engine(handle)->SelectWorkload(workloadId); }
+    catch (...) { return MTLOAD_E_INTERNAL; }
+}
+
 // 关键实现：只复制不含密码的用户摘要 POD。
 int32_t MTLOAD_CALL MtLoad_GetUsers(MTLOAD_HANDLE handle,
     MTLOAD_USER* rows, uint32_t* inoutCount)
@@ -226,6 +245,24 @@ int32_t MTLOAD_CALL MtLoad_GetMetricRows(MTLOAD_HANDLE handle,
 {
     if (Engine(handle) == nullptr) return MTLOAD_E_INVALID_ARGUMENT;
     try { return CopyRows(Engine(handle)->GetMetrics(), rows, inoutCount); }
+    catch (...) { return MTLOAD_E_INTERNAL; }
+}
+
+// 关键实现：事务指标使用独立 POD 数组，不混入请求级 MetricRows。
+int32_t MTLOAD_CALL MtLoad_GetScenarioMetricRows(MTLOAD_HANDLE handle,
+    MTLOAD_SCENARIO_METRIC_ROW* rows, uint32_t* inoutCount)
+{
+    if (Engine(handle) == nullptr) return MTLOAD_E_INVALID_ARGUMENT;
+    try { return CopyRows(Engine(handle)->GetScenarioMetrics(), rows, inoutCount); }
+    catch (...) { return MTLOAD_E_INTERNAL; }
+}
+
+// 关键实现：阈值只在运行终点生成，未生成时按 0 行成功返回。
+int32_t MTLOAD_CALL MtLoad_GetThresholdResults(MTLOAD_HANDLE handle,
+    MTLOAD_THRESHOLD_RESULT* rows, uint32_t* inoutCount)
+{
+    if (Engine(handle) == nullptr) return MTLOAD_E_INVALID_ARGUMENT;
+    try { return CopyRows(Engine(handle)->GetThresholdResults(), rows, inoutCount); }
     catch (...) { return MTLOAD_E_INTERNAL; }
 }
 

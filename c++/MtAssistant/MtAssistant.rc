@@ -165,7 +165,7 @@ BEGIN
     BEGIN
         BLOCK "080404b0"
         BEGIN
-            VALUE "CompanyName", "Shenzhen Kingdom Technology Co., Ltd."
+            VALUE "CompanyName", "Shenzhen Guangwz Technology Co., Ltd."
             VALUE "FileDescription", "MtAssistant.exe"
             VALUE "FileVersion", "1.0.0.2"
             VALUE "InternalName", "MtAssistant.exe"

@@ -31,6 +31,8 @@ void CLoadEngineClient::BindStaticApi()
     selectEnvironment_ = &MtLoad_SelectEnvironment;
     getScenarios_ = &MtLoad_GetScenarios;
     selectScenario_ = &MtLoad_SelectScenario;
+    getWorkloads_ = &MtLoad_GetWorkloads;
+    selectWorkload_ = &MtLoad_SelectWorkload;
     getUsers_ = &MtLoad_GetUsers;
     selectUser_ = &MtLoad_SelectUser;
     start_ = &MtLoad_Start;
@@ -41,6 +43,8 @@ void CLoadEngineClient::BindStaticApi()
     wait_ = &MtLoad_Wait;
     getRunState_ = &MtLoad_GetRunState;
     getMetricRows_ = &MtLoad_GetMetricRows;
+    getScenarioMetricRows_ = &MtLoad_GetScenarioMetricRows;
+    getThresholdResults_ = &MtLoad_GetThresholdResults;
     getErrorSamples_ = &MtLoad_GetErrorSamples;
     exportConfiguredReport_ = &MtLoad_ExportConfiguredReport;
     getLastError_ = &MtLoad_GetLastError;
@@ -69,6 +73,8 @@ bool CLoadEngineClient::Load(const std::wstring& dllPath, std::wstring& error)
         !Resolve(selectEnvironment_, "MtLoad_SelectEnvironment", error) ||
         !Resolve(getScenarios_, "MtLoad_GetScenarios", error) ||
         !Resolve(selectScenario_, "MtLoad_SelectScenario", error) ||
+        !Resolve(getWorkloads_, "MtLoad_GetWorkloads", error) ||
+        !Resolve(selectWorkload_, "MtLoad_SelectWorkload", error) ||
         !Resolve(getUsers_, "MtLoad_GetUsers", error) ||
         !Resolve(selectUser_, "MtLoad_SelectUser", error) ||
         !Resolve(start_, "MtLoad_Start", error) || !Resolve(pause_, "MtLoad_Pause", error) ||
@@ -76,6 +82,8 @@ bool CLoadEngineClient::Load(const std::wstring& dllPath, std::wstring& error)
         !Resolve(clearResults_, "MtLoad_ClearResults", error) ||
         !Resolve(wait_, "MtLoad_Wait", error) || !Resolve(getRunState_, "MtLoad_GetRunState", error) ||
         !Resolve(getMetricRows_, "MtLoad_GetMetricRows", error) ||
+        !Resolve(getScenarioMetricRows_, "MtLoad_GetScenarioMetricRows", error) ||
+        !Resolve(getThresholdResults_, "MtLoad_GetThresholdResults", error) ||
         !Resolve(getErrorSamples_, "MtLoad_GetErrorSamples", error) ||
         !Resolve(exportConfiguredReport_, "MtLoad_ExportConfiguredReport", error) ||
         !Resolve(getLastError_, "MtLoad_GetLastError", error) || !Resolve(destroy_, "MtLoad_Destroy", error))
@@ -213,6 +221,36 @@ bool CLoadEngineClient::SelectScenario(const std::string& scenarioId,
     return false;
 }
 
+// 关键实现：通过统一两次调用协议取得工作负载，兼容项和显式项由 DLL 标记。
+std::vector<MTLOAD_WORKLOAD> CLoadEngineClient::GetWorkloads() const
+{
+    if (handle_ == nullptr || getWorkloads_ == nullptr) return {};
+    uint32_t count = 0;
+    int result = getWorkloads_(handle_, nullptr, &count);
+    if (result != MTLOAD_E_BUFFER_TOO_SMALL && result != MTLOAD_OK) return {};
+    std::vector<MTLOAD_WORKLOAD> rows(count);
+    if (count == 0) return rows;
+    if (getWorkloads_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
+    rows.resize(count);
+    return rows;
+}
+
+// 关键实现：工作负载 ID 直接传给 V4 ABI，界面不自行解释负载曲线。
+bool CLoadEngineClient::SelectWorkload(const std::string& workloadId,
+    std::wstring& error)
+{
+    if (handle_ == nullptr || selectWorkload_ == nullptr)
+    {
+        error = L"压测引擎尚未加载";
+        return false;
+    }
+    const int result = selectWorkload_(handle_, workloadId.c_str());
+    if (result == MTLOAD_OK) return true;
+    error = LastError();
+    if (error.empty()) error = L"选择工作负载失败，错误码=" + std::to_wstring(result);
+    return false;
+}
+
 // 关键实现：只复制 DLL 提供的脱敏用户摘要，宿主不读取 XML 密码。
 std::vector<MTLOAD_USER> CLoadEngineClient::GetUsers() const
 {
@@ -301,6 +339,34 @@ std::vector<MTLOAD_METRIC_ROW> CLoadEngineClient::GetMetrics() const
     std::vector<MTLOAD_METRIC_ROW> rows(count);
     if (count == 0) return rows;
     if (getMetricRows_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
+    rows.resize(count);
+    return rows;
+}
+
+// 关键实现：事务指标与接口指标使用不同 ABI 结构，防止宿主混淆吞吐口径。
+std::vector<MTLOAD_SCENARIO_METRIC_ROW> CLoadEngineClient::GetScenarioMetrics() const
+{
+    if (handle_ == nullptr || getScenarioMetricRows_ == nullptr) return {};
+    uint32_t count = 0;
+    int result = getScenarioMetricRows_(handle_, nullptr, &count);
+    if (result != MTLOAD_E_BUFFER_TOO_SMALL && result != MTLOAD_OK) return {};
+    std::vector<MTLOAD_SCENARIO_METRIC_ROW> rows(count);
+    if (count == 0) return rows;
+    if (getScenarioMetricRows_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
+    rows.resize(count);
+    return rows;
+}
+
+// 关键实现：运行未结束时通常返回空集合，终态后返回完整阈值明细。
+std::vector<MTLOAD_THRESHOLD_RESULT> CLoadEngineClient::GetThresholdResults() const
+{
+    if (handle_ == nullptr || getThresholdResults_ == nullptr) return {};
+    uint32_t count = 0;
+    int result = getThresholdResults_(handle_, nullptr, &count);
+    if (result != MTLOAD_E_BUFFER_TOO_SMALL && result != MTLOAD_OK) return {};
+    std::vector<MTLOAD_THRESHOLD_RESULT> rows(count);
+    if (count == 0) return rows;
+    if (getThresholdResults_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
     rows.resize(count);
     return rows;
 }

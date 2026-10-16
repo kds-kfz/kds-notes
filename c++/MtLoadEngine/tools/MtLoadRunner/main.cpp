@@ -67,6 +67,52 @@ int main(int argc, char** argv)
                 << state.activeRequests << '\n';
         }
     }
+    MTLOAD_RUN_STATE terminalState{};
+    terminalState.structSize = sizeof(terminalState);
+    terminalState.abiVersion = MTLOAD_ABI_VERSION;
+    if (MtLoad_GetRunState(handle, &terminalState) != MTLOAD_OK)
+    {
+        std::cerr << "GetRunState failed after completion\n";
+        destroy();
+        return 6;
+    }
+    std::cout << "completed result=" << terminalState.lastResult
+        << " requests=" << terminalState.totalSamples
+        << " requestThroughput=" << terminalState.totalThroughputPerSec
+        << " transactions=" << terminalState.completedIterations
+        << " dropped=" << terminalState.droppedIterations << '\n';
+
+    // 事务和阈值使用独立查询接口；Runner 输出与 GUI 日志保持相同口径。
+    uint32_t transactionCount = 0;
+    if (MtLoad_GetScenarioMetricRows(handle, nullptr, &transactionCount) == MTLOAD_E_BUFFER_TOO_SMALL)
+    {
+        std::vector<MTLOAD_SCENARIO_METRIC_ROW> transactions(transactionCount);
+        if (MtLoad_GetScenarioMetricRows(handle, transactions.data(), &transactionCount) == MTLOAD_OK)
+        {
+            for (uint32_t index = 0; index < transactionCount; ++index)
+            {
+                const auto& row = transactions[index];
+                std::cout << "transaction scenario=" << row.scenarioId
+                    << " completed=" << row.completed << " succeeded=" << row.succeeded
+                    << " failed=" << row.failed << " dropped=" << row.dropped
+                    << " p95Ms=" << row.p95Ms << " throughput=" << row.throughputPerSec << '\n';
+            }
+        }
+    }
+    uint32_t thresholdCount = 0;
+    if (MtLoad_GetThresholdResults(handle, nullptr, &thresholdCount) == MTLOAD_E_BUFFER_TOO_SMALL)
+    {
+        std::vector<MTLOAD_THRESHOLD_RESULT> thresholds(thresholdCount);
+        if (MtLoad_GetThresholdResults(handle, thresholds.data(), &thresholdCount) == MTLOAD_OK)
+        {
+            for (uint32_t index = 0; index < thresholdCount; ++index)
+            {
+                const auto& row = thresholds[index];
+                std::cout << "threshold id=" << row.id << " actual=" << row.actual
+                    << " expected=" << row.expected << " passed=" << row.passed << '\n';
+            }
+        }
+    }
     // 运行器用于无界面诊断，终态后输出有限错误样本，避免仅凭失败计数猜测传输原因。
     uint32_t errorCount = 0;
     if (MtLoad_GetErrorSamples(handle, nullptr, &errorCount) == MTLOAD_E_BUFFER_TOO_SMALL &&
@@ -86,9 +132,12 @@ int main(int argc, char** argv)
     }
     const std::string reportDirectory = argc >= 3 ? argv[2] :
         (std::filesystem::current_path() / "reports").u8string();
-    result = MtLoad_ExportReport(handle, reportDirectory.c_str(), MTLOAD_REPORT_JSON | MTLOAD_REPORT_CSV);
-    if (result != MTLOAD_OK)
-        std::cerr << "Export failed: " << result << '\n';
+    const int exportResult = MtLoad_ExportReport(handle, reportDirectory.c_str(),
+        MTLOAD_REPORT_JSON | MTLOAD_REPORT_CSV);
+    if (exportResult != MTLOAD_OK)
+        std::cerr << "Export failed: " << exportResult << '\n';
     destroy();
-    return result == MTLOAD_OK ? 0 : 6;
+    if (exportResult != MTLOAD_OK) return 7;
+    if (terminalState.lastResult == MTLOAD_E_THRESHOLD_FAILED) return 8;
+    return terminalState.lastResult == MTLOAD_OK ? 0 : 9;
 }

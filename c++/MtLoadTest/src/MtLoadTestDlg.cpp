@@ -95,6 +95,7 @@ void CMtLoadTestDlg::DoDataExchange(CDataExchange* exchange)
     DDX_Control(exchange, IDC_RUN_STATE, runStateText_);
     DDX_Control(exchange, IDC_STATUS_TEXT, statusText_);
     DDX_Control(exchange, IDC_METRIC_LIST, metricList_);
+    DDX_Control(exchange, IDC_TRANSACTION_LIST, transactionList_);
 }
 
 // 关键实现：初始化日志、指标列和动态库客户端，并启动只读快照定时器。
@@ -113,6 +114,20 @@ BOOL CMtLoadTestDlg::OnInitDialog()
     const bool logReady = appLog_.Initialize(ExecutableDirectory(), logError);
     appLog_.Add(L"INFO", L"MtLoadTest 启动，日志文件=" + appLog_.FilePath());
     metricList_.SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
+    transactionList_.SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES | LVS_EX_DOUBLEBUFFER);
+    const struct
+    {
+        const wchar_t* title;
+        int width;
+    } transactionColumns[] = {
+        {L"业务事务", 180}, {L"启动", 70}, {L"完成", 70}, {L"成功", 70}, {L"失败", 70},
+        {L"丢弃", 70}, {L"平均(ms)", 90}, {L"P50(ms)", 85}, {L"P90(ms)", 85},
+        {L"P95(ms)", 85}, {L"P99(ms)", 85}, {L"事务吞吐(tx/s)", 120}
+    };
+    for (int i = 0; i < static_cast<int>(_countof(transactionColumns)); ++i)
+        transactionList_.InsertColumn(i, transactionColumns[i].title, LVCFMT_LEFT,
+            transactionColumns[i].width);
+    ResizeTransactionColumns();
     const struct
     {
         const wchar_t* title; // 列标题。
@@ -121,7 +136,7 @@ BOOL CMtLoadTestDlg::OnInitDialog()
         {L"场景", 110}, {L"步骤", 100}, {L"接口", 205}, {L"已请求/总请求", 125},
         {L"进度", 70}, {L"成功", 65}, {L"失败", 65}, {L"平均(ms)", 85},
         {L"中位数(ms)", 90}, {L"P90(ms)", 80}, {L"P95(ms)", 80}, {L"P99(ms)", 80},
-        {L"最小(ms)", 80}, {L"最大(ms)", 80}, {L"异常%", 75}, {L"吞吐(req/s)", 105},
+        {L"最小(ms)", 80}, {L"最大(ms)", 80}, {L"异常%", 75}, {L"接口吞吐(全程 req/s)", 145},
         {L"接收(KB/s)", 95}, {L"发送(KB/s)", 95}, {L"请求大小", 105}, {L"应答大小", 105}
     };
     for (int i = 0; i < static_cast<int>(_countof(columns)); ++i)
@@ -238,7 +253,7 @@ void CMtLoadTestDlg::UpdateControls(int state)
     EnableWindowIfChanged(GetDlgItem(IDC_ENVIRONMENT),
         planValidated_ && !active && environments_.size() > 1);
     EnableWindowIfChanged(GetDlgItem(IDC_SCENARIO),
-        planValidated_ && !active && !scenarios_.empty());
+        planValidated_ && !active && !workloads_.empty());
     EnableWindowIfChanged(GetDlgItem(IDC_USER),
         planValidated_ && !active && !users_.empty());
     SetWindowTextIfChanged(GetDlgItem(IDC_START_RUN), active ? L"终止" : L"开始");
@@ -261,7 +276,7 @@ void CMtLoadTestDlg::OnBrowsePlan()
     planValidated_ = false;
     hasExportableResults_ = false;
     environments_.clear();
-    scenarios_.clear();
+    workloads_.clear();
     users_.clear();
     environmentCombo_.ResetContent();
     scenarioCombo_.ResetContent();
@@ -295,7 +310,7 @@ void CMtLoadTestDlg::OnValidatePlan()
     else
     {
         environments_.clear();
-        scenarios_.clear();
+        workloads_.clear();
         users_.clear();
         environmentCombo_.ResetContent();
         scenarioCombo_.ResetContent();
@@ -305,27 +320,27 @@ void CMtLoadTestDlg::OnValidatePlan()
     RefreshSnapshot();
 }
 
-// 从引擎查询场景摘要，并在显示文本中给出线程、循环和预计请求数。
+// 从引擎查询工作负载摘要；场景步骤不因负载曲线变化而复制。
 void CMtLoadTestDlg::RefreshScenarioChoices()
 {
-    scenarios_ = engine_.GetScenarios();
+    workloads_ = engine_.GetWorkloads();
     scenarioCombo_.ResetContent();
-    scenarioCombo_.AddString(L"全部场景");
     int selected = 0;
-    for (int index = 0; index < static_cast<int>(scenarios_.size()); ++index)
+    for (int index = 0; index < static_cast<int>(workloads_.size()); ++index)
     {
-        const auto& scenario = scenarios_[index];
+        const auto& workload = workloads_[index];
         CString text;
-        if (scenario.plannedRequests == 0)
-            text.Format(L"%s [%s]  线程=%u，循环=持续时间，单轮请求=%llu",
-                Utf8Text(scenario.name).GetString(), Utf8Text(scenario.id).GetString(),
-                scenario.threads, scenario.requestsPerIteration);
+        if (std::string(workload.mode) == "arrival")
+            text.Format(L"%s [%s]  arrival %.2f tx/s，用户=%u..%u，阶段=%u，时长=%llums",
+                Utf8Text(workload.name).GetString(), Utf8Text(workload.id).GetString(),
+                workload.ratePerSec, workload.users, workload.maxUsers, workload.stageCount,
+                workload.durationMs);
         else
-            text.Format(L"%s [%s]  线程=%u，循环=%u，总请求=%llu",
-                Utf8Text(scenario.name).GetString(), Utf8Text(scenario.id).GetString(),
-                scenario.threads, scenario.iterations, scenario.plannedRequests);
+            text.Format(L"%s [%s]  closed 用户=%u，场景=%u%s",
+                Utf8Text(workload.name).GetString(), Utf8Text(workload.id).GetString(),
+                workload.users, workload.scenarioCount, workload.implicit ? L"，兼容" : L"");
         scenarioCombo_.AddString(text);
-        if (scenario.selected != 0) selected = index + 1;
+        if (workload.selected != 0) selected = index;
     }
     scenarioCombo_.SetCurSel(selected);
     UpdateControls(currentState_);
@@ -415,25 +430,25 @@ void CMtLoadTestDlg::RefreshUserChoices()
     UpdateControls(currentState_);
 }
 
-// 将场景筛选提交给引擎；首项空 ID 表示执行全部场景。
+// 将工作负载选择提交给引擎；负载曲线和场景权重由 DLL 统一解释。
 void CMtLoadTestDlg::OnScenarioChanged()
 {
     const int index = scenarioCombo_.GetCurSel();
-    if (index < 0) return;
-    const std::string scenarioId = index == 0 ? "" : scenarios_[index - 1].id;
+    if (index < 0 || index >= static_cast<int>(workloads_.size())) return;
+    const std::string workloadId = workloads_[index].id;
     std::wstring error;
-    if (!engine_.SelectScenario(scenarioId, error))
+    if (!engine_.SelectWorkload(workloadId, error))
     {
-        SetStatus((L"场景选择失败: " + error).c_str());
-        appLog_.Add(L"ERROR", L"场景选择失败: " + SanitizeDiagnostic(error));
+        SetStatus((L"工作负载选择失败: " + error).c_str());
+        appLog_.Add(L"ERROR", L"工作负载选择失败: " + SanitizeDiagnostic(error));
         RefreshScenarioChoices();
         return;
     }
-    for (auto& item : scenarios_) item.selected = 0;
-    if (index > 0) scenarios_[index - 1].selected = 1;
-    const CString name = index == 0 ? CString(L"全部场景") : Utf8Text(scenarios_[index - 1].name);
-    SetStatus((L"已选择压测场景: " + std::wstring(name.GetString())).c_str());
-    appLog_.Add(L"INFO", L"选择压测场景: " + std::wstring(name.GetString()));
+    for (auto& item : workloads_) item.selected = 0;
+    workloads_[index].selected = 1;
+    const CString name = Utf8Text(workloads_[index].name);
+    SetStatus((L"已选择工作负载: " + std::wstring(name.GetString())).c_str());
+    appLog_.Add(L"INFO", L"选择工作负载: " + std::wstring(name.GetString()));
     RefreshSnapshot();
 }
 
@@ -524,6 +539,7 @@ void CMtLoadTestDlg::OnClearResults()
         return;
     }
     metricList_.DeleteAllItems();
+    transactionList_.DeleteAllItems();
     hasExportableResults_ = false;
     observedErrorCount_ = 0;
     appLog_.Add(L"INFO", L"已清空指标和错误样本");
@@ -583,11 +599,48 @@ void CMtLoadTestDlg::OnTimer(UINT_PTR eventId)
     CDialogEx::OnTimer(eventId);
 }
 
-// 窗口尺寸变化后重新铺满指标列，避免列表右侧出现无标题空列。
+// 窗口尺寸变化后重新铺满事务和指标列，避免列表右侧出现无标题空列。
 void CMtLoadTestDlg::OnSize(UINT type, int cx, int cy)
 {
     CDialogEx::OnSize(type, cx, cy);
+    ResizeTransactionColumns();
     ResizeMetricColumns();
+}
+
+// 按基准宽度同比放大事务列；空间不足时保留横向滚动，空间充足时铺满列表。
+void CMtLoadTestDlg::ResizeTransactionColumns()
+{
+    if (!::IsWindow(transactionList_.GetSafeHwnd())) return;
+    const CHeaderCtrl* header = transactionList_.GetHeaderCtrl();
+    if (header == nullptr || header->GetItemCount() != 12) return;
+
+    // 业务事务名称优先保留阅读宽度，其余数值列保证标题不被截断。
+    static constexpr std::array<int, 12> baseWidths = {
+        260, 70, 70, 70, 70, 70, 90, 85, 85, 85, 85, 140
+    };
+    constexpr int baseTotal = 1180;
+
+    CRect client;
+    transactionList_.GetClientRect(&client);
+    const int available = client.Width();
+    if (available <= 0) return;
+
+    if (available <= baseTotal)
+    {
+        for (int index = 0; index < static_cast<int>(baseWidths.size()); ++index)
+            transactionList_.SetColumnWidth(index, baseWidths[index]);
+        return;
+    }
+
+    int assigned = 0;
+    for (int index = 0; index < static_cast<int>(baseWidths.size()) - 1; ++index)
+    {
+        const int width = MulDiv(baseWidths[index], available, baseTotal);
+        transactionList_.SetColumnWidth(index, width);
+        assigned += width;
+    }
+    transactionList_.SetColumnWidth(static_cast<int>(baseWidths.size()) - 1,
+        available - assigned);
 }
 
 // 按基准宽度同比放大各列，并把舍入余量全部交给最后一列。
@@ -648,8 +701,10 @@ void CMtLoadTestDlg::RefreshSnapshot()
     else
         requestProgress.Format(L"%llu/%llu (%.2f%%)", state.totalSamples, state.plannedRequests,
             100.0 * static_cast<double>(state.totalSamples) / state.plannedRequests);
-    stateLabel.Format(L"状态: %s    请求: %s    活动用户: %u    在途请求: %u",
-        StateText(state.state).GetString(), requestProgress.GetString(), state.activeUsers, state.activeRequests);
+    stateLabel.Format(L"状态: %s  请求: %s  吞吐: %.2f req/s  用户: %u/%u  在途: %u/%u  事务: %llu/%llu  丢弃: %llu",
+        StateText(state.state).GetString(), requestProgress.GetString(), state.totalThroughputPerSec,
+        state.activeUsers, state.peakActiveUsers, state.activeRequests, state.peakActiveRequests,
+        state.completedIterations, state.scheduledIterations, state.droppedIterations);
     SetWindowTextIfChanged(&runStateText_, stateLabel);
 
     const auto metrics = engine_.GetMetrics();
@@ -719,6 +774,63 @@ void CMtLoadTestDlg::RefreshSnapshot()
         metricList_.Invalidate(FALSE);
     }
 
+    const auto transactions = engine_.GetScenarioMetrics();
+    bool transactionListChanged = false;
+    // 事务列表与接口列表使用相同的增量更新边界；禁止定时刷新时清空重建，
+    // 否则 ListView 会丢失选中行并把纵向、横向滚动位置重置到起点。
+    const auto beginTransactionListUpdate = [&]()
+    {
+        if (transactionListChanged) return;
+        transactionList_.SetRedraw(FALSE);
+        transactionListChanged = true;
+    };
+    const auto setTransactionItemTextIfChanged =
+        [&](int item, int subItem, const CString& text)
+    {
+        if (transactionList_.GetItemText(item, subItem) == text) return;
+        beginTransactionListUpdate();
+        transactionList_.SetItemText(item, subItem, text);
+    };
+
+    // 只删除不再存在的尾部行；现有行对象保持不变以保留用户浏览状态。
+    while (transactionList_.GetItemCount() > static_cast<int>(transactions.size()))
+    {
+        beginTransactionListUpdate();
+        transactionList_.DeleteItem(transactionList_.GetItemCount() - 1);
+    }
+    for (int index = 0; index < static_cast<int>(transactions.size()); ++index)
+    {
+        const auto& row = transactions[index];
+        const CString scenario = Utf8Text(row.scenario);
+        if (index >= transactionList_.GetItemCount())
+        {
+            beginTransactionListUpdate();
+            transactionList_.InsertItem(index, scenario);
+        }
+        else
+        {
+            setTransactionItemTextIfChanged(index, 0, scenario);
+        }
+        CString value;
+        value.Format(L"%llu", row.started); setTransactionItemTextIfChanged(index, 1, value);
+        value.Format(L"%llu", row.completed); setTransactionItemTextIfChanged(index, 2, value);
+        value.Format(L"%llu", row.succeeded); setTransactionItemTextIfChanged(index, 3, value);
+        value.Format(L"%llu", row.failed); setTransactionItemTextIfChanged(index, 4, value);
+        value.Format(L"%llu", row.dropped); setTransactionItemTextIfChanged(index, 5, value);
+        value.Format(L"%.2f", row.averageMs); setTransactionItemTextIfChanged(index, 6, value);
+        value.Format(L"%.2f", row.medianMs); setTransactionItemTextIfChanged(index, 7, value);
+        value.Format(L"%.2f", row.p90Ms); setTransactionItemTextIfChanged(index, 8, value);
+        value.Format(L"%.2f", row.p95Ms); setTransactionItemTextIfChanged(index, 9, value);
+        value.Format(L"%.2f", row.p99Ms); setTransactionItemTextIfChanged(index, 10, value);
+        value.Format(L"%.2f", row.throughputPerSec);
+        setTransactionItemTextIfChanged(index, 11, value);
+    }
+    if (transactionListChanged)
+    {
+        transactionList_.SetRedraw(TRUE);
+        transactionList_.Invalidate(FALSE);
+    }
+
     LogEngineErrors();
     if (state.state != lastLoggedState_)
     {
@@ -737,8 +849,10 @@ void CMtLoadTestDlg::RefreshSnapshot()
             SetStatus((L"运行失败: " + error).c_str());
             appLog_.Add(L"ERROR", L"本轮压测失败: " + SanitizeDiagnostic(error));
         }
+        else if (state.lastResult == MTLOAD_E_THRESHOLD_FAILED)
+            SetStatus(L"本轮压测已完成，但验收阈值未通过");
         else SetStatus(L"本轮压测已完成");
-        LogTerminalSummary(state, metrics);
+        LogTerminalSummary(state, metrics, transactions, engine_.GetThresholdResults());
     }
 }
 
@@ -769,7 +883,9 @@ void CMtLoadTestDlg::LogEngineErrors()
 
 // 每个 runId 只记录一次终态摘要，避免定时器持续重复输出相同汇总。
 void CMtLoadTestDlg::LogTerminalSummary(const MTLOAD_RUN_STATE& state,
-    const std::vector<MTLOAD_METRIC_ROW>& metrics)
+    const std::vector<MTLOAD_METRIC_ROW>& metrics,
+    const std::vector<MTLOAD_SCENARIO_METRIC_ROW>& transactions,
+    const std::vector<MTLOAD_THRESHOLD_RESULT>& thresholds)
 {
     if (state.runId == 0 || summarizedRunId_ == state.runId) return;
     summarizedRunId_ = state.runId;
@@ -777,7 +893,11 @@ void CMtLoadTestDlg::LogTerminalSummary(const MTLOAD_RUN_STATE& state,
     appLog_.Add(state.state == MTLOAD_STATE_COMPLETED ? L"INFO" : L"ERROR",
         L"本轮结束: runId=" + std::to_wstring(state.runId) +
         L"，state=" + std::wstring(StateText(state.state).GetString()) +
-        L"，samples=" + std::to_wstring(state.totalSamples));
+        L"，result=" + std::to_wstring(state.lastResult) +
+        L"，samples=" + std::to_wstring(state.totalSamples) +
+        L"，throughput=" + std::to_wstring(state.totalThroughputPerSec) + L" req/s" +
+        L"，transactions=" + std::to_wstring(state.completedIterations) +
+        L"，dropped=" + std::to_wstring(state.droppedIterations));
     for (const auto& row : metrics)
     {
         CString message;
@@ -786,6 +906,23 @@ void CMtLoadTestDlg::LogTerminalSummary(const MTLOAD_RUN_STATE& state,
             Utf8Text(row.scenario).GetString(), Utf8Text(row.step).GetString(),
             row.samples, row.succeeded, row.failed, row.averageMs, row.p95Ms, row.throughputPerSec);
         appLog_.Add(row.failed == 0 ? L"INFO" : L"WARN", message.GetString());
+    }
+    for (const auto& row : transactions)
+    {
+        CString message;
+        message.Format(L"事务汇总: 场景=%s，启动=%llu，完成=%llu，成功=%llu，失败=%llu，丢弃=%llu，平均=%.2fms，P95=%.2fms，吞吐=%.2ftx/s",
+            Utf8Text(row.scenario).GetString(), row.started, row.completed, row.succeeded,
+            row.failed, row.dropped, row.averageMs, row.p95Ms, row.throughputPerSec);
+        appLog_.Add(row.failed == 0 && row.dropped == 0 ? L"INFO" : L"WARN", message.GetString());
+    }
+    for (const auto& row : thresholds)
+    {
+        CString message;
+        message.Format(L"阈值结果: %s，scope=%s，metric=%s，target=%s，operator=%s，expected=%.4f，actual=%.4f，passed=%s",
+            Utf8Text(row.name).GetString(), Utf8Text(row.scope).GetString(), Utf8Text(row.metric).GetString(),
+            Utf8Text(row.target).GetString(), Utf8Text(row.comparison).GetString(), row.expected,
+            row.actual, row.passed == 1 ? L"true" : L"false");
+        appLog_.Add(row.passed == 1 ? L"INFO" : L"ERROR", message.GetString());
     }
 }
 

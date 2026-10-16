@@ -106,14 +106,25 @@ struct Step
     std::vector<Request> requests;              // 本步骤需要执行的请求模板。
 };
 
-// 闭环负载参数；每个线程代表一个独立虚拟用户。
+// 开放负载阶段。每段从上一目标速率线性变化到本段 targetRatePerSec。
+struct LoadStage
+{
+    uint32_t durationMs = 0;            // 阶段持续时间，单位：毫秒。
+    double targetRatePerSec = 0.0;      // 阶段结束时目标业务迭代到达率。
+};
+
+// 工作负载参数。closed 以虚拟用户闭环驱动，arrival 以业务迭代到达率驱动。
 struct Load
 {
-    std::string mode = "closed";       // 负载模型；当前实现 closed。
-    uint32_t threads = 1;               // 并发虚拟用户数量。
-    uint32_t rampUpMs = 0;              // 全部线程分批启动的总时间，单位：毫秒。
-    uint32_t durationMs = 0;            // 持续时间模式上限，单位：毫秒；0 表示不用时间限制。
-    uint32_t iterations = 1;            // 每个虚拟用户执行完整场景的次数。
+    std::string mode = "closed";        // closed 或 arrival。
+    uint32_t threads = 1;               // closed 并发虚拟用户数量。
+    uint32_t rampUpMs = 0;              // closed 全部用户启动总时间，单位：毫秒。
+    uint32_t durationMs = 0;            // 固定负载持续时间；0 表示使用迭代数或阶段总时长。
+    uint32_t iterations = 1;            // closed 每用户完整场景循环次数。
+    double ratePerSec = 0.0;            // arrival 固定初始业务迭代到达率。
+    uint32_t preAllocatedUsers = 1;      // arrival 启动时预建的工作用户数。
+    uint32_t maxUsers = 1;               // arrival 允许按需增长到的最大工作用户数。
+    std::vector<LoadStage> stages;       // arrival 阶段曲线；为空时使用固定 ratePerSec。
 };
 
 // 完整压测场景；运行阶段只读共享，用户变量上下文由每个线程单独创建。
@@ -125,6 +136,38 @@ struct Scenario
     std::vector<std::string> userIds;       // 按虚拟用户索引循环分配的账号 ID。
     Load load;                              // 本场景的线程、爬坡、时长和循环参数。
     std::vector<Step> steps;                // 按配置顺序执行的场景步骤。
+};
+
+// 工作负载中的场景引用。权重表示业务事务比例，不表示 HTTP 请求比例。
+struct WorkloadScenarioRef
+{
+    std::string scenarioId;              // 被引用的 Scenario.id。
+    uint32_t weight = 1;                 // 确定性轮询权重，必须大于 0。
+};
+
+// 运行结束后的自动验收阈值定义。
+struct Threshold
+{
+    std::string id;                      // 全工作负载唯一 ID。
+    std::string name;                    // 报告和界面显示名称。
+    std::string scope = "run";          // run、request 或 scenario。
+    std::string metric;                  // errorRate、p95Ms、p99Ms、throughputPerSec 或 droppedIterations。
+    std::string target;                  // 请求 label 或 Scenario.id；运行级为空。
+    std::string comparison = "lte";     // lte、gte 或 eq。
+    double value = 0.0;                  // 期望阈值。
+};
+
+// 场景和负载曲线的独立组合。旧 Scenario.Load 会生成 implicit 工作负载。
+struct Workload
+{
+    std::string id;                              // Workload.id，全计划唯一。
+    std::string name;                            // 支持中文的显示名称。
+    std::string testType = "average";           // smoke/average/stress/spike/breakpoint/soak。
+    Load load;                                   // 工作负载自己的负载模型。
+    std::vector<WorkloadScenarioRef> scenarios;  // 按 XML 顺序保存场景权重。
+    std::vector<Threshold> thresholds;           // 运行结束时统一评估。
+    bool implicit = false;                       // 是否由旧 Scenario.Load 自动生成。
+    bool useScenarioLoads = false;               // 兼容“全部场景”时分别沿用各场景 Load。
 };
 
 // 数据驱动参数集；CSV 或内联 Row 在加载阶段统一转换为 rows。
@@ -150,5 +193,7 @@ struct Plan
     std::map<std::string, DataSet> dataSets;                 // 按 ID 索引的数据集。
     std::vector<Header> headers;                             // 应用于全部请求的全局请求头。
     std::vector<Scenario> scenarios;                        // 按 XML 顺序保存的压测场景。
+    std::string defaultWorkloadId;                          // 默认工作负载 ID。
+    std::vector<Workload> workloads;                        // 独立可选择工作负载及旧配置兼容项。
 };
 }

@@ -5,7 +5,7 @@
 
 #include <stdint.h>
 
-#define MTLOAD_ABI_VERSION 3U       // 当前公共结构和导出函数遵循的 ABI 版本号。
+#define MTLOAD_ABI_VERSION 4U       // 当前公共结构和导出函数遵循的 ABI 版本号。
 #define MTLOAD_TEXT_SMALL 64U       // 标识符、步骤名等短 UTF-8 文本的固定容量。
 #define MTLOAD_TEXT_MEDIUM 256U     // URL、标签等中等 UTF-8 文本的固定容量。
 
@@ -27,6 +27,7 @@ typedef enum MTLOAD_RESULT
     MTLOAD_E_BUFFER_TOO_SMALL = 1203,   // 调用方提供的数组或文本缓冲区不足。
     MTLOAD_E_NOT_FOUND = 1204,          // 指定环境、场景、用户或其他 ID 不存在。
     MTLOAD_E_REPORT = 1301,             // 报告创建、序列化或写入失败。
+    MTLOAD_E_THRESHOLD_FAILED = 1302,   // 运行已完成，但一个或多个验收阈值未通过。
     MTLOAD_E_INTERNAL = 1999            // 未归类的内部异常或执行错误。
 } MTLOAD_RESULT;
 
@@ -84,7 +85,14 @@ typedef struct MTLOAD_RUN_STATE
     uint64_t queuedRequests;       // 预留的排队请求统计，当前实现固定为 0。
     uint64_t totalSamples;         // 已完成请求样本总数，成功和失败均计入。
     uint64_t plannedRequests;      // 有限迭代模式的计划请求总数；0 表示持续时间模式，无法预知。
-    uint64_t reserved[7];          // 保留字段，调用方不得解释。
+    uint64_t effectiveElapsedMs;   // 扣除暂停时间后的有效运行时间，单位：毫秒。
+    double totalThroughputPerSec;  // 本轮全部请求的全程平均吞吐，单位：req/s。
+    uint32_t peakActiveUsers;      // 本轮同时执行事务的虚拟用户峰值。
+    uint32_t peakActiveRequests;   // 本轮同时在途逻辑请求峰值。
+    uint64_t scheduledIterations;  // 负载曲线要求启动的业务迭代数，包含被丢弃迭代。
+    uint64_t completedIterations;  // 已完整执行普通步骤和 alwaysRun 清理步骤的业务迭代数。
+    uint64_t droppedIterations;    // 开放模型达到 maxUsers 后未能准时启动的业务迭代数。
+    uint64_t reserved[1];          // 保留字段，调用方不得解释。
 } MTLOAD_RUN_STATE;
 
 // 单个“场景+步骤+请求”维度的累计指标，字节和耗时均来自同批完成样本。
@@ -165,6 +173,67 @@ typedef struct MTLOAD_SCENARIO
     uint32_t reserved32;                    // 32 位对齐保留字段，当前必须为 0。
     uint64_t reserved[4];                   // 保留字段，调用方不得解释。
 } MTLOAD_SCENARIO;
+
+// 可复用工作负载摘要。工作负载引用场景并定义闭合并发或开放到达率曲线。
+typedef struct MTLOAD_WORKLOAD
+{
+    uint32_t structSize;                    // 本结构的字节大小。
+    uint32_t abiVersion;                    // 生成摘要的 ABI 版本。
+    char id[MTLOAD_TEXT_SMALL];             // XML Workload.id；旧配置会生成 legacy-* 隐式 ID。
+    char name[MTLOAD_TEXT_MEDIUM];          // 支持中文的工作负载显示名称，UTF-8。
+    char mode[16];                          // closed 或 arrival。
+    char testType[32];                      // smoke、average、stress、spike、breakpoint 或 soak。
+    uint32_t scenarioCount;                 // 引用的业务场景数量。
+    uint32_t users;                         // closed 并发用户数，arrival 为预分配用户数。
+    uint32_t maxUsers;                      // arrival 最大执行用户数；closed 与 users 相同。
+    uint32_t stageCount;                    // 到达率阶段数量；固定速率时为 0。
+    uint64_t durationMs;                    // 计划持续时间；有限迭代 closed 模式可为 0。
+    double ratePerSec;                      // arrival 初始业务迭代到达率，单位：次/秒。
+    uint32_t selected;                      // 当前选择标记，1 为选中、0 为未选中。
+    uint32_t implicit;                      // 由旧 Scenario.Load 兼容生成时为 1。
+    uint64_t reserved[4];                   // 保留字段，调用方不得解释。
+} MTLOAD_WORKLOAD;
+
+// 场景事务维度累计指标。一次事务包含普通步骤及其 alwaysRun 清理步骤。
+typedef struct MTLOAD_SCENARIO_METRIC_ROW
+{
+    uint32_t structSize;                    // 本结构的字节大小。
+    uint32_t abiVersion;                    // 生成快照的 ABI 版本。
+    char scenarioId[MTLOAD_TEXT_SMALL];     // XML Scenario.id，UTF-8。
+    char scenario[MTLOAD_TEXT_MEDIUM];      // 场景显示名称，UTF-8。
+    uint64_t started;                       // 已进入场景执行的事务数。
+    uint64_t completed;                     // 已运行到事务终点的事务数。
+    uint64_t succeeded;                     // 所有普通及清理步骤均成功的事务数。
+    uint64_t failed;                        // 任一步骤失败的事务数。
+    uint64_t dropped;                       // 开放模型中未获得执行用户的事务数。
+    double minMs;                           // 最短完整事务耗时，单位：毫秒。
+    double maxMs;                           // 最长完整事务耗时，单位：毫秒。
+    double averageMs;                       // 完整事务平均耗时，单位：毫秒。
+    double medianMs;                        // 完整事务 P50，单位：毫秒。
+    double p90Ms;                           // 完整事务 P90，单位：毫秒。
+    double p95Ms;                           // 完整事务 P95，单位：毫秒。
+    double p99Ms;                           // 完整事务 P99，单位：毫秒。
+    double throughputPerSec;                // 完整事务全程平均吞吐，单位：次/秒。
+    uint64_t reserved[4];                   // 保留字段，调用方不得解释。
+} MTLOAD_SCENARIO_METRIC_ROW;
+
+// 单条阈值判定结果。运行完成后可查询，并随 JSON、XML、XLSX 和日志输出。
+typedef struct MTLOAD_THRESHOLD_RESULT
+{
+    uint32_t structSize;                    // 本结构的字节大小。
+    uint32_t abiVersion;                    // 生成结果的 ABI 版本。
+    char id[MTLOAD_TEXT_SMALL];             // XML Threshold.id，UTF-8。
+    char name[MTLOAD_TEXT_MEDIUM];          // 阈值显示名称，UTF-8。
+    char scope[16];                         // run、request 或 scenario。
+    char metric[32];                        // errorRate、p95Ms、p99Ms、throughputPerSec 或 droppedIterations。
+    char target[MTLOAD_TEXT_MEDIUM];        // 请求标签或 Scenario.id；运行级阈值为空。
+    char comparison[8];                     // lte、gte 或 eq。
+    double expected;                        // 配置的阈值。
+    double actual;                          // 本轮实际值。
+    uint32_t passed;                        // 1 表示通过，0 表示失败。
+    uint32_t reserved32;                    // 32 位对齐保留字段。
+    uint64_t reserved[4];                   // 保留字段，调用方不得解释。
+} MTLOAD_THRESHOLD_RESULT;
 
 // XML 中可由控制端选择的用户摘要。password 和扩展参数不会通过 ABI 暴露。
 // selected 为 1 表示本轮所有场景都使用该用户；全部为 0 表示按 Scenario.UserRefs 分配。
