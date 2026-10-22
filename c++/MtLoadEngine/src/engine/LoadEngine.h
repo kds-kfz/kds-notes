@@ -1,7 +1,7 @@
 #pragma once
 
 // 单个 C ABI 句柄对应一个 LoadEngine。对象拥有计划、运行线程、指标和错误样本。
-// 生命周期操作由 stateMutex_ 串行化；网络热路径只访问独立指标锁和原子计数。
+// 生命周期操作由 m_clStateMutex 串行化；网络热路径只访问独立指标锁和原子计数。
 
 #include <atomic>
 #include <chrono>
@@ -36,13 +36,13 @@ public:
     void WakeAll();
 
 private:
-    std::mutex mutex_;                  // 保护 available_ 和条件等待谓词。
-    std::condition_variable changed_;   // 许可归还或停止时唤醒等待线程。
-    uint32_t available_;                // 当前可领取许可数，受 mutex_ 保护。
+    std::mutex m_clMutex;                  // 保护 m_u32Available 和条件等待谓词。
+    std::condition_variable m_clChanged;   // 许可归还或停止时唤醒等待线程。
+    uint32_t m_u32Available;                // 当前可领取许可数，受 m_clMutex 保护。
 };
 
 // 单个压测实例的状态机和资源所有者。
-// 公共生命周期操作由 stateMutex_ 串行化；工作线程、计划、指标和错误样本均随对象释放。
+// 公共生命周期操作由 m_clStateMutex 串行化；工作线程、计划、指标和错误样本均随对象释放。
 // 本类不依赖界面，也不允许在持有内部锁时调用宿主代码。
 class LoadEngine final
 {
@@ -57,7 +57,7 @@ public:
     int LoadPlanFile(const std::string& path);
     // 校验当前计划并初始化选择项和指标定义；成功后进入 VALIDATED。
     int Validate();
-    // 返回环境摘要副本；函数在 stateMutex_ 下读取，可与界面查询并发。
+    // 返回环境摘要副本；函数在 m_clStateMutex 下读取，可与界面查询并发。
     std::vector<MTLOAD_ENVIRONMENT> GetEnvironments() const;
     // 选择本轮环境；运行期间拒绝修改，不存在的 ID 返回 NOT_FOUND。
     int SelectEnvironment(const std::string& environmentId);
@@ -107,7 +107,7 @@ public:
     int ExportConfigured(uint32_t format, std::string& outputPath);
 
 private:
-    // 指标热路径累加器，仅在 metricsMutex_ 保护下读写。
+    // 指标热路径累加器，仅在 m_clMetricsMutex 保护下读写。
     struct MetricAccumulator
     {
         std::string scenario;              // 场景显示名称。
@@ -206,48 +206,48 @@ private:
     // 对原子峰值执行无锁 compare_exchange 更新。
     static void UpdatePeak(std::atomic<uint32_t>& peak, uint32_t value);
 
-    MTLOAD_ENGINE_OPTIONS options_{};        // 创建时复制的固定运行选项。
-    mutable std::mutex stateMutex_;          // 保护计划、状态、选择项和错误文本。
-    mutable std::condition_variable stateChanged_; // 状态改变时唤醒 Wait 调用者。
-    Plan plan_;                              // 当前已载入计划，由 stateMutex_ 保护替换。
-    bool hasPlan_ = false;                   // 是否已经成功完成 XML 解析。
-    bool validated_ = false;                 // 当前 plan_ 是否通过语义校验。
-    int state_ = MTLOAD_STATE_CREATED;       // MTLOAD_STATE 状态机当前值。
-    int lastResult_ = MTLOAD_OK;             // 最近一次生命周期结果或终态结果。
-    std::string lastError_;                  // 最近一次引擎级 UTF-8 诊断。
-    std::string runName_;                    // 本轮调用方标签，不参与业务请求。
-    std::string selectedEnvironmentId_;      // 本轮使用的环境 ID。
-    std::string selectedScenarioId_;         // 空表示全部场景，否则只运行指定 ID。
-    std::string selectedWorkloadId_;         // 当前独立工作负载 ID。
+    MTLOAD_ENGINE_OPTIONS m_stOptions{};        // 创建时复制的固定运行选项。
+    mutable std::mutex m_clStateMutex;          // 保护计划、状态、选择项和错误文本。
+    mutable std::condition_variable m_clStateChanged; // 状态改变时唤醒 Wait 调用者。
+    Plan m_stPlan;                              // 当前已载入计划，由 m_clStateMutex 保护替换。
+    bool m_bHasPlan = false;                   // 是否已经成功完成 XML 解析。
+    bool m_bValidated = false;                 // 当前 m_stPlan 是否通过语义校验。
+    int m_iState = MTLOAD_STATE_CREATED;       // MTLOAD_STATE 状态机当前值。
+    int m_iLastResult = MTLOAD_OK;             // 最近一次生命周期结果或终态结果。
+    std::string m_strLastError;                  // 最近一次引擎级 UTF-8 诊断。
+    std::string m_strRunName;                    // 本轮调用方标签，不参与业务请求。
+    std::string m_strSelectedEnvironmentId;      // 本轮使用的环境 ID。
+    std::string m_strSelectedScenarioId;         // 空表示全部场景，否则只运行指定 ID。
+    std::string m_strSelectedWorkloadId;         // 当前独立工作负载 ID。
     // 为空时使用场景 UserRefs；非空时覆盖所有场景的用户变量来源。
-    std::string selectedUserId_;
-    uint64_t runId_ = 0;                     // 每次成功 Start 后递增。
-    int64_t startUnixMs_ = 0;                // 本轮开始 Unix 毫秒时间戳。
-    int64_t endUnixMs_ = 0;                  // 本轮终态 Unix 毫秒时间戳。
-    uint64_t plannedRequests_ = 0;           // 所选场景的计划请求总数。
-    std::thread worker_;                     // 唯一顶层运行线程，由本对象联结。
-    std::atomic<bool> stopping_{ false };     // 所有等待点共享的协作停止标志。
-    std::atomic<bool> pauseRequested_{ false }; // 暂停门禁标志，不取消在途请求。
-    std::atomic<uint32_t> activeScenarios_{ 0 }; // 正在执行的场景任务数。
-    std::atomic<uint32_t> activeUsers_{ 0 };  // 正在执行的虚拟用户线程数。
-    std::atomic<uint32_t> activeRequests_{ 0 }; // 已取得许可且尚未 Finish 的请求数。
-    std::atomic<uint32_t> peakActiveUsers_{ 0 }; // 本轮同时执行事务用户峰值。
-    std::atomic<uint32_t> peakActiveRequests_{ 0 }; // 本轮同时在途请求峰值。
-    std::atomic<uint64_t> totalSamples_{ 0 }; // 已完成请求总数。
-    std::atomic<uint64_t> scheduledIterations_{ 0 }; // 到达曲线要求启动的事务数。
-    std::atomic<uint64_t> completedIterations_{ 0 }; // 已完整结束的事务数。
-    std::atomic<uint64_t> droppedIterations_{ 0 }; // 未能准时启动的事务数。
-    PermitPool permits_;                     // 全实例网络并发许可池。
+    std::string m_strSelectedUserId;
+    uint64_t m_u64RunId = 0;                     // 每次成功 Start 后递增。
+    int64_t m_i64StartUnixMs = 0;                // 本轮开始 Unix 毫秒时间戳。
+    int64_t m_i64EndUnixMs = 0;                  // 本轮终态 Unix 毫秒时间戳。
+    uint64_t m_u64PlannedRequests = 0;           // 所选场景的计划请求总数。
+    std::thread m_clWorker;                     // 唯一顶层运行线程，由本对象联结。
+    std::atomic<bool> m_bStopping{ false };     // 所有等待点共享的协作停止标志。
+    std::atomic<bool> m_bPauseRequested{ false }; // 暂停门禁标志，不取消在途请求。
+    std::atomic<uint32_t> m_u32ActiveScenarios{ 0 }; // 正在执行的场景任务数。
+    std::atomic<uint32_t> m_u32ActiveUsers{ 0 };  // 正在执行的虚拟用户线程数。
+    std::atomic<uint32_t> m_u32ActiveRequests{ 0 }; // 已取得许可且尚未 Finish 的请求数。
+    std::atomic<uint32_t> m_u32PeakActiveUsers{ 0 }; // 本轮同时执行事务用户峰值。
+    std::atomic<uint32_t> m_u32PeakActiveRequests{ 0 }; // 本轮同时在途请求峰值。
+    std::atomic<uint64_t> m_u64TotalSamples{ 0 }; // 已完成请求总数。
+    std::atomic<uint64_t> m_u64ScheduledIterations{ 0 }; // 到达曲线要求启动的事务数。
+    std::atomic<uint64_t> m_u64CompletedIterations{ 0 }; // 已完整结束的事务数。
+    std::atomic<uint64_t> m_u64DroppedIterations{ 0 }; // 未能准时启动的事务数。
+    PermitPool m_clPermits;                     // 全实例网络并发许可池。
 
-    mutable std::mutex pauseMutex_;           // 保护暂停计时和条件谓词。
-    std::condition_variable pauseChanged_;    // 继续或停止时唤醒暂停线程。
-    std::chrono::steady_clock::time_point pauseStarted_{}; // 当前暂停开始的单调时钟点。
-    uint64_t pausedDurationMs_ = 0;           // 已完成暂停区间累计毫秒数。
+    mutable std::mutex m_clPauseMutex;           // 保护暂停计时和条件谓词。
+    std::condition_variable m_clPauseChanged;    // 继续或停止时唤醒暂停线程。
+    std::chrono::steady_clock::time_point m_clPauseStarted{}; // 当前暂停开始的单调时钟点。
+    uint64_t m_u64PausedDurationMs = 0;           // 已完成暂停区间累计毫秒数。
 
-    mutable std::mutex metricsMutex_;         // 保护 metrics_ 和 errors_ 快照一致性。
-    std::map<std::string, MetricAccumulator> metrics_; // 按场景/步骤/请求键聚合指标。
-    std::map<std::string, ScenarioAccumulator> scenarioMetrics_; // 按 Scenario.id 聚合事务。
-    std::vector<MTLOAD_THRESHOLD_RESULT> thresholdResults_; // 本轮终态阈值明细。
-    std::vector<MTLOAD_ERROR_SAMPLE> errors_; // 有界失败样本集合，供宿主诊断。
+    mutable std::mutex m_clMetricsMutex;         // 保护 m_mapMetrics 和 m_vecErrors 快照一致性。
+    std::map<std::string, MetricAccumulator> m_mapMetrics; // 按场景/步骤/请求键聚合指标。
+    std::map<std::string, ScenarioAccumulator> m_mapScenarioMetrics; // 按 Scenario.id 聚合事务。
+    std::vector<MTLOAD_THRESHOLD_RESULT> m_vecThresholdResults; // 本轮终态阈值明细。
+    std::vector<MTLOAD_ERROR_SAMPLE> m_vecErrors; // 有界失败样本集合，供宿主诊断。
 };
 }

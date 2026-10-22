@@ -127,10 +127,9 @@ extern "C"
     SOCKETCLIENT_API bool GetSocketClientRuntimeInfo(CSocketClient* p_pClient,
         ST_SOCKET_CLIENT_RUNTIME_INFO* p_pInfo);
 
-    // 在 Connect 前配置 HTTPS/WSS 的服务端证书链校验。
+    // 在 Connect 前配置 HTTPS/WSS 的服务端证书链和目标主机名校验。
     // p_szCaCertificateFile 必须是 PEM 证书链文件；关闭校验时可传空。
-    // 官方 HP-Socket 6.0.9 预编译库只校验证书链并设置 SNI，不校验连接主机名是否匹配证书。
-    // 对主机名认证有强要求的场景应在受控代理终止 TLS，或使用补齐主机名校验后自建的 HP-Socket。
+    // 动态和静态构建都校验 CA 链以及证书 SAN/CN 中的 DNS/IP 身份；任一失败都不会发布连接成功事件。
     SOCKETCLIENT_API bool ConfigureSocketClientTls(CSocketClient* p_pClient,
         const char* p_szCaCertificateFile, int p_bVerifyPeer);
 

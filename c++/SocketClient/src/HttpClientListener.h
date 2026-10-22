@@ -49,7 +49,7 @@ public:
     EnHandleResult OnWSMessageComplete(IHttpClient* p_pSender, CONNID p_ullConnId) override;
 
 private:
-    ClientInstance& owner_; // 所属实例负责保证监听器生命周期。
+    ClientInstance& m_refOwner; // 所属实例负责保证监听器生命周期。
 };
 
 #endif

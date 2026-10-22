@@ -24,9 +24,9 @@ CMainDlg::CMainDlg() : CDialogEx(IDD_MAIN_DIALOG)
 BOOL CMainDlg::OnInitDialog()
 {
     CDialogEx::OnInitDialog();
-    mainIcon_ = AfxGetApp()->LoadIcon(IDI_MTLOADTEST_ICON);
-    SetIcon(mainIcon_, TRUE);
-    SetIcon(mainIcon_, FALSE);
+    m_hMainIcon = AfxGetApp()->LoadIcon(IDI_MTLOADTEST_ICON);
+    SetIcon(m_hMainIcon, TRUE);
+    SetIcon(m_hMainIcon, FALSE);
     return TRUE;
 }
 

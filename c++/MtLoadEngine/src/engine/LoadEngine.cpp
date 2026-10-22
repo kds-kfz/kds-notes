@@ -413,35 +413,35 @@ uint64_t PlannedRequests(const Plan&, const Workload& workload,
 }
 
 // 关键实现：容量至少为 1，防止错误配置导致所有工作线程永久等待。
-PermitPool::PermitPool(uint32_t capacity) : available_((std::max)(1U, capacity)) {}
+PermitPool::PermitPool(uint32_t capacity) : m_u32Available((std::max)(1U, capacity)) {}
 
 // 关键实现：在条件变量上同时等待许可或停止，成功时在锁内扣减许可。
 bool PermitPool::Acquire(const std::atomic<bool>& stopping)
 {
-    std::unique_lock<std::mutex> lock(mutex_);
-    changed_.wait(lock, [&]() { return available_ > 0 || stopping.load(); });
+    std::unique_lock<std::mutex> lock(m_clMutex);
+    m_clChanged.wait(lock, [&]() { return m_u32Available > 0 || stopping.load(); });
     if (stopping.load()) return false;
-    --available_;
+    --m_u32Available;
     return true;
 }
 
 // 关键实现：在锁内归还许可并只唤醒一个竞争线程。
 void PermitPool::Release()
 {
-    std::lock_guard<std::mutex> guard(mutex_);
-    ++available_;
-    changed_.notify_one();
+    std::lock_guard<std::mutex> guard(m_clMutex);
+    ++m_u32Available;
+    m_clChanged.notify_one();
 }
 
 // 关键实现：停机时唤醒全部等待者，让其重新检查 stopping。
 void PermitPool::WakeAll()
 {
-    changed_.notify_all();
+    m_clChanged.notify_all();
 }
 
 // 关键实现：复制固定选项并按 maxConnections 建立全实例许可池。
 LoadEngine::LoadEngine(const MTLOAD_ENGINE_OPTIONS& options)
-    : options_(options), permits_(options.maxConnections)
+    : m_stOptions(options), m_clPermits(options.maxConnections)
 {
 }
 
@@ -457,15 +457,15 @@ LoadEngine::~LoadEngine()
 {
     Stop();
     Wait(UINT32_MAX);
-    if (worker_.joinable()) worker_.join();
+    if (m_clWorker.joinable()) m_clWorker.join();
 }
 
 // 关键实现：在状态锁内同步保存结果码和诊断，供 ABI 随后查询。
 void LoadEngine::SetError(int result, const std::string& error)
 {
-    std::lock_guard<std::mutex> guard(stateMutex_);
-    lastResult_ = result;
-    lastError_ = error;
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
+    m_iLastResult = result;
+    m_strLastError = error;
 }
 
 // 关键实现：先在锁外解析局部计划，再在状态锁内一次性替换当前模型。
@@ -473,15 +473,15 @@ int LoadEngine::LoadPlanFile(const std::string& path)
 {
     bool reapCompletedWorker = false;
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
-        if (state_ == MTLOAD_STATE_STARTING || state_ == MTLOAD_STATE_RUNNING ||
-            state_ == MTLOAD_STATE_PAUSING || state_ == MTLOAD_STATE_PAUSED ||
-            state_ == MTLOAD_STATE_STOPPING)
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
+        if (m_iState == MTLOAD_STATE_STARTING || m_iState == MTLOAD_STATE_RUNNING ||
+            m_iState == MTLOAD_STATE_PAUSING || m_iState == MTLOAD_STATE_PAUSED ||
+            m_iState == MTLOAD_STATE_STOPPING)
             return MTLOAD_E_INVALID_STATE;
         // 终态只表示工作已结束；std::thread 仍需由控制线程 join 后才能启动下一轮。
-        reapCompletedWorker = worker_.joinable();
+        reapCompletedWorker = m_clWorker.joinable();
     }
-    if (reapCompletedWorker) worker_.join();
+    if (reapCompletedWorker) m_clWorker.join();
 
     Plan parsed;
     std::string error;
@@ -491,29 +491,29 @@ int LoadEngine::LoadPlanFile(const std::string& path)
         SetError(result, error);
         return result;
     }
-    std::lock_guard<std::mutex> guard(stateMutex_);
-    plan_ = std::move(parsed);
-    selectedEnvironmentId_ = plan_.defaultEnvironmentId;
-    selectedScenarioId_.clear();
-    selectedWorkloadId_ = plan_.defaultWorkloadId;
-    selectedUserId_.clear();
-    hasPlan_ = true;
-    validated_ = false;
-    state_ = MTLOAD_STATE_PLAN_LOADED;
-    lastResult_ = MTLOAD_OK;
-    lastError_.clear();
-    startUnixMs_ = 0;
-    endUnixMs_ = 0;
-    plannedRequests_ = 0;
-    pausedDurationMs_ = 0;
-    pauseRequested_.store(false);
-    totalSamples_.store(0);
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
+    m_stPlan = std::move(parsed);
+    m_strSelectedEnvironmentId = m_stPlan.defaultEnvironmentId;
+    m_strSelectedScenarioId.clear();
+    m_strSelectedWorkloadId = m_stPlan.defaultWorkloadId;
+    m_strSelectedUserId.clear();
+    m_bHasPlan = true;
+    m_bValidated = false;
+    m_iState = MTLOAD_STATE_PLAN_LOADED;
+    m_iLastResult = MTLOAD_OK;
+    m_strLastError.clear();
+    m_i64StartUnixMs = 0;
+    m_i64EndUnixMs = 0;
+    m_u64PlannedRequests = 0;
+    m_u64PausedDurationMs = 0;
+    m_bPauseRequested.store(false);
+    m_u64TotalSamples.store(0);
     {
-        std::lock_guard<std::mutex> metricGuard(metricsMutex_);
-        metrics_.clear();
-        scenarioMetrics_.clear();
-        thresholdResults_.clear();
-        errors_.clear();
+        std::lock_guard<std::mutex> metricGuard(m_clMetricsMutex);
+        m_mapMetrics.clear();
+        m_mapScenarioMetrics.clear();
+        m_vecThresholdResults.clear();
+        m_vecErrors.clear();
     }
     return MTLOAD_OK;
 }
@@ -523,41 +523,41 @@ int LoadEngine::Validate()
 {
     Plan copy;
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
-        if (!hasPlan_ || state_ != MTLOAD_STATE_PLAN_LOADED) return MTLOAD_E_INVALID_STATE;
-        copy = plan_;
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
+        if (!m_bHasPlan || m_iState != MTLOAD_STATE_PLAN_LOADED) return MTLOAD_E_INVALID_STATE;
+        copy = m_stPlan;
     }
     std::string error;
     const int result = ValidatePlan(copy, error);
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
         if (result == MTLOAD_OK)
         {
-            validated_ = true;
-            state_ = MTLOAD_STATE_VALIDATED;
-            const Workload* workload = FindWorkload(copy, selectedWorkloadId_);
-            plannedRequests_ = workload == nullptr ? 0 : PlannedRequests(copy, *workload);
-            lastError_.clear();
+            m_bValidated = true;
+            m_iState = MTLOAD_STATE_VALIDATED;
+            const Workload* workload = FindWorkload(copy, m_strSelectedWorkloadId);
+            m_u64PlannedRequests = workload == nullptr ? 0 : PlannedRequests(copy, *workload);
+            m_strLastError.clear();
         }
         else
         {
-            validated_ = false;
-            plannedRequests_ = 0;
-            lastError_ = error;
+            m_bValidated = false;
+            m_u64PlannedRequests = 0;
+            m_strLastError = error;
         }
-        lastResult_ = result;
+        m_iLastResult = result;
     }
-    if (result == MTLOAD_OK) ResetMetricDefinitions(copy, selectedWorkloadId_);
+    if (result == MTLOAD_OK) ResetMetricDefinitions(copy, m_strSelectedWorkloadId);
     return result;
 }
 
 // 关键实现：在状态锁内把环境模型转换为不含业务敏感值的 ABI POD。
 std::vector<MTLOAD_ENVIRONMENT> LoadEngine::GetEnvironments() const
 {
-    std::lock_guard<std::mutex> guard(stateMutex_);
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
     std::vector<MTLOAD_ENVIRONMENT> rows;
-    rows.reserve(plan_.environments.size());
-    for (const auto& pair : plan_.environments)
+    rows.reserve(m_stPlan.environments.size());
+    for (const auto& pair : m_stPlan.environments)
     {
         const Environment& source = pair.second;
         MTLOAD_ENVIRONMENT row{};
@@ -569,7 +569,7 @@ std::vector<MTLOAD_ENVIRONMENT> LoadEngine::GetEnvironments() const
         CopyText(row.host, source.host);
         CopyText(row.basePath, source.basePath);
         row.port = source.port;
-        row.selected = source.id == selectedEnvironmentId_ ? 1U : 0U;
+        row.selected = source.id == m_strSelectedEnvironmentId ? 1U : 0U;
         rows.push_back(row);
     }
     return rows;
@@ -578,31 +578,31 @@ std::vector<MTLOAD_ENVIRONMENT> LoadEngine::GetEnvironments() const
 // 关键实现：仅在非活动状态接受存在的环境 ID，并保持计划内容不变。
 int LoadEngine::SelectEnvironment(const std::string& environmentId)
 {
-    std::lock_guard<std::mutex> guard(stateMutex_);
-    if (!hasPlan_ || environmentId.empty()) return MTLOAD_E_INVALID_ARGUMENT;
-    if (state_ == MTLOAD_STATE_STARTING || state_ == MTLOAD_STATE_RUNNING ||
-        state_ == MTLOAD_STATE_PAUSING || state_ == MTLOAD_STATE_PAUSED ||
-        state_ == MTLOAD_STATE_STOPPING)
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
+    if (!m_bHasPlan || environmentId.empty()) return MTLOAD_E_INVALID_ARGUMENT;
+    if (m_iState == MTLOAD_STATE_STARTING || m_iState == MTLOAD_STATE_RUNNING ||
+        m_iState == MTLOAD_STATE_PAUSING || m_iState == MTLOAD_STATE_PAUSED ||
+        m_iState == MTLOAD_STATE_STOPPING)
         return MTLOAD_E_INVALID_STATE;
-    if (plan_.environments.find(environmentId) == plan_.environments.end())
+    if (m_stPlan.environments.find(environmentId) == m_stPlan.environments.end())
     {
-        lastResult_ = MTLOAD_E_NOT_FOUND;
-        lastError_ = "环境不存在: " + environmentId;
-        return lastResult_;
+        m_iLastResult = MTLOAD_E_NOT_FOUND;
+        m_strLastError = "环境不存在: " + environmentId;
+        return m_iLastResult;
     }
-    selectedEnvironmentId_ = environmentId;
-    lastResult_ = MTLOAD_OK;
-    lastError_.clear();
+    m_strSelectedEnvironmentId = environmentId;
+    m_iLastResult = MTLOAD_OK;
+    m_strLastError.clear();
     return MTLOAD_OK;
 }
 
 // 关键实现：复制场景负载参数并预计算单循环和总请求数。
 std::vector<MTLOAD_SCENARIO> LoadEngine::GetScenarios() const
 {
-    std::lock_guard<std::mutex> guard(stateMutex_);
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
     std::vector<MTLOAD_SCENARIO> rows;
-    rows.reserve(plan_.scenarios.size());
-    for (const Scenario& source : plan_.scenarios)
+    rows.reserve(m_stPlan.scenarios.size());
+    for (const Scenario& source : m_stPlan.scenarios)
     {
         MTLOAD_SCENARIO row{};
         row.structSize = sizeof(row);
@@ -614,7 +614,7 @@ std::vector<MTLOAD_SCENARIO> LoadEngine::GetScenarios() const
         row.requestsPerIteration = RequestsPerIteration(source);
         row.plannedRequests = source.load.durationMs == 0 ?
             row.requestsPerIteration * source.load.threads * source.load.iterations : 0;
-        row.selected = source.id == selectedScenarioId_ ? 1U : 0U;
+        row.selected = source.id == m_strSelectedScenarioId ? 1U : 0U;
         rows.push_back(row);
     }
     return rows;
@@ -625,44 +625,44 @@ int LoadEngine::SelectScenario(const std::string& scenarioId)
 {
     Plan planCopy;
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
-        if (!validated_) return MTLOAD_E_INVALID_STATE;
-        if (state_ == MTLOAD_STATE_STARTING || state_ == MTLOAD_STATE_RUNNING ||
-            state_ == MTLOAD_STATE_PAUSING || state_ == MTLOAD_STATE_PAUSED ||
-            state_ == MTLOAD_STATE_STOPPING)
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
+        if (!m_bValidated) return MTLOAD_E_INVALID_STATE;
+        if (m_iState == MTLOAD_STATE_STARTING || m_iState == MTLOAD_STATE_RUNNING ||
+            m_iState == MTLOAD_STATE_PAUSING || m_iState == MTLOAD_STATE_PAUSED ||
+            m_iState == MTLOAD_STATE_STOPPING)
             return MTLOAD_E_INVALID_STATE;
-        if (!scenarioId.empty() && std::none_of(plan_.scenarios.begin(), plan_.scenarios.end(),
+        if (!scenarioId.empty() && std::none_of(m_stPlan.scenarios.begin(), m_stPlan.scenarios.end(),
             [&](const Scenario& scenario) { return scenario.id == scenarioId; }))
         {
-            lastResult_ = MTLOAD_E_NOT_FOUND;
-            lastError_ = "场景不存在: " + scenarioId;
-            return lastResult_;
+            m_iLastResult = MTLOAD_E_NOT_FOUND;
+            m_strLastError = "场景不存在: " + scenarioId;
+            return m_iLastResult;
         }
-        selectedScenarioId_ = scenarioId;
-        selectedWorkloadId_ = scenarioId.empty() ? "legacy-all" : "legacy-" + scenarioId;
-        const Workload* workload = FindWorkload(plan_, selectedWorkloadId_);
+        m_strSelectedScenarioId = scenarioId;
+        m_strSelectedWorkloadId = scenarioId.empty() ? "legacy-all" : "legacy-" + scenarioId;
+        const Workload* workload = FindWorkload(m_stPlan, m_strSelectedWorkloadId);
         if (workload == nullptr)
         {
-            lastResult_ = MTLOAD_E_NOT_FOUND;
-            lastError_ = "兼容工作负载不存在: " + selectedWorkloadId_;
-            return lastResult_;
+            m_iLastResult = MTLOAD_E_NOT_FOUND;
+            m_strLastError = "兼容工作负载不存在: " + m_strSelectedWorkloadId;
+            return m_iLastResult;
         }
-        plannedRequests_ = PlannedRequests(plan_, *workload);
-        lastResult_ = MTLOAD_OK;
-        lastError_.clear();
-        planCopy = plan_;
+        m_u64PlannedRequests = PlannedRequests(m_stPlan, *workload);
+        m_iLastResult = MTLOAD_OK;
+        m_strLastError.clear();
+        planCopy = m_stPlan;
     }
-    ResetMetricDefinitions(planCopy, selectedWorkloadId_);
+    ResetMetricDefinitions(planCopy, m_strSelectedWorkloadId);
     return MTLOAD_OK;
 }
 
 // 关键实现：把内部工作负载转换为稳定 POD，旧配置兼容项也明确标记 implicit。
 std::vector<MTLOAD_WORKLOAD> LoadEngine::GetWorkloads() const
 {
-    std::lock_guard<std::mutex> guard(stateMutex_);
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
     std::vector<MTLOAD_WORKLOAD> rows;
-    rows.reserve(plan_.workloads.size());
-    for (const Workload& source : plan_.workloads)
+    rows.reserve(m_stPlan.workloads.size());
+    for (const Workload& source : m_stPlan.workloads)
     {
         MTLOAD_WORKLOAD row{};
         row.structSize = sizeof(row);
@@ -679,7 +679,7 @@ std::vector<MTLOAD_WORKLOAD> LoadEngine::GetWorkloads() const
         for (const LoadStage& stage : source.load.stages) stageDuration += stage.durationMs;
         row.durationMs = source.load.durationMs != 0 ? source.load.durationMs : stageDuration;
         row.ratePerSec = source.load.ratePerSec;
-        row.selected = source.id == selectedWorkloadId_ ? 1U : 0U;
+        row.selected = source.id == m_strSelectedWorkloadId ? 1U : 0U;
         row.implicit = source.implicit ? 1U : 0U;
         rows.push_back(row);
     }
@@ -691,27 +691,27 @@ int LoadEngine::SelectWorkload(const std::string& workloadId)
 {
     Plan planCopy;
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
-        if (!validated_ || workloadId.empty()) return MTLOAD_E_INVALID_ARGUMENT;
-        if (state_ == MTLOAD_STATE_STARTING || state_ == MTLOAD_STATE_RUNNING ||
-            state_ == MTLOAD_STATE_PAUSING || state_ == MTLOAD_STATE_PAUSED ||
-            state_ == MTLOAD_STATE_STOPPING)
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
+        if (!m_bValidated || workloadId.empty()) return MTLOAD_E_INVALID_ARGUMENT;
+        if (m_iState == MTLOAD_STATE_STARTING || m_iState == MTLOAD_STATE_RUNNING ||
+            m_iState == MTLOAD_STATE_PAUSING || m_iState == MTLOAD_STATE_PAUSED ||
+            m_iState == MTLOAD_STATE_STOPPING)
             return MTLOAD_E_INVALID_STATE;
-        const Workload* workload = FindWorkload(plan_, workloadId);
+        const Workload* workload = FindWorkload(m_stPlan, workloadId);
         if (workload == nullptr)
         {
-            lastResult_ = MTLOAD_E_NOT_FOUND;
-            lastError_ = "工作负载不存在: " + workloadId;
-            return lastResult_;
+            m_iLastResult = MTLOAD_E_NOT_FOUND;
+            m_strLastError = "工作负载不存在: " + workloadId;
+            return m_iLastResult;
         }
-        selectedWorkloadId_ = workloadId;
-        selectedScenarioId_.clear();
+        m_strSelectedWorkloadId = workloadId;
+        m_strSelectedScenarioId.clear();
         if (workload->implicit && workload->scenarios.size() == 1)
-            selectedScenarioId_ = workload->scenarios.front().scenarioId;
-        plannedRequests_ = PlannedRequests(plan_, *workload);
-        lastResult_ = MTLOAD_OK;
-        lastError_.clear();
-        planCopy = plan_;
+            m_strSelectedScenarioId = workload->scenarios.front().scenarioId;
+        m_u64PlannedRequests = PlannedRequests(m_stPlan, *workload);
+        m_iLastResult = MTLOAD_OK;
+        m_strLastError.clear();
+        planCopy = m_stPlan;
     }
     ResetMetricDefinitions(planCopy, workloadId);
     return MTLOAD_OK;
@@ -720,10 +720,10 @@ int LoadEngine::SelectWorkload(const std::string& workloadId)
 // 关键实现：只复制 Version/No/Login 等摘要，密码和 Param 永不跨 ABI。
 std::vector<MTLOAD_USER> LoadEngine::GetUsers() const
 {
-    std::lock_guard<std::mutex> guard(stateMutex_);
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
     std::vector<MTLOAD_USER> rows;
-    rows.reserve(plan_.users.size());
-    for (const auto& pair : plan_.users)
+    rows.reserve(m_stPlan.users.size());
+    for (const auto& pair : m_stPlan.users)
     {
         const UserProfile& source = pair.second;
         MTLOAD_USER row{};
@@ -734,7 +734,7 @@ std::vector<MTLOAD_USER> LoadEngine::GetUsers() const
         CopyText(row.version, source.variables.at("Version"));
         CopyText(row.no, source.variables.at("No"));
         CopyText(row.login, source.variables.at("Login"));
-        row.selected = source.id == selectedUserId_ ? 1U : 0U;
+        row.selected = source.id == m_strSelectedUserId ? 1U : 0U;
         rows.push_back(row);
     }
     return rows;
@@ -743,21 +743,21 @@ std::vector<MTLOAD_USER> LoadEngine::GetUsers() const
 // 关键实现：保存统一用户覆盖 ID；空字符串恢复各场景 UserRefs。
 int LoadEngine::SelectUser(const std::string& userId)
 {
-    std::lock_guard<std::mutex> guard(stateMutex_);
-    if (!validated_) return MTLOAD_E_INVALID_STATE;
-    if (state_ == MTLOAD_STATE_STARTING || state_ == MTLOAD_STATE_RUNNING ||
-        state_ == MTLOAD_STATE_PAUSING || state_ == MTLOAD_STATE_PAUSED ||
-        state_ == MTLOAD_STATE_STOPPING)
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
+    if (!m_bValidated) return MTLOAD_E_INVALID_STATE;
+    if (m_iState == MTLOAD_STATE_STARTING || m_iState == MTLOAD_STATE_RUNNING ||
+        m_iState == MTLOAD_STATE_PAUSING || m_iState == MTLOAD_STATE_PAUSED ||
+        m_iState == MTLOAD_STATE_STOPPING)
         return MTLOAD_E_INVALID_STATE;
-    if (!userId.empty() && plan_.users.find(userId) == plan_.users.end())
+    if (!userId.empty() && m_stPlan.users.find(userId) == m_stPlan.users.end())
     {
-        lastResult_ = MTLOAD_E_NOT_FOUND;
-        lastError_ = "用户不存在: " + userId;
-        return lastResult_;
+        m_iLastResult = MTLOAD_E_NOT_FOUND;
+        m_strLastError = "用户不存在: " + userId;
+        return m_iLastResult;
     }
-    selectedUserId_ = userId;
-    lastResult_ = MTLOAD_OK;
-    lastError_.clear();
+    m_strSelectedUserId = userId;
+    m_iLastResult = MTLOAD_OK;
+    m_strLastError.clear();
     return MTLOAD_OK;
 }
 
@@ -767,50 +767,50 @@ int LoadEngine::Start(const std::string& runName)
     // 先在锁内判断上一轮是否可回收，再在锁外 join，避免工作线程结束时反向等待状态锁。
     bool reapCompletedWorker = false;
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
-        const bool restartable = state_ == MTLOAD_STATE_VALIDATED ||
-            state_ == MTLOAD_STATE_COMPLETED || state_ == MTLOAD_STATE_FAILED;
-        if (!validated_ || !restartable) return MTLOAD_E_INVALID_STATE;
-        reapCompletedWorker = worker_.joinable();
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
+        const bool restartable = m_iState == MTLOAD_STATE_VALIDATED ||
+            m_iState == MTLOAD_STATE_COMPLETED || m_iState == MTLOAD_STATE_FAILED;
+        if (!m_bValidated || !restartable) return MTLOAD_E_INVALID_STATE;
+        reapCompletedWorker = m_clWorker.joinable();
     }
-    if (reapCompletedWorker) worker_.join();
+    if (reapCompletedWorker) m_clWorker.join();
 
     // 重新取得锁后二次确认状态，并原子建立完整的新一轮运行上下文。
-    std::lock_guard<std::mutex> guard(stateMutex_);
-    const bool restartable = state_ == MTLOAD_STATE_VALIDATED ||
-        state_ == MTLOAD_STATE_COMPLETED || state_ == MTLOAD_STATE_FAILED;
-    if (!validated_ || !restartable || worker_.joinable()) return MTLOAD_E_INVALID_STATE;
-    runName_ = runName.empty() ? plan_.name : runName;
-    ++runId_;
-    startUnixMs_ = UnixMs();
-    endUnixMs_ = 0;
-    lastResult_ = MTLOAD_OK;
-    lastError_.clear();
-    state_ = MTLOAD_STATE_STARTING;
-    stopping_.store(false);
-    pauseRequested_.store(false);
-    pausedDurationMs_ = 0;
-    totalSamples_.store(0);
-    activeScenarios_.store(0);
-    activeUsers_.store(0);
-    activeRequests_.store(0);
-    peakActiveUsers_.store(0);
-    peakActiveRequests_.store(0);
-    scheduledIterations_.store(0);
-    completedIterations_.store(0);
-    droppedIterations_.store(0);
-    ResetMetricDefinitions(plan_, selectedWorkloadId_);
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
+    const bool restartable = m_iState == MTLOAD_STATE_VALIDATED ||
+        m_iState == MTLOAD_STATE_COMPLETED || m_iState == MTLOAD_STATE_FAILED;
+    if (!m_bValidated || !restartable || m_clWorker.joinable()) return MTLOAD_E_INVALID_STATE;
+    m_strRunName = runName.empty() ? m_stPlan.name : runName;
+    ++m_u64RunId;
+    m_i64StartUnixMs = UnixMs();
+    m_i64EndUnixMs = 0;
+    m_iLastResult = MTLOAD_OK;
+    m_strLastError.clear();
+    m_iState = MTLOAD_STATE_STARTING;
+    m_bStopping.store(false);
+    m_bPauseRequested.store(false);
+    m_u64PausedDurationMs = 0;
+    m_u64TotalSamples.store(0);
+    m_u32ActiveScenarios.store(0);
+    m_u32ActiveUsers.store(0);
+    m_u32ActiveRequests.store(0);
+    m_u32PeakActiveUsers.store(0);
+    m_u32PeakActiveRequests.store(0);
+    m_u64ScheduledIterations.store(0);
+    m_u64CompletedIterations.store(0);
+    m_u64DroppedIterations.store(0);
+    ResetMetricDefinitions(m_stPlan, m_strSelectedWorkloadId);
     try
     {
-        worker_ = std::thread(&LoadEngine::Run, this);
+        m_clWorker = std::thread(&LoadEngine::Run, this);
     }
     catch (const std::exception& exception)
     {
-        state_ = MTLOAD_STATE_FAILED;
-        lastResult_ = MTLOAD_E_START_FAILED;
-        lastError_ = std::string("创建运行线程失败: ") + exception.what();
-        endUnixMs_ = UnixMs();
-        return lastResult_;
+        m_iState = MTLOAD_STATE_FAILED;
+        m_iLastResult = MTLOAD_E_START_FAILED;
+        m_strLastError = std::string("创建运行线程失败: ") + exception.what();
+        m_i64EndUnixMs = UnixMs();
+        return m_iLastResult;
     }
     return MTLOAD_OK;
 }
@@ -818,18 +818,18 @@ int LoadEngine::Start(const std::string& runName)
 // 关键实现：只设置暂停标记和 PAUSING，具体 PAUSED 在调度线程到达边界时确认。
 int LoadEngine::Pause()
 {
-    std::lock_guard<std::mutex> pauseGuard(pauseMutex_);
+    std::lock_guard<std::mutex> pauseGuard(m_clPauseMutex);
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
-        if (state_ == MTLOAD_STATE_PAUSING || state_ == MTLOAD_STATE_PAUSED) return MTLOAD_OK;
-        if (state_ != MTLOAD_STATE_STARTING && state_ != MTLOAD_STATE_RUNNING)
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
+        if (m_iState == MTLOAD_STATE_PAUSING || m_iState == MTLOAD_STATE_PAUSED) return MTLOAD_OK;
+        if (m_iState != MTLOAD_STATE_STARTING && m_iState != MTLOAD_STATE_RUNNING)
             return MTLOAD_E_INVALID_STATE;
-        pauseRequested_.store(true);
-        pauseStarted_ = std::chrono::steady_clock::now();
-        state_ = activeRequests_.load() == 0 ? MTLOAD_STATE_PAUSED : MTLOAD_STATE_PAUSING;
+        m_bPauseRequested.store(true);
+        m_clPauseStarted = std::chrono::steady_clock::now();
+        m_iState = m_u32ActiveRequests.load() == 0 ? MTLOAD_STATE_PAUSED : MTLOAD_STATE_PAUSING;
     }
-    pauseChanged_.notify_all();
-    stateChanged_.notify_all();
+    m_clPauseChanged.notify_all();
+    m_clStateChanged.notify_all();
     return MTLOAD_OK;
 }
 
@@ -837,19 +837,19 @@ int LoadEngine::Pause()
 int LoadEngine::Resume()
 {
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
-        if (state_ == MTLOAD_STATE_RUNNING || state_ == MTLOAD_STATE_STARTING) return MTLOAD_OK;
-        if (state_ != MTLOAD_STATE_PAUSING && state_ != MTLOAD_STATE_PAUSED)
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
+        if (m_iState == MTLOAD_STATE_RUNNING || m_iState == MTLOAD_STATE_STARTING) return MTLOAD_OK;
+        if (m_iState != MTLOAD_STATE_PAUSING && m_iState != MTLOAD_STATE_PAUSED)
             return MTLOAD_E_INVALID_STATE;
-        if (pauseRequested_.exchange(false))
+        if (m_bPauseRequested.exchange(false))
         {
-            pausedDurationMs_ += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - pauseStarted_).count());
+            m_u64PausedDurationMs += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - m_clPauseStarted).count());
         }
-        state_ = MTLOAD_STATE_RUNNING;
+        m_iState = MTLOAD_STATE_RUNNING;
     }
-    pauseChanged_.notify_all();
-    stateChanged_.notify_all();
+    m_clPauseChanged.notify_all();
+    m_clStateChanged.notify_all();
     return MTLOAD_OK;
 }
 
@@ -857,67 +857,67 @@ int LoadEngine::Resume()
 int LoadEngine::Stop()
 {
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
-        if (state_ == MTLOAD_STATE_STARTING || state_ == MTLOAD_STATE_RUNNING ||
-            state_ == MTLOAD_STATE_PAUSING || state_ == MTLOAD_STATE_PAUSED)
-            state_ = MTLOAD_STATE_STOPPING;
-        else if (state_ != MTLOAD_STATE_STOPPING) return MTLOAD_OK;
-        if (pauseRequested_.exchange(false))
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
+        if (m_iState == MTLOAD_STATE_STARTING || m_iState == MTLOAD_STATE_RUNNING ||
+            m_iState == MTLOAD_STATE_PAUSING || m_iState == MTLOAD_STATE_PAUSED)
+            m_iState = MTLOAD_STATE_STOPPING;
+        else if (m_iState != MTLOAD_STATE_STOPPING) return MTLOAD_OK;
+        if (m_bPauseRequested.exchange(false))
         {
-            pausedDurationMs_ += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - pauseStarted_).count());
+            m_u64PausedDurationMs += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - m_clPauseStarted).count());
         }
     }
-    stopping_.store(true);
-    permits_.WakeAll();
-    pauseChanged_.notify_all();
-    stateChanged_.notify_all();
+    m_bStopping.store(true);
+    m_clPermits.WakeAll();
+    m_clPauseChanged.notify_all();
+    m_clStateChanged.notify_all();
     return MTLOAD_OK;
 }
 
 // 关键实现：只在稳定非活动状态清空结果，随后恢复与计划校验状态一致的状态值。
 int LoadEngine::ClearResults()
 {
-    std::lock_guard<std::mutex> guard(stateMutex_);
-    if (state_ == MTLOAD_STATE_STARTING || state_ == MTLOAD_STATE_RUNNING ||
-        state_ == MTLOAD_STATE_PAUSING || state_ == MTLOAD_STATE_PAUSED ||
-        state_ == MTLOAD_STATE_STOPPING)
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
+    if (m_iState == MTLOAD_STATE_STARTING || m_iState == MTLOAD_STATE_RUNNING ||
+        m_iState == MTLOAD_STATE_PAUSING || m_iState == MTLOAD_STATE_PAUSED ||
+        m_iState == MTLOAD_STATE_STOPPING)
         return MTLOAD_E_INVALID_STATE;
-    startUnixMs_ = 0;
-    endUnixMs_ = 0;
-    pausedDurationMs_ = 0;
-    totalSamples_.store(0);
-    peakActiveUsers_.store(0);
-    peakActiveRequests_.store(0);
-    scheduledIterations_.store(0);
-    completedIterations_.store(0);
-    droppedIterations_.store(0);
-    lastResult_ = MTLOAD_OK;
-    lastError_.clear();
-    std::lock_guard<std::mutex> metricGuard(metricsMutex_);
-    metrics_.clear();
-    scenarioMetrics_.clear();
-    thresholdResults_.clear();
-    errors_.clear();
+    m_i64StartUnixMs = 0;
+    m_i64EndUnixMs = 0;
+    m_u64PausedDurationMs = 0;
+    m_u64TotalSamples.store(0);
+    m_u32PeakActiveUsers.store(0);
+    m_u32PeakActiveRequests.store(0);
+    m_u64ScheduledIterations.store(0);
+    m_u64CompletedIterations.store(0);
+    m_u64DroppedIterations.store(0);
+    m_iLastResult = MTLOAD_OK;
+    m_strLastError.clear();
+    std::lock_guard<std::mutex> metricGuard(m_clMetricsMutex);
+    m_mapMetrics.clear();
+    m_mapScenarioMetrics.clear();
+    m_vecThresholdResults.clear();
+    m_vecErrors.clear();
     return MTLOAD_OK;
 }
 
-// 关键实现：在 stateChanged_ 上等待终态谓词，有限等待超时不改变运行状态。
+// 关键实现：在 m_clStateChanged 上等待终态谓词，有限等待超时不改变运行状态。
 int LoadEngine::Wait(uint32_t timeoutMs)
 {
-    std::unique_lock<std::mutex> lock(stateMutex_);
+    std::unique_lock<std::mutex> lock(m_clStateMutex);
     // 未启动的 CREATED/PLAN_LOADED/VALIDATED 实例没有工作线程，应立即返回。
-    auto terminal = [&]() { return !worker_.joinable() ||
-        state_ == MTLOAD_STATE_COMPLETED || state_ == MTLOAD_STATE_FAILED; };
+    auto terminal = [&]() { return !m_clWorker.joinable() ||
+        m_iState == MTLOAD_STATE_COMPLETED || m_iState == MTLOAD_STATE_FAILED; };
     bool done = true;
     if (!terminal())
     {
-        if (timeoutMs == UINT32_MAX) stateChanged_.wait(lock, terminal);
-        else done = stateChanged_.wait_for(lock, std::chrono::milliseconds(timeoutMs), terminal);
+        if (timeoutMs == UINT32_MAX) m_clStateChanged.wait(lock, terminal);
+        else done = m_clStateChanged.wait_for(lock, std::chrono::milliseconds(timeoutMs), terminal);
     }
     lock.unlock();
     if (!done) return MTLOAD_E_TIMEOUT;
-    if (worker_.joinable()) worker_.join();
+    if (m_clWorker.joinable()) m_clWorker.join();
     return MTLOAD_OK;
 }
 
@@ -925,18 +925,18 @@ int LoadEngine::Wait(uint32_t timeoutMs)
 void LoadEngine::SetTerminalState(int state, int result)
 {
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
-        if (pauseRequested_.exchange(false))
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
+        if (m_bPauseRequested.exchange(false))
         {
-            pausedDurationMs_ += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - pauseStarted_).count());
+            m_u64PausedDurationMs += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - m_clPauseStarted).count());
         }
-        state_ = state;
-        lastResult_ = result;
-        endUnixMs_ = UnixMs();
+        m_iState = state;
+        m_iLastResult = result;
+        m_i64EndUnixMs = UnixMs();
     }
-    pauseChanged_.notify_all();
-    stateChanged_.notify_all();
+    m_clPauseChanged.notify_all();
+    m_clStateChanged.notify_all();
 }
 
 // 关键实现：按已选择工作负载进入 closed、arrival 或旧全部场景路径，
@@ -947,11 +947,11 @@ void LoadEngine::Run()
     {
         // 进入工作线程后才发布 RUNNING，保证 STARTING 表示线程尚未真正接管执行。
         {
-            std::lock_guard<std::mutex> guard(stateMutex_);
-            if (state_ == MTLOAD_STATE_STARTING) state_ = MTLOAD_STATE_RUNNING;
+            std::lock_guard<std::mutex> guard(m_clStateMutex);
+            if (m_iState == MTLOAD_STATE_STARTING) m_iState = MTLOAD_STATE_RUNNING;
         }
-        stateChanged_.notify_all();
-        const Workload* workload = FindWorkload(plan_, selectedWorkloadId_);
+        m_clStateChanged.notify_all();
+        const Workload* workload = FindWorkload(m_stPlan, m_strSelectedWorkloadId);
         if (workload == nullptr) throw std::runtime_error("所选工作负载不存在");
         if (workload->useScenarioLoads) RunLegacyAll(*workload);
         else if (workload->load.mode == "arrival") RunArrivalWorkload(*workload);
@@ -963,8 +963,8 @@ void LoadEngine::Run()
     catch (const std::exception& exception)
     {
         {
-            std::lock_guard<std::mutex> guard(stateMutex_);
-            lastError_ = std::string("运行线程异常: ") + exception.what();
+            std::lock_guard<std::mutex> guard(m_clStateMutex);
+            m_strLastError = std::string("运行线程异常: ") + exception.what();
         }
         SetTerminalState(MTLOAD_STATE_FAILED, MTLOAD_E_INTERNAL);
     }
@@ -976,7 +976,7 @@ void LoadEngine::RunLegacyAll(const Workload& workload)
     std::vector<std::thread> scenarios;
     for (const WorkloadScenarioRef& reference : workload.scenarios)
     {
-        const Scenario* scenario = FindScenario(plan_, reference.scenarioId);
+        const Scenario* scenario = FindScenario(m_stPlan, reference.scenarioId);
         if (scenario != nullptr)
             scenarios.emplace_back(&LoadEngine::RunScenario, this, std::cref(*scenario), std::cref(scenario->load));
     }
@@ -987,20 +987,20 @@ void LoadEngine::RunLegacyAll(const Workload& workload)
 // 进行确定性权重轮询，权重对应完整事务而不是 HTTP 请求数量。
 void LoadEngine::RunClosedWorkload(const Workload& workload)
 {
-    activeScenarios_.fetch_add(1);
+    m_u32ActiveScenarios.fetch_add(1);
     std::atomic<uint64_t> sequence{ 0 };
     std::vector<std::thread> users;
-    for (uint32_t index = 0; index < workload.load.threads && !stopping_.load(); ++index)
+    for (uint32_t index = 0; index < workload.load.threads && !m_bStopping.load(); ++index)
     {
         users.emplace_back([&, index]()
         {
-            const uint32_t active = activeUsers_.fetch_add(1) + 1;
-            UpdatePeak(peakActiveUsers_, active);
+            const uint32_t active = m_u32ActiveUsers.fetch_add(1) + 1;
+            UpdatePeak(m_u32PeakActiveUsers, active);
             struct UserGuard
             {
                 std::atomic<uint32_t>& count;
                 ~UserGuard() { count.fetch_sub(1); }
-            } userGuard{ activeUsers_ };
+            } userGuard{ m_u32ActiveUsers };
             if (workload.load.rampUpMs > 0 && workload.load.threads > 1)
             {
                 const uint64_t delayMs = static_cast<uint64_t>(workload.load.rampUpMs) *
@@ -1011,7 +1011,7 @@ void LoadEngine::RunClosedWorkload(const Workload& workload)
             const auto started = std::chrono::steady_clock::now();
             const uint64_t pausedAtStart = PausedDurationMs();
             uint64_t localIteration = 0;
-            while (!stopping_.load())
+            while (!m_bStopping.load())
             {
                 if (workload.load.iterations > 0 && localIteration >= workload.load.iterations) break;
                 if (workload.load.durationMs > 0)
@@ -1023,37 +1023,37 @@ void LoadEngine::RunClosedWorkload(const Workload& workload)
                 }
                 if (!WaitUntilRunnable()) break;
                 const uint64_t current = sequence.fetch_add(1);
-                const Scenario* scenario = SelectWeightedScenario(plan_, workload, current);
+                const Scenario* scenario = SelectWeightedScenario(m_stPlan, workload, current);
                 if (scenario == nullptr) break;
-                scheduledIterations_.fetch_add(1);
+                m_u64ScheduledIterations.fetch_add(1);
                 RunIteration(*scenario, index, current);
                 ++localIteration;
             }
         });
     }
     for (auto& user : users) user.join();
-    activeScenarios_.fetch_sub(1);
+    m_u32ActiveScenarios.fetch_sub(1);
 }
 
 // 关键实现：旧单场景 closed 调度器保留原有线程、迭代、持续时间和 ramp-up 语义。
 void LoadEngine::RunScenario(const Scenario& scenario, const Load& load)
 {
-    activeScenarios_.fetch_add(1);
+    m_u32ActiveScenarios.fetch_add(1);
     // 每个用户线程拥有独立迭代位置和变量上下文，相同账号也不共享可变会话值。
     std::vector<std::thread> users;
-    for (uint32_t index = 0; index < load.threads && !stopping_.load(); ++index)
+    for (uint32_t index = 0; index < load.threads && !m_bStopping.load(); ++index)
     {
         users.emplace_back([&, index]()
         {
-            const uint32_t active = activeUsers_.fetch_add(1) + 1;
-            UpdatePeak(peakActiveUsers_, active);
+            const uint32_t active = m_u32ActiveUsers.fetch_add(1) + 1;
+            UpdatePeak(m_u32PeakActiveUsers, active);
             // 栈守卫保证提前停止、延迟取消和异常路径均能归还活动用户计数。
             struct UserGuard
             {
                 std::atomic<uint32_t>& count; // 借用 LoadEngine 活动用户计数器。
                 // 用户线程离开作用域时只执行一次计数回收。
                 ~UserGuard() { count.fetch_sub(1); }
-            } userGuard{ activeUsers_ };
+            } userGuard{ m_u32ActiveUsers };
             if (load.rampUpMs > 0 && load.threads > 1)
             {
                 const uint64_t delayMs = static_cast<uint64_t>(load.rampUpMs) * index / load.threads;
@@ -1064,7 +1064,7 @@ void LoadEngine::RunScenario(const Scenario& scenario, const Load& load)
             const auto started = std::chrono::steady_clock::now();
             const uint64_t pausedAtStart = PausedDurationMs();
             uint64_t iteration = 0;
-            while (!stopping_.load())
+            while (!m_bStopping.load())
             {
                 if (load.iterations > 0 && iteration >= load.iterations) break;
                 if (load.durationMs > 0)
@@ -1075,13 +1075,13 @@ void LoadEngine::RunScenario(const Scenario& scenario, const Load& load)
                     if (wallMs >= pausedMs + load.durationMs) break;
                 }
                 if (!WaitUntilRunnable()) break;
-                scheduledIterations_.fetch_add(1);
+                m_u64ScheduledIterations.fetch_add(1);
                 RunIteration(scenario, index, iteration++);
             }
         });
     }
     for (auto& user : users) user.join();
-    activeScenarios_.fetch_sub(1);
+    m_u32ActiveScenarios.fetch_sub(1);
 }
 
 // 关键实现：开放模型按活动时间积分生成到达事件。空闲用户不足时立即丢弃，
@@ -1093,7 +1093,7 @@ void LoadEngine::RunArrivalWorkload(const Workload& workload)
         const Scenario* scenario = nullptr;
         uint64_t sequence = 0;
     };
-    activeScenarios_.fetch_add(1);
+    m_u32ActiveScenarios.fetch_add(1);
     std::mutex poolMutex;
     std::condition_variable poolChanged;
     std::deque<Job> jobs;
@@ -1110,17 +1110,17 @@ void LoadEngine::RunArrivalWorkload(const Workload& workload)
             {
                 ++idleWorkers;
                 poolChanged.notify_all();
-                poolChanged.wait(lock, [&]() { return shutdown || stopping_.load() || !jobs.empty(); });
+                poolChanged.wait(lock, [&]() { return shutdown || m_bStopping.load() || !jobs.empty(); });
                 --idleWorkers;
-                if ((shutdown || stopping_.load()) && jobs.empty()) break;
+                if ((shutdown || m_bStopping.load()) && jobs.empty()) break;
                 if (jobs.empty()) continue;
                 const Job job = jobs.front();
                 jobs.pop_front();
                 lock.unlock();
-                const uint32_t active = activeUsers_.fetch_add(1) + 1;
-                UpdatePeak(peakActiveUsers_, active);
+                const uint32_t active = m_u32ActiveUsers.fetch_add(1) + 1;
+                UpdatePeak(m_u32PeakActiveUsers, active);
                 RunIteration(*job.scenario, workerIndex, job.sequence);
-                activeUsers_.fetch_sub(1);
+                m_u32ActiveUsers.fetch_sub(1);
                 lock.lock();
             }
             poolChanged.notify_all();
@@ -1162,7 +1162,7 @@ void LoadEngine::RunArrivalWorkload(const Workload& workload)
     uint64_t lastActiveMs = 0;
     uint64_t sequence = 0;
     double dueCredit = 0.0;
-    while (!stopping_.load())
+    while (!m_bStopping.load())
     {
         if (!WaitUntilRunnable()) break;
         const uint64_t wallMs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1176,12 +1176,12 @@ void LoadEngine::RunArrivalWorkload(const Workload& workload)
             dueCredit += (rateAt(lastActiveMs) + rateAt(activeMs)) * 0.5 * deltaMs / 1000.0;
             lastActiveMs = activeMs;
         }
-        while (dueCredit >= 1.0 && !stopping_.load())
+        while (dueCredit >= 1.0 && !m_bStopping.load())
         {
             dueCredit -= 1.0;
-            const Scenario* scenario = SelectWeightedScenario(plan_, workload, sequence);
+            const Scenario* scenario = SelectWeightedScenario(m_stPlan, workload, sequence);
             if (scenario == nullptr) break;
-            scheduledIterations_.fetch_add(1);
+            m_u64ScheduledIterations.fetch_add(1);
             bool accepted = false;
             {
                 std::lock_guard<std::mutex> lock(poolMutex);
@@ -1205,7 +1205,7 @@ void LoadEngine::RunArrivalWorkload(const Workload& workload)
     }
 
     // 调度结束后直接关闭工作池。工作线程只在队列为空时退出，因此正常完成仍会
-    // 排空已接收任务；停止时任务会沿 stopping_ 快速完成取消记账。这里不能等待
+    // 排空已接收任务；停止时任务会沿 m_bStopping 快速完成取消记账。这里不能等待
     // idleWorkers == workers.size()，因为收到停止通知的空闲线程会直接退出，不会再
     // 回到空闲计数，继续等待将使顶层运行线程永久卡在 STOPPING。
     {
@@ -1214,7 +1214,7 @@ void LoadEngine::RunArrivalWorkload(const Workload& workload)
     }
     poolChanged.notify_all();
     for (auto& worker : workers) worker.join();
-    activeScenarios_.fetch_sub(1);
+    m_u32ActiveScenarios.fetch_sub(1);
 }
 
 // 关键实现：为当前用户选择账号/数据行，步骤串行、步骤内请求副本并行并等待屏障；
@@ -1238,23 +1238,23 @@ LoadEngine::IterationOutcome LoadEngine::RunIteration(const Scenario& scenario,
     };
     // 为本轮选择统一用户、UserRefs 或数据行，复制后交给该用户独占。
     std::map<std::string, std::string> row;
-    if (!selectedUserId_.empty())
+    if (!m_strSelectedUserId.empty())
     {
-        row = plan_.users.at(selectedUserId_).variables;
+        row = m_stPlan.users.at(m_strSelectedUserId).variables;
     }
     else if (!scenario.userIds.empty())
     {
         const std::string& userId = scenario.userIds[userIndex % scenario.userIds.size()];
-        row = plan_.users.at(userId).variables;
+        row = m_stPlan.users.at(userId).variables;
     }
     else if (!scenario.dataSetId.empty())
     {
-        const DataSet& dataSet = plan_.dataSets.at(scenario.dataSetId);
+        const DataSet& dataSet = m_stPlan.dataSets.at(scenario.dataSetId);
         if (!dataSet.rows.empty()) row = dataSet.rows[(static_cast<uint64_t>(userIndex) + iteration) % dataSet.rows.size()];
     }
     // 运行时标识由引擎生成并放入只读作用域，保证同账号并发线程和循环的数据键互不覆盖。
     std::map<std::string, std::string> runtimeVariables;
-    runtimeVariables["runId"] = std::to_string(runId_);
+    runtimeVariables["runId"] = std::to_string(m_u64RunId);
     runtimeVariables["threadIndex"] = std::to_string(static_cast<uint64_t>(userIndex) + 1ULL);
     runtimeVariables["iterationIndex"] = std::to_string(iteration + 1ULL);
     VariableContext variables(row, std::move(runtimeVariables));
@@ -1263,7 +1263,7 @@ LoadEngine::IterationOutcome LoadEngine::RunIteration(const Scenario& scenario,
     // 步骤严格串行；业务失败后跳过普通步骤，但仍扫描并执行 alwaysRun 清理步骤。
     for (const Step& step : scenario.steps)
     {
-        if (stopping_.load()) return finishTransaction(false);
+        if (m_bStopping.load()) return finishTransaction(false);
         if (stopNormalSteps && !step.alwaysRun) continue;
         if (!WaitUntilRunnable()) return finishTransaction(false);
         std::vector<std::future<RequestOutcome>> futures;
@@ -1308,7 +1308,7 @@ LoadEngine::RequestOutcome LoadEngine::RunRequest(const Scenario& scenario,
 {
     RequestOutcome outcome;
     // 先取得全实例并发许可；栈守卫覆盖全部早退路径并自动归还。
-    if (!permits_.Acquire(stopping_))
+    if (!m_clPermits.Acquire(m_bStopping))
     {
         outcome.result = MTLOAD_E_INVALID_STATE;
         outcome.error = "运行已停止";
@@ -1319,14 +1319,14 @@ LoadEngine::RequestOutcome LoadEngine::RunRequest(const Scenario& scenario,
         PermitPool& pool; // 借用全实例许可池。
         // 请求离开作用域时归还一次已取得许可。
         ~PermitGuard() { pool.Release(); }
-    } guard{ permits_ };
+    } guard{ m_clPermits };
     if (!BeginRequest())
     {
         outcome.result = MTLOAD_E_INVALID_STATE;
         outcome.error = "运行已停止";
         return outcome;
     }
-    // 在途计数采用独立作用域守卫，避免变量展开失败时遗留 activeRequests_。
+    // 在途计数采用独立作用域守卫，避免变量展开失败时遗留 m_u32ActiveRequests。
     struct ScopeExit
     {
         std::function<void()> callback; // 离开作用域时执行的唯一清理动作。
@@ -1383,10 +1383,10 @@ LoadEngine::RequestOutcome LoadEngine::RunRequest(const Scenario& scenario,
         header.value = std::move(expandedValue);
     }
     // 使用环境副本构造最终目标，传输层只接收已经展开和合并的请求。
-    const Target target = ResolveTarget(plan_.targets.at(request.targetId));
+    const Target target = ResolveTarget(m_stPlan.targets.at(request.targetId));
     const std::string targetPath = JoinPath(target.basePath, path);
-    HttpResponse response = ExecuteHttp(target, expandedRequest, plan_.headers, targetPath, body,
-        options_.maxResponseBytes, stopping_);
+    HttpResponse response = ExecuteHttp(target, expandedRequest, m_stPlan.headers, targetPath, body,
+        m_stOptions.maxResponseBytes, m_bStopping);
     outcome.result = response.result;
     outcome.httpStatus = response.status;
     outcome.elapsedMs = response.elapsedMs;
@@ -1411,13 +1411,13 @@ LoadEngine::RequestOutcome LoadEngine::RunRequest(const Scenario& scenario,
 Target LoadEngine::ResolveTarget(const Target& configured) const
 {
     Target resolved = configured;
-    std::lock_guard<std::mutex> guard(stateMutex_);
-    if (plan_.environments.empty())
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
+    if (m_stPlan.environments.empty())
     {
         if (resolved.port == 0) resolved.port = resolved.transport == "https" ? 443 : 80;
         return resolved;
     }
-    const Environment& environment = plan_.environments.at(selectedEnvironmentId_);
+    const Environment& environment = m_stPlan.environments.at(m_strSelectedEnvironmentId);
     resolved.transport = environment.scheme;
     resolved.host = environment.host;
     resolved.port = environment.port != 0 ? environment.port :
@@ -1431,25 +1431,25 @@ Target LoadEngine::ResolveTarget(const Target& configured) const
 // 关键实现：按工作负载引用预创建接口和事务累加器，并设置有限 closed 计划请求数。
 void LoadEngine::ResetMetricDefinitions(const Plan& plan, const std::string& selectedWorkloadId)
 {
-    std::lock_guard<std::mutex> guard(metricsMutex_);
-    metrics_.clear();
-    scenarioMetrics_.clear();
-    thresholdResults_.clear();
-    errors_.clear();
+    std::lock_guard<std::mutex> guard(m_clMetricsMutex);
+    m_mapMetrics.clear();
+    m_mapScenarioMetrics.clear();
+    m_vecThresholdResults.clear();
+    m_vecErrors.clear();
     const Workload* workload = FindWorkload(plan, selectedWorkloadId);
     if (workload == nullptr) return;
     for (const WorkloadScenarioRef& reference : workload->scenarios)
     {
         const Scenario* scenario = FindScenario(plan, reference.scenarioId);
         if (scenario == nullptr) continue;
-        ScenarioAccumulator& transaction = scenarioMetrics_[scenario->id];
+        ScenarioAccumulator& transaction = m_mapScenarioMetrics[scenario->id];
         transaction.scenarioId = scenario->id;
         transaction.scenario = scenario->name;
         for (const Step& step : scenario->steps)
         {
             for (const Request& request : step.requests)
             {
-                MetricAccumulator& metric = metrics_[MetricKey(*scenario, step, request)];
+                MetricAccumulator& metric = m_mapMetrics[MetricKey(*scenario, step, request)];
                 metric.scenario = scenario->name;
                 metric.step = step.name;
                 metric.label = request.label;
@@ -1464,20 +1464,20 @@ void LoadEngine::ResetMetricDefinitions(const Plan& plan, const std::string& sel
 // 关键实现：暂停时在条件变量上等待继续或停止，并由到达线程确认 PAUSED 状态。
 bool LoadEngine::WaitUntilRunnable()
 {
-    std::unique_lock<std::mutex> lock(pauseMutex_);
-    pauseChanged_.wait(lock, [this]() { return !pauseRequested_.load() || stopping_.load(); });
-    return !stopping_.load();
+    std::unique_lock<std::mutex> lock(m_clPauseMutex);
+    m_clPauseChanged.wait(lock, [this]() { return !m_bPauseRequested.load() || m_bStopping.load(); });
+    return !m_bStopping.load();
 }
 
 // 关键实现：在暂停门禁内登记在途请求，防止 Pause 漏掉刚放行的请求。
 bool LoadEngine::BeginRequest()
 {
-    std::unique_lock<std::mutex> lock(pauseMutex_);
-    pauseChanged_.wait(lock, [this]() { return !pauseRequested_.load() || stopping_.load(); });
-    if (stopping_.load()) return false;
-    // 与 Pause 共用 pauseMutex_，保证暂停观察到的 activeRequests_ 不漏掉刚放行的请求。
-    const uint32_t active = activeRequests_.fetch_add(1) + 1;
-    UpdatePeak(peakActiveRequests_, active);
+    std::unique_lock<std::mutex> lock(m_clPauseMutex);
+    m_clPauseChanged.wait(lock, [this]() { return !m_bPauseRequested.load() || m_bStopping.load(); });
+    if (m_bStopping.load()) return false;
+    // 与 Pause 共用 m_clPauseMutex，保证暂停观察到的 m_u32ActiveRequests 不漏掉刚放行的请求。
+    const uint32_t active = m_u32ActiveRequests.fetch_add(1) + 1;
+    UpdatePeak(m_u32PeakActiveRequests, active);
     return true;
 }
 
@@ -1485,52 +1485,52 @@ bool LoadEngine::BeginRequest()
 bool LoadEngine::WaitForActiveDelay(uint64_t delayMs)
 {
     uint64_t remainingMs = delayMs;
-    while (remainingMs > 0 && !stopping_.load())
+    while (remainingMs > 0 && !m_bStopping.load())
     {
         if (!WaitUntilRunnable()) return false;
         const auto started = std::chrono::steady_clock::now();
-        std::unique_lock<std::mutex> lock(pauseMutex_);
-        pauseChanged_.wait_for(lock, std::chrono::milliseconds(remainingMs),
-            [this]() { return pauseRequested_.load() || stopping_.load(); });
+        std::unique_lock<std::mutex> lock(m_clPauseMutex);
+        m_clPauseChanged.wait_for(lock, std::chrono::milliseconds(remainingMs),
+            [this]() { return m_bPauseRequested.load() || m_bStopping.load(); });
         const uint64_t elapsedMs = static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - started).count());
         remainingMs = elapsedMs >= remainingMs ? 0 : remainingMs - elapsedMs;
     }
-    return !stopping_.load();
+    return !m_bStopping.load();
 }
 
 // 关键实现：减少在途计数；最后一个在途请求结束时把 PAUSING 确认为 PAUSED。
 void LoadEngine::FinishRequest()
 {
-    const uint32_t remaining = activeRequests_.fetch_sub(1) - 1;
-    if (remaining != 0 || !pauseRequested_.load()) return;
+    const uint32_t remaining = m_u32ActiveRequests.fetch_sub(1) - 1;
+    if (remaining != 0 || !m_bPauseRequested.load()) return;
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
-        if (state_ == MTLOAD_STATE_PAUSING) state_ = MTLOAD_STATE_PAUSED;
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
+        if (m_iState == MTLOAD_STATE_PAUSING) m_iState = MTLOAD_STATE_PAUSED;
     }
-    stateChanged_.notify_all();
+    m_clStateChanged.notify_all();
 }
 
 // 关键实现：在暂停锁内合并历史暂停时长和当前未结束区间。
 uint64_t LoadEngine::PausedDurationMs() const
 {
-    std::lock_guard<std::mutex> guard(stateMutex_);
-    uint64_t result = pausedDurationMs_;
-    if (pauseRequested_.load())
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
+    uint64_t result = m_u64PausedDurationMs;
+    if (m_bPauseRequested.load())
     {
         result += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - pauseStarted_).count());
+            std::chrono::steady_clock::now() - m_clPauseStarted).count());
     }
     return result;
 }
 
-// 关键实现：所有样本字段在同一 metricsMutex_ 临界区更新，保持统计口径一致。
+// 关键实现：所有样本字段在同一 m_clMetricsMutex 临界区更新，保持统计口径一致。
 void LoadEngine::RecordMetric(const Scenario& scenario, const Step& step,
     const Request& request, bool success, double elapsedMs,
     uint64_t sentBytes, uint64_t receivedBytes)
 {
-    std::lock_guard<std::mutex> guard(metricsMutex_);
-    MetricAccumulator& metric = metrics_[MetricKey(scenario, step, request)];
+    std::lock_guard<std::mutex> guard(m_clMetricsMutex);
+    MetricAccumulator& metric = m_mapMetrics[MetricKey(scenario, step, request)];
     metric.scenario = scenario.name;
     metric.step = step.name;
     metric.label = request.label;
@@ -1540,14 +1540,14 @@ void LoadEngine::RecordMetric(const Scenario& scenario, const Step& step,
     metric.sentBytes += sentBytes;
     metric.receivedBytes += receivedBytes;
     metric.latencyMs.push_back(elapsedMs);
-    totalSamples_.fetch_add(1);
+    m_u64TotalSamples.fetch_add(1);
 }
 
 // 关键实现：事务开始与接口请求分开计数，避免四步生命周期被误显示为四个事务。
 void LoadEngine::RecordTransactionStarted(const Scenario& scenario)
 {
-    std::lock_guard<std::mutex> guard(metricsMutex_);
-    ScenarioAccumulator& metric = scenarioMetrics_[scenario.id];
+    std::lock_guard<std::mutex> guard(m_clMetricsMutex);
+    ScenarioAccumulator& metric = m_mapScenarioMetrics[scenario.id];
     metric.scenarioId = scenario.id;
     metric.scenario = scenario.name;
     ++metric.started;
@@ -1559,41 +1559,41 @@ void LoadEngine::RecordTransactionCompleted(const Scenario& scenario,
 {
     if (!outcome.completed) return;
     {
-        std::lock_guard<std::mutex> guard(metricsMutex_);
-        ScenarioAccumulator& metric = scenarioMetrics_[scenario.id];
+        std::lock_guard<std::mutex> guard(m_clMetricsMutex);
+        ScenarioAccumulator& metric = m_mapScenarioMetrics[scenario.id];
         metric.scenarioId = scenario.id;
         metric.scenario = scenario.name;
         ++metric.completed;
         outcome.success ? ++metric.succeeded : ++metric.failed;
         metric.latencyMs.push_back(outcome.elapsedMs);
     }
-    completedIterations_.fetch_add(1);
+    m_u64CompletedIterations.fetch_add(1);
 }
 
 // 关键实现：arrival 达到 maxUsers 时按已经选定的场景记录丢弃，不进入等待队列。
 void LoadEngine::RecordDroppedTransaction(const Scenario& scenario)
 {
     {
-        std::lock_guard<std::mutex> guard(metricsMutex_);
-        ScenarioAccumulator& metric = scenarioMetrics_[scenario.id];
+        std::lock_guard<std::mutex> guard(m_clMetricsMutex);
+        ScenarioAccumulator& metric = m_mapScenarioMetrics[scenario.id];
         metric.scenarioId = scenario.id;
         metric.scenario = scenario.name;
         ++metric.dropped;
     }
-    droppedIterations_.fetch_add(1);
+    m_u64DroppedIterations.fetch_add(1);
 }
 
 // 关键实现：构造固定布局脱敏样本并限制保留数量，避免错误洪峰耗尽内存。
 void LoadEngine::RecordError(const Scenario& scenario, const Step& step,
     const Request& request, const RequestOutcome& outcome)
 {
-    std::lock_guard<std::mutex> guard(metricsMutex_);
-    if (errors_.size() >= 1000) return;
+    std::lock_guard<std::mutex> guard(m_clMetricsMutex);
+    if (m_vecErrors.size() >= 1000) return;
     MTLOAD_ERROR_SAMPLE sample{};
     sample.structSize = sizeof(sample);
     sample.abiVersion = MTLOAD_ABI_VERSION;
     sample.timestampUnixMs = UnixMs();
-    sample.runId = runId_;
+    sample.runId = m_u64RunId;
     sample.result = outcome.result;
     sample.httpStatus = outcome.httpStatus;
     sample.elapsedMs = outcome.elapsedMs;
@@ -1602,44 +1602,44 @@ void LoadEngine::RecordError(const Scenario& scenario, const Step& step,
     CopyText(sample.label, request.label);
     CopyText(sample.category, outcome.httpStatus == 0 ? "transport" : "assertion");
     CopyText(sample.summary, outcome.error);
-    errors_.push_back(sample);
+    m_vecErrors.push_back(sample);
 }
 
-// 关键实现：状态字段在 stateMutex_ 下复制，热计数通过原子读取补齐同一快照。
+// 关键实现：状态字段在 m_clStateMutex 下复制，热计数通过原子读取补齐同一快照。
 int LoadEngine::GetState(MTLOAD_RUN_STATE& out) const
 {
-    std::lock_guard<std::mutex> guard(stateMutex_);
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
     out = {};
     out.structSize = sizeof(out);
     out.abiVersion = MTLOAD_ABI_VERSION;
-    out.runId = runId_;
-    out.state = state_;
-    out.lastResult = lastResult_;
-    out.startUnixMs = startUnixMs_;
-    out.endUnixMs = endUnixMs_;
-    out.activeScenarios = activeScenarios_.load();
-    out.activeUsers = activeUsers_.load();
-    out.activeRequests = activeRequests_.load();
-    out.activeConnections = activeRequests_.load();
-    out.totalSamples = totalSamples_.load();
-    out.plannedRequests = plannedRequests_;
-    const int64_t wallMs = startUnixMs_ == 0 ? 0 :
-        (endUnixMs_ == 0 ? UnixMs() : endUnixMs_) - startUnixMs_;
-    uint64_t pausedMs = pausedDurationMs_;
-    if (pauseRequested_.load())
+    out.runId = m_u64RunId;
+    out.state = m_iState;
+    out.lastResult = m_iLastResult;
+    out.startUnixMs = m_i64StartUnixMs;
+    out.endUnixMs = m_i64EndUnixMs;
+    out.activeScenarios = m_u32ActiveScenarios.load();
+    out.activeUsers = m_u32ActiveUsers.load();
+    out.activeRequests = m_u32ActiveRequests.load();
+    out.activeConnections = m_u32ActiveRequests.load();
+    out.totalSamples = m_u64TotalSamples.load();
+    out.plannedRequests = m_u64PlannedRequests;
+    const int64_t wallMs = m_i64StartUnixMs == 0 ? 0 :
+        (m_i64EndUnixMs == 0 ? UnixMs() : m_i64EndUnixMs) - m_i64StartUnixMs;
+    uint64_t pausedMs = m_u64PausedDurationMs;
+    if (m_bPauseRequested.load())
     {
         pausedMs += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - pauseStarted_).count());
+            std::chrono::steady_clock::now() - m_clPauseStarted).count());
     }
     out.effectiveElapsedMs = wallMs <= static_cast<int64_t>(pausedMs) ? 0 :
         static_cast<uint64_t>(wallMs - static_cast<int64_t>(pausedMs));
     const double seconds = (std::max)(0.001, out.effectiveElapsedMs / 1000.0);
     out.totalThroughputPerSec = out.totalSamples / seconds;
-    out.peakActiveUsers = peakActiveUsers_.load();
-    out.peakActiveRequests = peakActiveRequests_.load();
-    out.scheduledIterations = scheduledIterations_.load();
-    out.completedIterations = completedIterations_.load();
-    out.droppedIterations = droppedIterations_.load();
+    out.peakActiveUsers = m_u32PeakActiveUsers.load();
+    out.peakActiveRequests = m_u32PeakActiveRequests.load();
+    out.scheduledIterations = m_u64ScheduledIterations.load();
+    out.completedIterations = m_u64CompletedIterations.load();
+    out.droppedIterations = m_u64DroppedIterations.load();
     return MTLOAD_OK;
 }
 
@@ -1651,21 +1651,21 @@ std::vector<MTLOAD_METRIC_ROW> LoadEngine::GetMetrics() const
     int64_t end = 0;
     uint64_t pausedMs = 0;
     {
-        std::lock_guard<std::mutex> stateGuard(stateMutex_);
-        start = startUnixMs_;
-        end = endUnixMs_;
-        pausedMs = pausedDurationMs_;
-        if (pauseRequested_.load())
+        std::lock_guard<std::mutex> stateGuard(m_clStateMutex);
+        start = m_i64StartUnixMs;
+        end = m_i64EndUnixMs;
+        pausedMs = m_u64PausedDurationMs;
+        if (m_bPauseRequested.load())
         {
             pausedMs += static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - pauseStarted_).count());
+                std::chrono::steady_clock::now() - m_clPauseStarted).count());
         }
     }
-    std::lock_guard<std::mutex> guard(metricsMutex_);
+    std::lock_guard<std::mutex> guard(m_clMetricsMutex);
     const int64_t wallMs = start == 0 ? 0 : (end == 0 ? UnixMs() : end) - start;
     const double seconds = (std::max)(0.001,
         static_cast<double>((std::max)(int64_t{ 0 }, wallMs - static_cast<int64_t>(pausedMs))) / 1000.0);
-    for (const auto& item : metrics_)
+    for (const auto& item : m_mapMetrics)
     {
         const MetricAccumulator& source = item.second;
         MTLOAD_METRIC_ROW row{};
@@ -1713,10 +1713,10 @@ std::vector<MTLOAD_SCENARIO_METRIC_ROW> LoadEngine::GetScenarioMetrics() const
         elapsedMs = state.effectiveElapsedMs;
     }
     const double seconds = (std::max)(0.001, elapsedMs / 1000.0);
-    std::lock_guard<std::mutex> guard(metricsMutex_);
+    std::lock_guard<std::mutex> guard(m_clMetricsMutex);
     std::vector<MTLOAD_SCENARIO_METRIC_ROW> rows;
-    rows.reserve(scenarioMetrics_.size());
-    for (const auto& item : scenarioMetrics_)
+    rows.reserve(m_mapScenarioMetrics.size());
+    for (const auto& item : m_mapScenarioMetrics)
     {
         const ScenarioAccumulator& source = item.second;
         MTLOAD_SCENARIO_METRIC_ROW row{};
@@ -1750,8 +1750,8 @@ std::vector<MTLOAD_SCENARIO_METRIC_ROW> LoadEngine::GetScenarioMetrics() const
 // 关键实现：阈值结果在运行终点一次性生成，查询只返回不可变 POD 副本。
 std::vector<MTLOAD_THRESHOLD_RESULT> LoadEngine::GetThresholdResults() const
 {
-    std::lock_guard<std::mutex> guard(metricsMutex_);
-    return thresholdResults_;
+    std::lock_guard<std::mutex> guard(m_clMetricsMutex);
+    return m_vecThresholdResults;
 }
 
 // 关键实现：从同一轮请求、事务和运行快照计算阈值；目标不存在按失败处理，
@@ -1822,8 +1822,8 @@ bool LoadEngine::EvaluateThresholds(const Workload& workload)
         results.push_back(result);
     }
     {
-        std::lock_guard<std::mutex> guard(metricsMutex_);
-        thresholdResults_ = std::move(results);
+        std::lock_guard<std::mutex> guard(m_clMetricsMutex);
+        m_vecThresholdResults = std::move(results);
     }
     return allPassed;
 }
@@ -1831,8 +1831,8 @@ bool LoadEngine::EvaluateThresholds(const Workload& workload)
 // 关键实现：在指标锁内返回错误样本副本，调用方不持有内部引用。
 std::vector<MTLOAD_ERROR_SAMPLE> LoadEngine::GetErrors() const
 {
-    std::lock_guard<std::mutex> guard(metricsMutex_);
-    return errors_;
+    std::lock_guard<std::mutex> guard(m_clMetricsMutex);
+    return m_vecErrors;
 }
 
 // 关键实现：使用同一轮状态和指标副本生成 JSON，避免跨锁长时间序列化。
@@ -1918,8 +1918,8 @@ std::string LoadEngine::GetSnapshotJson() const
 // 关键实现：在状态锁内复制最近错误，返回后不依赖内部字符串生命周期。
 std::string LoadEngine::GetLastError() const
 {
-    std::lock_guard<std::mutex> guard(stateMutex_);
-    return lastError_;
+    std::lock_guard<std::mutex> guard(m_clStateMutex);
+    return m_strLastError;
 }
 
 // 关键实现：一次取得状态和指标快照，再按位掩码分别写出各格式文件。
@@ -1992,13 +1992,13 @@ int LoadEngine::ExportConfigured(uint32_t format, std::string& outputPath)
     std::filesystem::path planPath;
     std::string configuredDirectory;
     {
-        std::lock_guard<std::mutex> guard(stateMutex_);
-        if (!hasPlan_ || totalSamples_.load() == 0 || state_ == MTLOAD_STATE_STARTING ||
-            state_ == MTLOAD_STATE_RUNNING || state_ == MTLOAD_STATE_PAUSING ||
-            state_ == MTLOAD_STATE_PAUSED || state_ == MTLOAD_STATE_STOPPING)
+        std::lock_guard<std::mutex> guard(m_clStateMutex);
+        if (!m_bHasPlan || m_u64TotalSamples.load() == 0 || m_iState == MTLOAD_STATE_STARTING ||
+            m_iState == MTLOAD_STATE_RUNNING || m_iState == MTLOAD_STATE_PAUSING ||
+            m_iState == MTLOAD_STATE_PAUSED || m_iState == MTLOAD_STATE_STOPPING)
             return MTLOAD_E_INVALID_STATE;
-        planPath = std::filesystem::u8path(plan_.sourcePath);
-        configuredDirectory = plan_.reportDirectory;
+        planPath = std::filesystem::u8path(m_stPlan.sourcePath);
+        configuredDirectory = m_stPlan.reportDirectory;
     }
     std::filesystem::path directory = planPath.parent_path();
     if (!configuredDirectory.empty())

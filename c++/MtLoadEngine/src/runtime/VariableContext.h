@@ -25,8 +25,8 @@ public:
 
 private:
     // 引擎生成的运行标识优先级最高，避免用户参数或响应提取破坏并发隔离。
-    std::map<std::string, std::string> runtimeVariables_;
-    std::map<std::string, std::string> dataRow_;     // 当前用户分配的数据集行，生命周期等同本对象。
-    std::map<std::string, std::string> session_;     // 响应提取产生的运行时变量，不跨用户共享。
+    std::map<std::string, std::string> m_mapRuntimeVariables;
+    std::map<std::string, std::string> m_mapDataRow;     // 当前用户分配的数据集行，生命周期等同本对象。
+    std::map<std::string, std::string> m_mapSession;     // 响应提取产生的运行时变量，不跨用户共享。
 };
 }

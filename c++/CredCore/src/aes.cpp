@@ -1,6 +1,9 @@
 #include "aes.h"
 
-const int sm_alog[256] =
+#include <cstring>
+
+// AES/Rijndael 固定查找表；进程生命周期只读，可由不同 AES 实例并发访问。
+const int s_aGaloisAntiLog[256] =
 { 1, 3, 5, 15, 17, 51, 85, 255, 26, 46, 114, 150, 161, 248, 19, 53, 95, 225, 56,
   72, 216, 115, 149, 164, 247, 2, 6, 10, 30, 34, 102, 170, 229, 52, 92,
   228, 55, 89, 235, 38, 106, 190, 217, 112, 144, 171, 230, 49, 83, 245, 4,
@@ -19,7 +22,7 @@ const int sm_alog[256] =
   148, 167, 242, 13, 23, 57, 75, 221, 124, 132, 151, 162, 253, 28, 36,
   108, 180, 199, 82, 246, 1 };
 
-const int sm_log[256] =
+const int s_aGaloisLog[256] =
 { 0, 0, 25, 1, 50, 2, 26, 198, 75, 199, 27, 104, 51, 238, 223, 3, 100, 4, 224,
   14, 52, 141, 129, 239, 76, 113, 8, 200, 248, 105, 28, 193, 125, 194, 29,
   181, 249, 185, 39, 106, 77, 228, 166, 114, 154, 201, 9, 120, 101, 47,
@@ -38,7 +41,7 @@ const int sm_log[256] =
   119, 153, 227, 165, 103, 74, 237, 222, 197, 49, 254, 24, 13, 99, 140,
   128, 192, 247, 112, 7 };
 
-const char sm_S[256] =
+const char s_aSBox[256] =
 { 99, 124, 119, 123, -14, 107, 111, -59, 48, 1, 103, 43, -2, -41, -85, 118, -54,
   -126, -55, 125, -6, 89, 71, -16, -83, -44, -94, -81, -100, -92, 114,
   -64, -73, -3, -109, 38, 54, 63, -9, -52, 52, -91, -27, -15, 113, -40,
@@ -57,7 +60,7 @@ const char sm_S[256] =
   -108, -101, 30, -121, -23, -50, 85, 40, -33, -116, -95, -119, 13, -65,
   -26, 66, 104, 65, -103, 45, 15, -80, 84, -69, 22 };
 
-const char sm_Si[256] =
+const char s_aInverseSBox[256] =
 { 82, 9, 106, -43, 48, 54, -91, 56, -65, 64, -93, -98, -127, -13, -41, -5, 124,
   -29, 57, -126, -101, 47, -1, -121, 52, -114, 67, 68, -60, -34, -23, -53,
   84, 123, -108, 50, -90, -62, 35, 61, -18, 76, -107, 11, 66, -6, -61, 78,
@@ -76,7 +79,7 @@ const char sm_Si[256] =
   -56, -21, -69, 60, -125, 83, -103, 97, 23, 43, 4, 126, -70, 119, -42,
   38, -31, 105, 20, 99, 85, 33, 12, 125 };
 
-const int sm_T1[256] =
+const int s_aTableT1[256] =
 { -966564955, -126059388, -294160487, -159679603, -855539, -697603139,
   -563122255, -1849309868, 1613770832, 33620227, -832084055, 1445669757,
   -402719207, -1244145822, 1303096294, -327780710, -1882535355, 528646813,
@@ -122,7 +125,7 @@ const int sm_T1[256] =
   -672733647, -2076032314, -798463816, -2109652541, 697932208, 1512910199,
   504303377, 2075177163, -1470868228, 1841019862, 739644986 };
 
-const int sm_T2[256] =
+const int s_aTableT2[256] =
 { -1513725085, -2064089988, -1712425097, -1913226373, 234877682, -1110021269,
   -1310822545, 1418839493, 1348481072, 50462977, -1446090905, 2102799147,
   434634494, 1656084439, -431117397, -1695779210, 1167051466, -1658879358,
@@ -169,7 +172,7 @@ const int sm_T2[256] =
   -1339450983, 2002398509, 287182607, -881086288, -56077228, -697451589,
   975967766 };
 
-const int sm_T3[256] =
+const int s_aTableT3[256] =
 { 1671808611, 2089089148, 2006576759, 2072901243, -233963534, 1807603307,
   1873927791, -984313403, 810573872, 16974337, 1739181671, 729634347,
   -31856642, -681396777, -1410970197, 1989864566, -901410870, -2103631998,
@@ -216,7 +219,7 @@ const int sm_T3[256] =
   1103331905, -1716508263, 762796589, 252780047, -1328841808, 1425844308,
   -1143575109, 372911126 };
 
-const int sm_T4[256] =
+const int s_aTableT4[256] =
 { 1667474886, 2088535288, 2004326894, 2071694838, -219017729, 1802223062,
   1869591006, -976923503, 808472672, 16843522, 1734846926, 724270422,
   -16901657, -673750347, -1414797747, 1987484396, -892713585, -2105369313,
@@ -263,7 +266,7 @@ const int sm_T4[256] =
   1094828930, -1717981143, 757954394, 252645662, -1330590853, 1414855848,
   -1145317779, 370555436 };
 
-const int sm_T5[256] =
+const int s_aTableT5[256] =
 { 1374988112, 2118214995, 437757123, 975658646, 1001089995, 530400753,
   -1392879445, 1273168787, 540080725, -1384747530, -1999866223,
   -184398811, 1340463100, -987051049, 641025152, -1251826801, -558802359,
@@ -310,7 +313,7 @@ const int sm_T5[256] =
   967311729, 135050206, -659233636, 1683407248, 2076935265, -718096784,
   1215061108, -793225406 };
 
-const int sm_T6[256] =
+const int s_aTableT6[256] =
 { 1347548327, 1400783205, -1021700188, -1774573730, -885281941, -249586363,
   -1414727080, -1823743229, 1428173050, -156404115, -1853305738,
   636813900, -61872681, -674944309, -2144979644, -1883938141, 1239331162,
@@ -356,7 +359,7 @@ const int sm_T6[256] =
   -1960297399, 1107234197, 1899603969, -569897805, -1663519516,
   -1872472383, 1635502980, 1893020342, 1950903388, 1120974935 };
 
-const int sm_T7[256] =
+const int s_aTableT7[256] =
 { -1487908364, 1699970625, -1530717673, 1586903591, 1808481195, 1173430173,
   1487645946, 59984867, -95084496, 1844882806, 1989249228, 1277555970,
   -671330331, -875051734, 1149249077, -1550863006, 1514790577, 459744698,
@@ -402,7 +405,7 @@ const int sm_T7[256] =
   621591778, 1233856572, -1790836979, 24197544, -1277294580, -459482956,
   -1047501738, -2073986101, -1234119374, 1551124588, 1463996600 };
 
-const int sm_T8[256] =
+const int s_aTableT8[256] =
 { -190361519, 1097159550, 396673818, 660510266, -1418998981, -1656360673,
   -94852180, -486304949, 821712160, 1986918061, -864644728, 38544885,
   -438830001, 718002117, 893681702, 1654886325, -1319482914, -1172609243,
@@ -449,7 +452,7 @@ const int sm_T8[256] =
   -1476300487, 213114376, -1260086056, 1455525988, -880516741, 850817237,
   1817998408, -1202240816 };
 
-const int sm_U1[256] =
+const int s_aTableU1[256] =
 { 0, 235474187, 470948374, 303765277, 941896748, 908933415, 607530554,
   708780849, 1883793496, 2118214995, 1817866830, 1649639237, 1215061108,
   1181045119, 1417561698, 1517767529, -527380304, -291906117, -58537306,
@@ -496,7 +499,7 @@ const int sm_U1[256] =
   -49348613, -1485196142, -1452230247, -1150570876, -1251826801,
   -1621262146, -1856729675, -2091935064, -1924753501 };
 
-const int sm_U2[256] =
+const int s_aTableU2[256] =
 { 0, 185469197, 370938394, 487725847, 741876788, 657861945, 975451694,
   824852259, 1483753576, 1400783205, 1315723890, 1164071807, 1950903388,
   2135319889, 1649704518, 1767536459, -1327460144, -1141990947,
@@ -544,7 +547,7 @@ const int sm_U2[256] =
   -2068091986, -1883938141, -1096852096, -1248766835, -1467789414,
   -1551022441, };
 
-const int sm_U3[256] =
+const int s_aTableU3[256] =
 { 0, 218828297, 437656594, 387781147, 875313188, 958871085, 775562294,
   590424639, 1750626376, 1699970625, 1917742170, 2135253587, 1551124588,
   1367295589, 1180849278, 1265195639, -793714544, -574886247, -895026046,
@@ -591,7 +594,7 @@ const int sm_U3[256] =
   -1265457287, -1181111952, -1367032981, -1550863006, -2134991011,
   -1917480620, -1700232369, -1750889146 };
 
-const int sm_U4[256] =
+const int s_aTableU4[256] =
 { 0, 151849742, 303699484, 454499602, 607398968, 758720310, 908999204,
   1059270954, 1214797936, 1097159550, 1517440620, 1400849762, 1817998408,
   1699839814, 2118541908, 2001430874, -1865371424, -1713521682,
@@ -639,11 +642,11 @@ const int sm_U4[256] =
   1891211689, 1806599355, 1654886325, 1568718495, 1418573201, 1335535747,
   1184342925 };
 
-const char sm_rcon[30] =
+const char s_aRoundConstants[30] =
 { 1, 2, 4, 8, 16, 32, 64, -128, 27, 54, 108, -40, -85, 77, -102, 47, 94, -68,
   99, -58, -105, 53, 106, -44, -77, 125, -6, -17, -59, -111 };
 
-const int sm_shifts[3][4][2] =
+const int s_aShifts[3][4][2] =
 {
 	{
 		{ 0, 0 },
@@ -661,468 +664,545 @@ const int sm_shifts[3][4][2] =
 		{ 3, 5 },
 		{ 4, 4 } } };
 
-//Error Messages
-char const* sm_szErrorMsg1 = "Object not Initialized";
-char const* sm_szErrorMsg2 = "Data not multiple of Block Size";
-
-//Null chain
-char const* sm_chain0 =
-"\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
-static int Mul(int a, int b)
+// 在 AES 有限域中计算两个字节的乘积；输入只取低 8 位，无共享可变状态。
+static int Mul(int p_iValue, int p_iFactor)
 {
-	return (a != 0 && b != 0) ?
-		sm_alog[(sm_log[a & 0xFF] + sm_log[b & 0xFF]) % 255] : 0;
+	// GF(2^8) 中非零元素相乘可转为对数相加再模 255；任一因子为零时乘积直接为零。
+	return (p_iValue != 0 && p_iFactor != 0) ?
+		s_aGaloisAntiLog[(s_aGaloisLog[p_iValue & 0xFF] +
+			s_aGaloisLog[p_iFactor & 0xFF]) % 255] : 0;
 }
 
-//Convenience method used in generating Transposition Boxes
-static int Mul4(int a, char b[])
+// 使用四字节系数生成列变换值；输入数组至少包含 4 字节，无共享可变状态。
+static int Mul4(int p_iValue, const char p_aFactors[])
 {
-	if (a == 0)
+	// 有限域对数表没有定义 log(0)，而 0 与任意元素的乘积恒为 0，必须在查表前单独返回。
+	if (p_iValue == 0)
+	{
 		return 0;
-	a = sm_log[a & 0xFF];
-	int a0 = (b[0] != 0) ? sm_alog[(a + sm_log[b[0] & 0xFF]) % 255] & 0xFF : 0;
-	int a1 = (b[1] != 0) ? sm_alog[(a + sm_log[b[1] & 0xFF]) % 255] & 0xFF : 0;
-	int a2 = (b[2] != 0) ? sm_alog[(a + sm_log[b[2] & 0xFF]) % 255] & 0xFF : 0;
-	int a3 = (b[3] != 0) ? sm_alog[(a + sm_log[b[3] & 0xFF]) % 255] & 0xFF : 0;
-	return a0 << 24 | a1 << 16 | a2 << 8 | a3;
+	}
+	// 先把被乘数转换为有限域对数，四个系数分别与其对数相加并查反对数表。
+	p_iValue = s_aGaloisLog[p_iValue & 0xFF];
+	const int iValue0 = (p_aFactors[0] != 0) ?
+		s_aGaloisAntiLog[(p_iValue + s_aGaloisLog[p_aFactors[0] & 0xFF]) % 255] & 0xFF : 0;
+	const int iValue1 = (p_aFactors[1] != 0) ?
+		s_aGaloisAntiLog[(p_iValue + s_aGaloisLog[p_aFactors[1] & 0xFF]) % 255] & 0xFF : 0;
+	const int iValue2 = (p_aFactors[2] != 0) ?
+		s_aGaloisAntiLog[(p_iValue + s_aGaloisLog[p_aFactors[2] & 0xFF]) % 255] & 0xFF : 0;
+	const int iValue3 = (p_aFactors[3] != 0) ?
+		s_aGaloisAntiLog[(p_iValue + s_aGaloisLog[p_aFactors[3] & 0xFF]) % 255] & 0xFF : 0;
+	// 四个有限域乘积按高字节到低字节合并为一个 32 位列变换结果。
+	return iValue0 << 24 | iValue1 << 16 | iValue2 << 8 | iValue3;
 }
-//CONSTRUCTOR
-AES::AES() :
-	m_bKeyInit(false), m_keylength(0), m_blockSize(0), m_iROUNDS(0)
+
+// 初始化空上下文；全部标量状态显式归零，轮密钥将在 MakeKey 中覆盖。
+CAes::CAes() :
+	m_bKeyInit(false), m_aEncryptionRoundKeys{}, m_aDecryptionRoundKeys{},
+	m_iKeyLength(0), m_iBlockSize(0), m_iRounds(0), m_aInitialChainBlock{},
+	m_aChainBlock{}, m_aTemporaryKey{}, m_aState{}, m_aTemporaryState{}
 {
 }
 
-//DESTRUCTOR
-AES::~AES()
+// 销毁实例；历史内核不持有堆资源，调用方不得在析构时并发使用实例。
+CAes::~CAes()
 {
 }
 
-void AES::Xor(char* buff, char const* chain)
+// 将链块异或到可写缓冲区；上下文未初始化时保持历史行为并直接返回。
+void CAes::Xor(char* p_pBuffer, char const* p_pChain)
 {
-	if (false == m_bKeyInit)
-		return;
-	for (int i = 0; i < m_blockSize; i++)
-		*(buff++) ^= *(chain++);
-}
-
-void AES::DefEncryptBlock(char const* in, char* result)
-{
-	if (false == m_bKeyInit)
-		return;
-	int* Ker = m_Ke[0];
-	int t0 = ((unsigned char) *(in++) << 24);
-	t0 |= ((unsigned char) *(in++) << 16);
-	t0 |= ((unsigned char) *(in++) << 8);
-	(t0 |= (unsigned char) *(in++)) ^= Ker[0];
-	int t1 = ((unsigned char) *(in++) << 24);
-	t1 |= ((unsigned char) *(in++) << 16);
-	t1 |= ((unsigned char) *(in++) << 8);
-	(t1 |= (unsigned char) *(in++)) ^= Ker[1];
-	int t2 = ((unsigned char) *(in++) << 24);
-	t2 |= ((unsigned char) *(in++) << 16);
-	t2 |= ((unsigned char) *(in++) << 8);
-	(t2 |= (unsigned char) *(in++)) ^= Ker[2];
-	int t3 = ((unsigned char) *(in++) << 24);
-	t3 |= ((unsigned char) *(in++) << 16);
-	t3 |= ((unsigned char) *(in++) << 8);
-	(t3 |= (unsigned char) *(in++)) ^= Ker[3];
-	int a0, a1, a2, a3;
-	//Apply Round Transforms
-	for (int r = 1; r < m_iROUNDS; r++)
+	if (false == m_bKeyInit || p_pBuffer == nullptr || p_pChain == nullptr)
 	{
-		Ker = m_Ke[r];
-		a0 = (sm_T1[(t0 >> 24) & 0xFF] ^ sm_T2[(t1 >> 16) & 0xFF]
-			^ sm_T3[(t2 >> 8) & 0xFF] ^ sm_T4[t3 & 0xFF]) ^ Ker[0];
-		a1 = (sm_T1[(t1 >> 24) & 0xFF] ^ sm_T2[(t2 >> 16) & 0xFF]
-			^ sm_T3[(t3 >> 8) & 0xFF] ^ sm_T4[t0 & 0xFF]) ^ Ker[1];
-		a2 = (sm_T1[(t2 >> 24) & 0xFF] ^ sm_T2[(t3 >> 16) & 0xFF]
-			^ sm_T3[(t0 >> 8) & 0xFF] ^ sm_T4[t1 & 0xFF]) ^ Ker[2];
-		a3 = (sm_T1[(t3 >> 24) & 0xFF] ^ sm_T2[(t0 >> 16) & 0xFF]
-			^ sm_T3[(t1 >> 8) & 0xFF] ^ sm_T4[t2 & 0xFF]) ^ Ker[3];
-		t0 = a0;
-		t1 = a1;
-		t2 = a2;
-		t3 = a3;
-	}
-	//Last Round is special
-	Ker = m_Ke[m_iROUNDS];
-	int tt = Ker[0];
-	result[0] = sm_S[(t0 >> 24) & 0xFF] ^ (tt >> 24);
-	result[1] = sm_S[(t1 >> 16) & 0xFF] ^ (tt >> 16);
-	result[2] = sm_S[(t2 >> 8) & 0xFF] ^ (tt >> 8);
-	result[3] = sm_S[t3 & 0xFF] ^ tt;
-	tt = Ker[1];
-	result[4] = sm_S[(t1 >> 24) & 0xFF] ^ (tt >> 24);
-	result[5] = sm_S[(t2 >> 16) & 0xFF] ^ (tt >> 16);
-	result[6] = sm_S[(t3 >> 8) & 0xFF] ^ (tt >> 8);
-	result[7] = sm_S[t0 & 0xFF] ^ tt;
-	tt = Ker[2];
-	result[8] = sm_S[(t2 >> 24) & 0xFF] ^ (tt >> 24);
-	result[9] = sm_S[(t3 >> 16) & 0xFF] ^ (tt >> 16);
-	result[10] = sm_S[(t0 >> 8) & 0xFF] ^ (tt >> 8);
-	result[11] = sm_S[t1 & 0xFF] ^ tt;
-	tt = Ker[3];
-	result[12] = sm_S[(t3 >> 24) & 0xFF] ^ (tt >> 24);
-	result[13] = sm_S[(t0 >> 16) & 0xFF] ^ (tt >> 16);
-	result[14] = sm_S[(t1 >> 8) & 0xFF] ^ (tt >> 8);
-	result[15] = sm_S[t2 & 0xFF] ^ tt;
-}
-
-//Convenience method to decrypt exactly one block of plaintext, assuming
-//Rijndael's default block size (128-bit).
-// in         - The ciphertext.
-// result     - The plaintext generated from a ciphertext using the session key.
-void AES::DefDecryptBlock(char const* in, char* result)
-{
-	if (false == m_bKeyInit)
-		return;
-	int* Kdr = m_Kd[0];
-	int t0 = ((unsigned char) *(in++) << 24);
-	t0 = t0 | ((unsigned char) *(in++) << 16);
-	t0 |= ((unsigned char) *(in++) << 8);
-	(t0 |= (unsigned char) *(in++)) ^= Kdr[0];
-	int t1 = ((unsigned char) *(in++) << 24);
-	t1 |= ((unsigned char) *(in++) << 16);
-	t1 |= ((unsigned char) *(in++) << 8);
-	(t1 |= (unsigned char) *(in++)) ^= Kdr[1];
-	int t2 = ((unsigned char) *(in++) << 24);
-	t2 |= ((unsigned char) *(in++) << 16);
-	t2 |= ((unsigned char) *(in++) << 8);
-	(t2 |= (unsigned char) *(in++)) ^= Kdr[2];
-	int t3 = ((unsigned char) *(in++) << 24);
-	t3 |= ((unsigned char) *(in++) << 16);
-	t3 |= ((unsigned char) *(in++) << 8);
-	(t3 |= (unsigned char) *(in++)) ^= Kdr[3];
-	int a0, a1, a2, a3;
-	for (int r = 1; r < m_iROUNDS; r++) // apply round transforms
-	{
-		Kdr = m_Kd[r];
-		a0 = (sm_T5[(t0 >> 24) & 0xFF] ^ sm_T6[(t3 >> 16) & 0xFF]
-			^ sm_T7[(t2 >> 8) & 0xFF] ^ sm_T8[t1 & 0xFF]) ^ Kdr[0];
-		a1 = (sm_T5[(t1 >> 24) & 0xFF] ^ sm_T6[(t0 >> 16) & 0xFF]
-			^ sm_T7[(t3 >> 8) & 0xFF] ^ sm_T8[t2 & 0xFF]) ^ Kdr[1];
-		a2 = (sm_T5[(t2 >> 24) & 0xFF] ^ sm_T6[(t1 >> 16) & 0xFF]
-			^ sm_T7[(t0 >> 8) & 0xFF] ^ sm_T8[t3 & 0xFF]) ^ Kdr[2];
-		a3 = (sm_T5[(t3 >> 24) & 0xFF] ^ sm_T6[(t2 >> 16) & 0xFF]
-			^ sm_T7[(t1 >> 8) & 0xFF] ^ sm_T8[t0 & 0xFF]) ^ Kdr[3];
-		t0 = a0;
-		t1 = a1;
-		t2 = a2;
-		t3 = a3;
-	}
-	//Last Round is special
-	Kdr = m_Kd[m_iROUNDS];
-	int tt = Kdr[0];
-	result[0] = sm_Si[(t0 >> 24) & 0xFF] ^ (tt >> 24);
-	result[1] = sm_Si[(t3 >> 16) & 0xFF] ^ (tt >> 16);
-	result[2] = sm_Si[(t2 >> 8) & 0xFF] ^ (tt >> 8);
-	result[3] = sm_Si[t1 & 0xFF] ^ tt;
-	tt = Kdr[1];
-	result[4] = sm_Si[(t1 >> 24) & 0xFF] ^ (tt >> 24);
-	result[5] = sm_Si[(t0 >> 16) & 0xFF] ^ (tt >> 16);
-	result[6] = sm_Si[(t3 >> 8) & 0xFF] ^ (tt >> 8);
-	result[7] = sm_Si[t2 & 0xFF] ^ tt;
-	tt = Kdr[2];
-	result[8] = sm_Si[(t2 >> 24) & 0xFF] ^ (tt >> 24);
-	result[9] = sm_Si[(t1 >> 16) & 0xFF] ^ (tt >> 16);
-	result[10] = sm_Si[(t0 >> 8) & 0xFF] ^ (tt >> 8);
-	result[11] = sm_Si[t3 & 0xFF] ^ tt;
-	tt = Kdr[3];
-	result[12] = sm_Si[(t3 >> 24) & 0xFF] ^ (tt >> 24);
-	result[13] = sm_Si[(t2 >> 16) & 0xFF] ^ (tt >> 16);
-	result[14] = sm_Si[(t1 >> 8) & 0xFF] ^ (tt >> 8);
-	result[15] = sm_Si[t0 & 0xFF] ^ tt;
-}
-
-//Encrypt exactly one block of plaintext.
-// in           - The plaintext.
-// result       - The ciphertext generated from a plaintext using the key.
-void AES::EncryptBlock(char const* in, char* result)
-{
-	if (false == m_bKeyInit)
-		return;
-	if (DEFAULT_BLOCK_SIZE == m_blockSize)
-	{
-		DefEncryptBlock(in, result);
 		return;
 	}
-	int BC = m_blockSize / 4;
-	int SC = (BC == 4) ? 0 : (BC == 6 ? 1 : 2);
-	int s1 = sm_shifts[SC][1][0];
-	int s2 = sm_shifts[SC][2][0];
-	int s3 = sm_shifts[SC][3][0];
-	//Temporary Work Arrays
-	int i;
-	int tt;
-	int* pi = t;
-	for (i = 0; i < BC; i++)
+	for (int iIndex = 0; iIndex < m_iBlockSize; ++iIndex)
 	{
-		*pi = ((unsigned char) *(in++) << 24);
-		*pi |= ((unsigned char) *(in++) << 16);
-		*pi |= ((unsigned char) *(in++) << 8);
-		(*(pi++) |= (unsigned char) *(in++)) ^= m_Ke[0][i];
-	}
-	//Apply Round Transforms
-	for (int r = 1; r < m_iROUNDS; r++)
-	{
-		for (i = 0; i < BC; i++)
-			a[i] = (sm_T1[(t[i] >> 24) & 0xFF]
-				^ sm_T2[(t[(i + s1) % BC] >> 16) & 0xFF]
-				^ sm_T3[(t[(i + s2) % BC] >> 8) & 0xFF]
-				^ sm_T4[t[(i + s3) % BC] & 0xFF]) ^ m_Ke[r][i];
-		memcpy(t, a, 4 * BC);
-	}
-	int j;
-	//Last Round is Special
-	for (i = 0, j = 0; i < BC; i++)
-	{
-		tt = m_Ke[m_iROUNDS][i];
-		result[j++] = sm_S[(t[i] >> 24) & 0xFF] ^ (tt >> 24);
-		result[j++] = sm_S[(t[(i + s1) % BC] >> 16) & 0xFF] ^ (tt >> 16);
-		result[j++] = sm_S[(t[(i + s2) % BC] >> 8) & 0xFF] ^ (tt >> 8);
-		result[j++] = sm_S[t[(i + s3) % BC] & 0xFF] ^ tt;
+		// 分组模式的链运算按字节异或，结果原地写回第一个缓冲区。
+		*(p_pBuffer++) ^= *(p_pChain++);
 	}
 }
 
-//Decrypt exactly one block of ciphertext.
-// in         - The ciphertext.
-// result     - The plaintext generated from a ciphertext using the session key.
-void AES::DecryptBlock(char const* in, char* result)
+// 使用 128 位固定分组快速路径加密一个分组；失败时保持历史无返回值语义。
+void CAes::DefEncryptBlock(char const* p_pInput, char* p_pResult)
 {
-	if (false == m_bKeyInit)
-		return;
-	if (DEFAULT_BLOCK_SIZE == m_blockSize)
+	if (false == m_bKeyInit || p_pInput == nullptr || p_pResult == nullptr)
 	{
-		DefDecryptBlock(in, result);
 		return;
 	}
-	int BC = m_blockSize / 4;
-	int SC = BC == 4 ? 0 : (BC == 6 ? 1 : 2);
-	int s1 = sm_shifts[SC][1][1];
-	int s2 = sm_shifts[SC][2][1];
-	int s3 = sm_shifts[SC][3][1];
-	//Temporary Work Arrays
-	int i;
-	int tt;
-	int* pi = t;
-	for (i = 0; i < BC; i++)
+	int* pEncryptionRoundKey = m_aEncryptionRoundKeys[0];
+	// 每四个输入字节按大端顺序组成一个 32 位状态列，并立即异或第 0 轮密钥。
+	int iState0 = ((unsigned char) *(p_pInput++) << 24);
+	iState0 |= ((unsigned char) *(p_pInput++) << 16);
+	iState0 |= ((unsigned char) *(p_pInput++) << 8);
+	(iState0 |= (unsigned char) *(p_pInput++)) ^= pEncryptionRoundKey[0];
+	int iState1 = ((unsigned char) *(p_pInput++) << 24);
+	iState1 |= ((unsigned char) *(p_pInput++) << 16);
+	iState1 |= ((unsigned char) *(p_pInput++) << 8);
+	(iState1 |= (unsigned char) *(p_pInput++)) ^= pEncryptionRoundKey[1];
+	int iState2 = ((unsigned char) *(p_pInput++) << 24);
+	iState2 |= ((unsigned char) *(p_pInput++) << 16);
+	iState2 |= ((unsigned char) *(p_pInput++) << 8);
+	(iState2 |= (unsigned char) *(p_pInput++)) ^= pEncryptionRoundKey[2];
+	int iState3 = ((unsigned char) *(p_pInput++) << 24);
+	iState3 |= ((unsigned char) *(p_pInput++) << 16);
+	iState3 |= ((unsigned char) *(p_pInput++) << 8);
+	(iState3 |= (unsigned char) *(p_pInput++)) ^= pEncryptionRoundKey[3];
+	int iRoundValue0 = 0;
+	int iRoundValue1 = 0;
+	int iRoundValue2 = 0;
+	int iRoundValue3 = 0;
+	// T1..T4 查表把 SubBytes、ShiftRows 和 MixColumns 合并为一次列计算，再异或当前轮密钥。
+	for (int iRoundIndex = 1; iRoundIndex < m_iRounds; iRoundIndex++)
 	{
-		*pi = ((unsigned char) *(in++) << 24);
-		*pi |= ((unsigned char) *(in++) << 16);
-		*pi |= ((unsigned char) *(in++) << 8);
-		(*(pi++) |= (unsigned char) *(in++)) ^= m_Kd[0][i];
+		pEncryptionRoundKey = m_aEncryptionRoundKeys[iRoundIndex];
+		iRoundValue0 = (s_aTableT1[(iState0 >> 24) & 0xFF] ^ s_aTableT2[(iState1 >> 16) & 0xFF]
+			^ s_aTableT3[(iState2 >> 8) & 0xFF] ^ s_aTableT4[iState3 & 0xFF]) ^ pEncryptionRoundKey[0];
+		iRoundValue1 = (s_aTableT1[(iState1 >> 24) & 0xFF] ^ s_aTableT2[(iState2 >> 16) & 0xFF]
+			^ s_aTableT3[(iState3 >> 8) & 0xFF] ^ s_aTableT4[iState0 & 0xFF]) ^ pEncryptionRoundKey[1];
+		iRoundValue2 = (s_aTableT1[(iState2 >> 24) & 0xFF] ^ s_aTableT2[(iState3 >> 16) & 0xFF]
+			^ s_aTableT3[(iState0 >> 8) & 0xFF] ^ s_aTableT4[iState1 & 0xFF]) ^ pEncryptionRoundKey[2];
+		iRoundValue3 = (s_aTableT1[(iState3 >> 24) & 0xFF] ^ s_aTableT2[(iState0 >> 16) & 0xFF]
+			^ s_aTableT3[(iState1 >> 8) & 0xFF] ^ s_aTableT4[iState2 & 0xFF]) ^ pEncryptionRoundKey[3];
+		iState0 = iRoundValue0;
+		iState1 = iRoundValue1;
+		iState2 = iRoundValue2;
+		iState3 = iRoundValue3;
 	}
-	//Apply Round Transforms
-	for (int r = 1; r < m_iROUNDS; r++)
+	// Rijndael 最后一轮按规范省略 MixColumns，只执行字节替换、行移位和轮密钥异或。
+	pEncryptionRoundKey = m_aEncryptionRoundKeys[m_iRounds];
+	int iTemporaryValue = pEncryptionRoundKey[0];
+	p_pResult[0] = s_aSBox[(iState0 >> 24) & 0xFF] ^ (iTemporaryValue >> 24);
+	p_pResult[1] = s_aSBox[(iState1 >> 16) & 0xFF] ^ (iTemporaryValue >> 16);
+	p_pResult[2] = s_aSBox[(iState2 >> 8) & 0xFF] ^ (iTemporaryValue >> 8);
+	p_pResult[3] = s_aSBox[iState3 & 0xFF] ^ iTemporaryValue;
+	iTemporaryValue = pEncryptionRoundKey[1];
+	p_pResult[4] = s_aSBox[(iState1 >> 24) & 0xFF] ^ (iTemporaryValue >> 24);
+	p_pResult[5] = s_aSBox[(iState2 >> 16) & 0xFF] ^ (iTemporaryValue >> 16);
+	p_pResult[6] = s_aSBox[(iState3 >> 8) & 0xFF] ^ (iTemporaryValue >> 8);
+	p_pResult[7] = s_aSBox[iState0 & 0xFF] ^ iTemporaryValue;
+	iTemporaryValue = pEncryptionRoundKey[2];
+	p_pResult[8] = s_aSBox[(iState2 >> 24) & 0xFF] ^ (iTemporaryValue >> 24);
+	p_pResult[9] = s_aSBox[(iState3 >> 16) & 0xFF] ^ (iTemporaryValue >> 16);
+	p_pResult[10] = s_aSBox[(iState0 >> 8) & 0xFF] ^ (iTemporaryValue >> 8);
+	p_pResult[11] = s_aSBox[iState1 & 0xFF] ^ iTemporaryValue;
+	iTemporaryValue = pEncryptionRoundKey[3];
+	p_pResult[12] = s_aSBox[(iState3 >> 24) & 0xFF] ^ (iTemporaryValue >> 24);
+	p_pResult[13] = s_aSBox[(iState0 >> 16) & 0xFF] ^ (iTemporaryValue >> 16);
+	p_pResult[14] = s_aSBox[(iState1 >> 8) & 0xFF] ^ (iTemporaryValue >> 8);
+	p_pResult[15] = s_aSBox[iState2 & 0xFF] ^ iTemporaryValue;
+}
+
+// 使用 128 位固定分组快速路径解密一个分组；失败时保持历史无返回值语义。
+void CAes::DefDecryptBlock(char const* p_pInput, char* p_pResult)
+{
+	if (false == m_bKeyInit || p_pInput == nullptr || p_pResult == nullptr)
 	{
-		for (i = 0; i < BC; i++)
-			a[i] = (sm_T5[(t[i] >> 24) & 0xFF]
-				^ sm_T6[(t[(i + s1) % BC] >> 16) & 0xFF]
-				^ sm_T7[(t[(i + s2) % BC] >> 8) & 0xFF]
-				^ sm_T8[t[(i + s3) % BC] & 0xFF]) ^ m_Kd[r][i];
-		memcpy(t, a, 4 * BC);
+		return;
 	}
-	int j;
-	//Last Round is Special
-	for (i = 0, j = 0; i < BC; i++)
+	int* pDecryptionRoundKey = m_aDecryptionRoundKeys[0];
+	// 每四个密文字节按大端顺序组成一个 32 位状态列，并立即异或第 0 轮解密密钥。
+	int iState0 = ((unsigned char) *(p_pInput++) << 24);
+	iState0 = iState0 | ((unsigned char) *(p_pInput++) << 16);
+	iState0 |= ((unsigned char) *(p_pInput++) << 8);
+	(iState0 |= (unsigned char) *(p_pInput++)) ^= pDecryptionRoundKey[0];
+	int iState1 = ((unsigned char) *(p_pInput++) << 24);
+	iState1 |= ((unsigned char) *(p_pInput++) << 16);
+	iState1 |= ((unsigned char) *(p_pInput++) << 8);
+	(iState1 |= (unsigned char) *(p_pInput++)) ^= pDecryptionRoundKey[1];
+	int iState2 = ((unsigned char) *(p_pInput++) << 24);
+	iState2 |= ((unsigned char) *(p_pInput++) << 16);
+	iState2 |= ((unsigned char) *(p_pInput++) << 8);
+	(iState2 |= (unsigned char) *(p_pInput++)) ^= pDecryptionRoundKey[2];
+	int iState3 = ((unsigned char) *(p_pInput++) << 24);
+	iState3 |= ((unsigned char) *(p_pInput++) << 16);
+	iState3 |= ((unsigned char) *(p_pInput++) << 8);
+	(iState3 |= (unsigned char) *(p_pInput++)) ^= pDecryptionRoundKey[3];
+	int iRoundValue0 = 0;
+	int iRoundValue1 = 0;
+	int iRoundValue2 = 0;
+	int iRoundValue3 = 0;
+	// T5..T8 查表把逆 SubBytes、逆 ShiftRows 和逆 MixColumns 合并，再异或当前解密轮密钥。
+	for (int iRoundIndex = 1; iRoundIndex < m_iRounds; iRoundIndex++)
 	{
-		tt = m_Kd[m_iROUNDS][i];
-		result[j++] = sm_Si[(t[i] >> 24) & 0xFF] ^ (tt >> 24);
-		result[j++] = sm_Si[(t[(i + s1) % BC] >> 16) & 0xFF] ^ (tt >> 16);
-		result[j++] = sm_Si[(t[(i + s2) % BC] >> 8) & 0xFF] ^ (tt >> 8);
-		result[j++] = sm_Si[t[(i + s3) % BC] & 0xFF] ^ tt;
+		pDecryptionRoundKey = m_aDecryptionRoundKeys[iRoundIndex];
+		iRoundValue0 = (s_aTableT5[(iState0 >> 24) & 0xFF] ^ s_aTableT6[(iState3 >> 16) & 0xFF]
+			^ s_aTableT7[(iState2 >> 8) & 0xFF] ^ s_aTableT8[iState1 & 0xFF]) ^ pDecryptionRoundKey[0];
+		iRoundValue1 = (s_aTableT5[(iState1 >> 24) & 0xFF] ^ s_aTableT6[(iState0 >> 16) & 0xFF]
+			^ s_aTableT7[(iState3 >> 8) & 0xFF] ^ s_aTableT8[iState2 & 0xFF]) ^ pDecryptionRoundKey[1];
+		iRoundValue2 = (s_aTableT5[(iState2 >> 24) & 0xFF] ^ s_aTableT6[(iState1 >> 16) & 0xFF]
+			^ s_aTableT7[(iState0 >> 8) & 0xFF] ^ s_aTableT8[iState3 & 0xFF]) ^ pDecryptionRoundKey[2];
+		iRoundValue3 = (s_aTableT5[(iState3 >> 24) & 0xFF] ^ s_aTableT6[(iState2 >> 16) & 0xFF]
+			^ s_aTableT7[(iState1 >> 8) & 0xFF] ^ s_aTableT8[iState0 & 0xFF]) ^ pDecryptionRoundKey[3];
+		iState0 = iRoundValue0;
+		iState1 = iRoundValue1;
+		iState2 = iRoundValue2;
+		iState3 = iRoundValue3;
+	}
+	// Rijndael 解密最后一轮按规范省略逆 MixColumns，只保留逆替换、逆移位和轮密钥异或。
+	pDecryptionRoundKey = m_aDecryptionRoundKeys[m_iRounds];
+	int iTemporaryValue = pDecryptionRoundKey[0];
+	p_pResult[0] = s_aInverseSBox[(iState0 >> 24) & 0xFF] ^ (iTemporaryValue >> 24);
+	p_pResult[1] = s_aInverseSBox[(iState3 >> 16) & 0xFF] ^ (iTemporaryValue >> 16);
+	p_pResult[2] = s_aInverseSBox[(iState2 >> 8) & 0xFF] ^ (iTemporaryValue >> 8);
+	p_pResult[3] = s_aInverseSBox[iState1 & 0xFF] ^ iTemporaryValue;
+	iTemporaryValue = pDecryptionRoundKey[1];
+	p_pResult[4] = s_aInverseSBox[(iState1 >> 24) & 0xFF] ^ (iTemporaryValue >> 24);
+	p_pResult[5] = s_aInverseSBox[(iState0 >> 16) & 0xFF] ^ (iTemporaryValue >> 16);
+	p_pResult[6] = s_aInverseSBox[(iState3 >> 8) & 0xFF] ^ (iTemporaryValue >> 8);
+	p_pResult[7] = s_aInverseSBox[iState2 & 0xFF] ^ iTemporaryValue;
+	iTemporaryValue = pDecryptionRoundKey[2];
+	p_pResult[8] = s_aInverseSBox[(iState2 >> 24) & 0xFF] ^ (iTemporaryValue >> 24);
+	p_pResult[9] = s_aInverseSBox[(iState1 >> 16) & 0xFF] ^ (iTemporaryValue >> 16);
+	p_pResult[10] = s_aInverseSBox[(iState0 >> 8) & 0xFF] ^ (iTemporaryValue >> 8);
+	p_pResult[11] = s_aInverseSBox[iState3 & 0xFF] ^ iTemporaryValue;
+	iTemporaryValue = pDecryptionRoundKey[3];
+	p_pResult[12] = s_aInverseSBox[(iState3 >> 24) & 0xFF] ^ (iTemporaryValue >> 24);
+	p_pResult[13] = s_aInverseSBox[(iState2 >> 16) & 0xFF] ^ (iTemporaryValue >> 16);
+	p_pResult[14] = s_aInverseSBox[(iState1 >> 8) & 0xFF] ^ (iTemporaryValue >> 8);
+	p_pResult[15] = s_aInverseSBox[iState0 & 0xFF] ^ iTemporaryValue;
+}
+
+// 按当前分组长度加密一个分组；上下文或指针无效时直接返回，同一实例不可并发。
+void CAes::EncryptBlock(char const* p_pInput, char* p_pResult)
+{
+	if (false == m_bKeyInit || p_pInput == nullptr || p_pResult == nullptr)
+	{
+		return;
+	}
+	// 16 字节标准 AES 分组使用固定四列查表实现；24/32 字节是历史 Rijndael 兼容路径。
+	if (DEFAULT_BLOCK_SIZE == m_iBlockSize)
+	{
+		DefEncryptBlock(p_pInput, p_pResult);
+		return;
+	}
+	int iBlockColumns = m_iBlockSize / 4;
+	int iShiftIndex = (iBlockColumns == 4) ? 0 : (iBlockColumns == 6 ? 1 : 2);
+	int iShift1 = s_aShifts[iShiftIndex][1][0];
+	int iShift2 = s_aShifts[iShiftIndex][2][0];
+	int iShift3 = s_aShifts[iShiftIndex][3][0];
+	// 每四个输入字节按大端顺序组成状态列，并与第 0 轮密钥异或后进入通用 Rijndael 状态。
+	int iIndex = 0;
+	int iTemporaryValue = 0;
+	int* pStateValue = m_aTemporaryState;
+	for (iIndex = 0; iIndex < iBlockColumns; iIndex++)
+	{
+		*pStateValue = ((unsigned char) *(p_pInput++) << 24);
+		*pStateValue |= ((unsigned char) *(p_pInput++) << 16);
+		*pStateValue |= ((unsigned char) *(p_pInput++) << 8);
+		(*(pStateValue++) |= (unsigned char) *(p_pInput++)) ^= m_aEncryptionRoundKeys[0][iIndex];
+	}
+	// 不同分组列数使用对应 ShiftRows 偏移；四张 T 表合并字节替换、行移位和列混合。
+	for (int iRoundIndex = 1; iRoundIndex < m_iRounds; iRoundIndex++)
+	{
+		for (iIndex = 0; iIndex < iBlockColumns; iIndex++)
+		{
+			m_aState[iIndex] = (s_aTableT1[(m_aTemporaryState[iIndex] >> 24) & 0xFF]
+				^ s_aTableT2[(m_aTemporaryState[(iIndex + iShift1) % iBlockColumns] >> 16) & 0xFF]
+				^ s_aTableT3[(m_aTemporaryState[(iIndex + iShift2) % iBlockColumns] >> 8) & 0xFF]
+				^ s_aTableT4[m_aTemporaryState[(iIndex + iShift3) % iBlockColumns] & 0xFF]) ^ m_aEncryptionRoundKeys[iRoundIndex][iIndex];
+		}
+		memcpy(m_aTemporaryState, m_aState, 4 * iBlockColumns);
+	}
+	int iOutputIndex = 0;
+	// 最后一轮省略 MixColumns，按当前分组列数的移位位置逐字节生成密文。
+	for (iIndex = 0, iOutputIndex = 0; iIndex < iBlockColumns; iIndex++)
+	{
+		iTemporaryValue = m_aEncryptionRoundKeys[m_iRounds][iIndex];
+		p_pResult[iOutputIndex++] = s_aSBox[(m_aTemporaryState[iIndex] >> 24) & 0xFF] ^ (iTemporaryValue >> 24);
+		p_pResult[iOutputIndex++] = s_aSBox[(m_aTemporaryState[(iIndex + iShift1) % iBlockColumns] >> 16) & 0xFF] ^ (iTemporaryValue >> 16);
+		p_pResult[iOutputIndex++] = s_aSBox[(m_aTemporaryState[(iIndex + iShift2) % iBlockColumns] >> 8) & 0xFF] ^ (iTemporaryValue >> 8);
+		p_pResult[iOutputIndex++] = s_aSBox[m_aTemporaryState[(iIndex + iShift3) % iBlockColumns] & 0xFF] ^ iTemporaryValue;
 	}
 }
 
-//Expand a user-supplied key material into a session key.
-// key        - The 128/192/256-bit user-key to use.
-// chain      - initial chain block for CBC and CFB modes.
-// keylength  - 16, 24 or 32 bytes
-// blockSize  - The block size in bytes of this Rijndael (16, 24 or 32 bytes).
-void AES::MakeKey(char const* key, char const* chain, int keylength,
-	int blockSize)
+// 按当前分组长度解密一个分组；上下文或指针无效时直接返回，同一实例不可并发。
+void CAes::DecryptBlock(char const* p_pInput, char* p_pResult)
 {
-	if (NULL == key)
+	if (false == m_bKeyInit || p_pInput == nullptr || p_pResult == nullptr)
+	{
 		return;
-	if (!(16 == keylength || 24 == keylength || 32 == keylength))
+	}
+	// 16 字节标准 AES 分组使用固定四列查表实现；24/32 字节必须走通用移位规则。
+	if (DEFAULT_BLOCK_SIZE == m_iBlockSize)
+	{
+		DefDecryptBlock(p_pInput, p_pResult);
 		return;
-	if (!(16 == blockSize || 24 == blockSize || 32 == blockSize))
+	}
+	int iBlockColumns = m_iBlockSize / 4;
+	int iShiftIndex = iBlockColumns == 4 ? 0 : (iBlockColumns == 6 ? 1 : 2);
+	int iShift1 = s_aShifts[iShiftIndex][1][1];
+	int iShift2 = s_aShifts[iShiftIndex][2][1];
+	int iShift3 = s_aShifts[iShiftIndex][3][1];
+	// 每四个密文字节按大端顺序组成状态列，并与第 0 轮解密密钥异或后进入通用状态。
+	int iIndex = 0;
+	int iTemporaryValue = 0;
+	int* pStateValue = m_aTemporaryState;
+	for (iIndex = 0; iIndex < iBlockColumns; iIndex++)
+	{
+		*pStateValue = ((unsigned char) *(p_pInput++) << 24);
+		*pStateValue |= ((unsigned char) *(p_pInput++) << 16);
+		*pStateValue |= ((unsigned char) *(p_pInput++) << 8);
+		(*(pStateValue++) |= (unsigned char) *(p_pInput++)) ^= m_aDecryptionRoundKeys[0][iIndex];
+	}
+	// 不同分组列数使用逆 ShiftRows 偏移；四张逆 T 表合并逆替换、逆移位和逆列混合。
+	for (int iRoundIndex = 1; iRoundIndex < m_iRounds; iRoundIndex++)
+	{
+		for (iIndex = 0; iIndex < iBlockColumns; iIndex++)
+		{
+			m_aState[iIndex] = (s_aTableT5[(m_aTemporaryState[iIndex] >> 24) & 0xFF]
+				^ s_aTableT6[(m_aTemporaryState[(iIndex + iShift1) % iBlockColumns] >> 16) & 0xFF]
+				^ s_aTableT7[(m_aTemporaryState[(iIndex + iShift2) % iBlockColumns] >> 8) & 0xFF]
+				^ s_aTableT8[m_aTemporaryState[(iIndex + iShift3) % iBlockColumns] & 0xFF]) ^ m_aDecryptionRoundKeys[iRoundIndex][iIndex];
+		}
+		memcpy(m_aTemporaryState, m_aState, 4 * iBlockColumns);
+	}
+	int iOutputIndex = 0;
+	// 最后一轮省略逆 MixColumns，按当前分组列数的逆移位位置逐字节还原明文。
+	for (iIndex = 0, iOutputIndex = 0; iIndex < iBlockColumns; iIndex++)
+	{
+		iTemporaryValue = m_aDecryptionRoundKeys[m_iRounds][iIndex];
+		p_pResult[iOutputIndex++] = s_aInverseSBox[(m_aTemporaryState[iIndex] >> 24) & 0xFF] ^ (iTemporaryValue >> 24);
+		p_pResult[iOutputIndex++] = s_aInverseSBox[(m_aTemporaryState[(iIndex + iShift1) % iBlockColumns] >> 16) & 0xFF] ^ (iTemporaryValue >> 16);
+		p_pResult[iOutputIndex++] = s_aInverseSBox[(m_aTemporaryState[(iIndex + iShift2) % iBlockColumns] >> 8) & 0xFF] ^ (iTemporaryValue >> 8);
+		p_pResult[iOutputIndex++] = s_aInverseSBox[m_aTemporaryState[(iIndex + iShift3) % iBlockColumns] & 0xFF] ^ iTemporaryValue;
+	}
+}
+
+// 复制密钥和初始链块并生成加解密轮密钥；参数非法时保持未初始化状态并返回。
+// 输入指针仅在调用期间读取，同一实例不可并发调用。
+void CAes::MakeKey(char const* p_pKey, char const* p_pChain, int p_iKeyLength,
+	int p_iBlockSize)
+{
+	m_bKeyInit = false;
+	if (p_pKey == nullptr || p_pChain == nullptr)
+	{
 		return;
-	m_keylength = keylength;
-	m_blockSize = blockSize;
-	//Initialize the chain
-	memcpy(m_chain0, chain, m_blockSize);
-	memcpy(m_chain, chain, m_blockSize);
-	//Calculate Number of Rounds
-	switch (m_keylength)
+	}
+	// Rijndael 仅定义 128/192/256 位密钥和分组，本接口用字节数 16/24/32 表示这三种规格。
+	if (!(16 == p_iKeyLength || 24 == p_iKeyLength || 32 == p_iKeyLength))
+	{
+		return;
+	}
+	if (!(16 == p_iBlockSize || 24 == p_iBlockSize || 32 == p_iBlockSize))
+	{
+		return;
+	}
+	m_iKeyLength = p_iKeyLength;
+	m_iBlockSize = p_iBlockSize;
+	// 复制初始链块，供本实例后续加解密使用。
+	memcpy(m_aInitialChainBlock, p_pChain, m_iBlockSize);
+	memcpy(m_aChainBlock, p_pChain, m_iBlockSize);
+	// 根据密钥和分组长度计算轮数。
+	switch (m_iKeyLength)
 	{
 	case 16:
-		m_iROUNDS = (m_blockSize == 16) ? 10 : (m_blockSize == 24 ? 12 : 14);
+		m_iRounds = (m_iBlockSize == 16) ? 10 : (m_iBlockSize == 24 ? 12 : 14);
 		break;
 
 	case 24:
-		m_iROUNDS = (m_blockSize != 32) ? 12 : 14;
+		m_iRounds = (m_iBlockSize != 32) ? 12 : 14;
 		break;
 
 	default: // 32 bytes = 256 bits
-		m_iROUNDS = 14;
+		m_iRounds = 14;
 	}
-	int BC = m_blockSize / 4;
-	int i, j;
-	for (i = 0; i <= m_iROUNDS; i++)
+	int iBlockColumns = m_iBlockSize / 4;
+	int iIndex = 0;
+	int iOutputIndex = 0;
+	for (iIndex = 0; iIndex <= m_iRounds; iIndex++)
 	{
-		for (j = 0; j < BC; j++)
-			m_Ke[i][j] = 0;
+		for (iOutputIndex = 0; iOutputIndex < iBlockColumns; iOutputIndex++)
+		{
+			m_aEncryptionRoundKeys[iIndex][iOutputIndex] = 0;
+		}
 	}
-	for (i = 0; i <= m_iROUNDS; i++)
+	for (iIndex = 0; iIndex <= m_iRounds; iIndex++)
 	{
-		for (j = 0; j < BC; j++)
-			m_Kd[i][j] = 0;
+		for (iOutputIndex = 0; iOutputIndex < iBlockColumns; iOutputIndex++)
+		{
+			m_aDecryptionRoundKeys[iIndex][iOutputIndex] = 0;
+		}
 	}
-	int ROUND_KEY_COUNT = (m_iROUNDS + 1) * BC;
-	int KC = m_keylength / 4;
-	//Copy user material bytes into temporary ints
-	int* pi = tk;
-	char const* pc = key;
-	for (i = 0; i < KC; i++)
+	int iRoundKeyCount = (m_iRounds + 1) * iBlockColumns;
+	int iKeyColumns = m_iKeyLength / 4;
+	// 将调用方密钥字节装载到密钥扩展缓冲区。
+	int* pStateValue = m_aTemporaryKey;
+	char const* pKeyByte = p_pKey;
+	for (iIndex = 0; iIndex < iKeyColumns; iIndex++)
 	{
-		*pi = (unsigned char) *(pc++) << 24;
-		*pi |= (unsigned char) *(pc++) << 16;
-		*pi |= (unsigned char) *(pc++) << 8;
-		*(pi++) |= (unsigned char) *(pc++);
+		*pStateValue = (unsigned char) *(pKeyByte++) << 24;
+		*pStateValue |= (unsigned char) *(pKeyByte++) << 16;
+		*pStateValue |= (unsigned char) *(pKeyByte++) << 8;
+		*(pStateValue++) |= (unsigned char) *(pKeyByte++);
 	}
-	//Copy values into round key arrays
-	int t = 0;
-	for (j = 0; (j < KC) && (t < ROUND_KEY_COUNT); j++, t++)
+	// 将初始密钥列写入加解密轮密钥表。
+	int iRoundKeyIndex = 0;
+	for (iOutputIndex = 0;
+		(iOutputIndex < iKeyColumns) && (iRoundKeyIndex < iRoundKeyCount);
+		++iOutputIndex, ++iRoundKeyIndex)
 	{
-		m_Ke[t / BC][t % BC] = tk[j];
-		m_Kd[m_iROUNDS - (t / BC)][t % BC] = tk[j];
+		m_aEncryptionRoundKeys[iRoundKeyIndex / iBlockColumns]
+			[iRoundKeyIndex % iBlockColumns] = m_aTemporaryKey[iOutputIndex];
+		m_aDecryptionRoundKeys[m_iRounds - (iRoundKeyIndex / iBlockColumns)]
+			[iRoundKeyIndex % iBlockColumns] = m_aTemporaryKey[iOutputIndex];
 	}
-	int tt, rconpointer = 0;
-	while (t < ROUND_KEY_COUNT)
+	int iTemporaryValue = 0;
+	int iRoundConstantIndex = 0;
+	while (iRoundKeyIndex < iRoundKeyCount)
 	{
-		//Extrapolate using phi (the round key evolution function)
-		tt = tk[KC - 1];
-		tk[0] ^= (sm_S[(tt >> 16) & 0xFF] & 0xFF) << 24
-			^ (sm_S[(tt >> 8) & 0xFF] & 0xFF) << 16
-			^ (sm_S[tt & 0xFF] & 0xFF) << 8
-			^ (sm_S[(tt >> 24) & 0xFF] & 0xFF)
-			^ (sm_rcon[rconpointer++] & 0xFF) << 24;
-		if (KC != 8)
-			for (i = 1, j = 0; i < KC;)
-				tk[i++] ^= tk[j++];
+		// 对上一组末列执行 RotWord、SubWord 和轮常量异或，生成下一组首列。
+		iTemporaryValue = m_aTemporaryKey[iKeyColumns - 1];
+		m_aTemporaryKey[0] ^= (s_aSBox[(iTemporaryValue >> 16) & 0xFF] & 0xFF) << 24
+			^ (s_aSBox[(iTemporaryValue >> 8) & 0xFF] & 0xFF) << 16
+			^ (s_aSBox[iTemporaryValue & 0xFF] & 0xFF) << 8
+			^ (s_aSBox[(iTemporaryValue >> 24) & 0xFF] & 0xFF)
+			^ (s_aRoundConstants[iRoundConstantIndex++] & 0xFF) << 24;
+		// 256 位密钥共有 8 列，密钥扩展在中点还要额外执行一次 SubWord；128/192 位没有该步骤。
+		if (iKeyColumns != 8)
+		{
+			for (iIndex = 1, iOutputIndex = 0; iIndex < iKeyColumns;)
+			{
+				m_aTemporaryKey[iIndex++] ^= m_aTemporaryKey[iOutputIndex++];
+			}
+		}
 		else
 		{
-			for (i = 1, j = 0; i < KC / 2;)
-				tk[i++] ^= tk[j++];
-			tt = tk[KC / 2 - 1];
-			tk[KC / 2] ^= (sm_S[tt & 0xFF] & 0xFF)
-				^ (sm_S[(tt >> 8) & 0xFF] & 0xFF) << 8
-				^ (sm_S[(tt >> 16) & 0xFF] & 0xFF) << 16
-				^ (sm_S[(tt >> 24) & 0xFF] & 0xFF) << 24;
-			for (j = KC / 2, i = j + 1; i < KC;)
-				tk[i++] ^= tk[j++];
+			for (iIndex = 1, iOutputIndex = 0; iIndex < iKeyColumns / 2;)
+			{
+				m_aTemporaryKey[iIndex++] ^= m_aTemporaryKey[iOutputIndex++];
+			}
+			iTemporaryValue = m_aTemporaryKey[iKeyColumns / 2 - 1];
+			m_aTemporaryKey[iKeyColumns / 2] ^= (s_aSBox[iTemporaryValue & 0xFF] & 0xFF)
+				^ (s_aSBox[(iTemporaryValue >> 8) & 0xFF] & 0xFF) << 8
+				^ (s_aSBox[(iTemporaryValue >> 16) & 0xFF] & 0xFF) << 16
+				^ (s_aSBox[(iTemporaryValue >> 24) & 0xFF] & 0xFF) << 24;
+			for (iOutputIndex = iKeyColumns / 2, iIndex = iOutputIndex + 1; iIndex < iKeyColumns;)
+			{
+				m_aTemporaryKey[iIndex++] ^= m_aTemporaryKey[iOutputIndex++];
+			}
 		}
-		//Copy values into round key arrays
-		for (j = 0; (j < KC) && (t < ROUND_KEY_COUNT); j++, t++)
+		// 将扩展结果写入加解密轮密钥表。
+		for (iOutputIndex = 0;
+			(iOutputIndex < iKeyColumns) && (iRoundKeyIndex < iRoundKeyCount);
+			++iOutputIndex, ++iRoundKeyIndex)
 		{
-			m_Ke[t / BC][t % BC] = tk[j];
-			m_Kd[m_iROUNDS - (t / BC)][t % BC] = tk[j];
+			m_aEncryptionRoundKeys[iRoundKeyIndex / iBlockColumns]
+				[iRoundKeyIndex % iBlockColumns] = m_aTemporaryKey[iOutputIndex];
+			m_aDecryptionRoundKeys[m_iRounds - (iRoundKeyIndex / iBlockColumns)]
+				[iRoundKeyIndex % iBlockColumns] = m_aTemporaryKey[iOutputIndex];
 		}
 	}
-	//Inverse MixColumn where needed
-	for (int r = 1; r < m_iROUNDS; r++)
-		for (j = 0; j < BC; j++)
+	// 对中间解密轮密钥预先执行逆 MixColumns，使解密轮可直接使用逆 T 表完成合并运算。
+	for (int iRoundIndex = 1; iRoundIndex < m_iRounds; iRoundIndex++)
+	{
+		for (iOutputIndex = 0; iOutputIndex < iBlockColumns; iOutputIndex++)
 		{
-			tt = m_Kd[r][j];
-			m_Kd[r][j] = sm_U1[(tt >> 24) & 0xFF] ^ sm_U2[(tt >> 16) & 0xFF]
-				^ sm_U3[(tt >> 8) & 0xFF] ^ sm_U4[tt & 0xFF];
+			iTemporaryValue = m_aDecryptionRoundKeys[iRoundIndex][iOutputIndex];
+			m_aDecryptionRoundKeys[iRoundIndex][iOutputIndex] = s_aTableU1[(iTemporaryValue >> 24) & 0xFF] ^ s_aTableU2[(iTemporaryValue >> 16) & 0xFF]
+				^ s_aTableU3[(iTemporaryValue >> 8) & 0xFF] ^ s_aTableU4[iTemporaryValue & 0xFF];
 		}
+	}
 	m_bKeyInit = true;
 }
-void AES::Encrypt(char const* in, char* result, size_t n, int iMode)
+
+// 按指定模式加密完整分组序列；参数或上下文无效时直接返回，同一实例不可并发。
+void CAes::Encrypt(char const* p_pInput, char* p_pResult, size_t p_szLength, int p_iMode)
 {
-	if (false == m_bKeyInit)
-		return;
-	//n should be > 0 and multiple of m_blockSize
-	if (0 == n || n % m_blockSize != 0)
-		return;
-	unsigned int i;
-	char const* pin;
-	char* presult;
-	if (CBC == iMode) //CBC mode, using the Chain
+	if (false == m_bKeyInit || p_pInput == nullptr || p_pResult == nullptr)
 	{
-		for (i = 0, pin = in, presult = result; i < n / m_blockSize; i++)
+		return;
+	}
+	// 历史内核只处理完整分组，不在此处补齐填充。
+	if (0 == p_szLength || p_szLength % m_iBlockSize != 0)
+	{
+		return;
+	}
+	unsigned int uIndex = 0;
+	char const* pInputBlock = p_pInput;
+	char* pOutputBlock = p_pResult;
+	if (CBC == p_iMode) // CBC 模式使用并更新链块。
+	{
+		for (uIndex = 0, pInputBlock = p_pInput, pOutputBlock = p_pResult;
+			uIndex < p_szLength / m_iBlockSize; ++uIndex)
 		{
-			Xor(m_chain, pin);
-			EncryptBlock(m_chain, presult);
-			memcpy(m_chain, presult, m_blockSize);
-			pin += m_blockSize;
-			presult += m_blockSize;
+			Xor(m_aChainBlock, pInputBlock);
+			EncryptBlock(m_aChainBlock, pOutputBlock);
+			memcpy(m_aChainBlock, pOutputBlock, m_iBlockSize);
+			pInputBlock += m_iBlockSize;
+			pOutputBlock += m_iBlockSize;
 		}
 	}
-	else if (CFB == iMode) //CFB mode, using the Chain
+	else if (CFB == p_iMode) // CFB 模式使用并更新链块。
 	{
-		for (i = 0, pin = in, presult = result; i < n / m_blockSize; i++)
+		for (uIndex = 0, pInputBlock = p_pInput, pOutputBlock = p_pResult;
+			uIndex < p_szLength / m_iBlockSize; ++uIndex)
 		{
-			EncryptBlock(m_chain, presult);
-			Xor(presult, pin);
-			memcpy(m_chain, presult, m_blockSize);
-			pin += m_blockSize;
-			presult += m_blockSize;
+			EncryptBlock(m_aChainBlock, pOutputBlock);
+			Xor(pOutputBlock, pInputBlock);
+			memcpy(m_aChainBlock, pOutputBlock, m_iBlockSize);
+			pInputBlock += m_iBlockSize;
+			pOutputBlock += m_iBlockSize;
 		}
 	}
-	else //ECB mode, not using the Chain
+	else // ECB 模式不使用链块。
 	{
-		for (i = 0, pin = in, presult = result; i < n / m_blockSize; i++)
+		for (uIndex = 0, pInputBlock = p_pInput, pOutputBlock = p_pResult;
+			uIndex < p_szLength / m_iBlockSize; ++uIndex)
 		{
-			EncryptBlock(pin, presult);
-			pin += m_blockSize;
-			presult += m_blockSize;
+			EncryptBlock(pInputBlock, pOutputBlock);
+			pInputBlock += m_iBlockSize;
+			pOutputBlock += m_iBlockSize;
 		}
 	}
 }
 
-void AES::Decrypt(char const* in, char* result, size_t n, int iMode)
+// 按指定模式解密完整分组序列；参数或上下文无效时直接返回，同一实例不可并发。
+void CAes::Decrypt(char const* p_pInput, char* p_pResult, size_t p_szLength, int p_iMode)
 {
-	if (false == m_bKeyInit)
-		return;
-	//n should be > 0 and multiple of m_blockSize
-	if (0 == n || n % m_blockSize != 0)
-		return;
-	unsigned int i;
-	char const* pin;
-	char* presult;
-	if (CBC == iMode) //CBC mode, using the Chain
+	if (false == m_bKeyInit || p_pInput == nullptr || p_pResult == nullptr)
 	{
-		for (i = 0, pin = in, presult = result; i < n / m_blockSize; i++)
+		return;
+	}
+	// 历史内核只处理完整分组，不在此处移除填充。
+	if (0 == p_szLength || p_szLength % m_iBlockSize != 0)
+	{
+		return;
+	}
+	unsigned int uIndex = 0;
+	char const* pInputBlock = p_pInput;
+	char* pOutputBlock = p_pResult;
+	if (CBC == p_iMode) // CBC 模式使用并更新链块。
+	{
+		for (uIndex = 0, pInputBlock = p_pInput, pOutputBlock = p_pResult;
+			uIndex < p_szLength / m_iBlockSize; ++uIndex)
 		{
-			DecryptBlock(pin, presult);
-			Xor(presult, m_chain);
-			memcpy(m_chain, pin, m_blockSize);
-			pin += m_blockSize;
-			presult += m_blockSize;
+			DecryptBlock(pInputBlock, pOutputBlock);
+			Xor(pOutputBlock, m_aChainBlock);
+			memcpy(m_aChainBlock, pInputBlock, m_iBlockSize);
+			pInputBlock += m_iBlockSize;
+			pOutputBlock += m_iBlockSize;
 		}
 	}
-	else if (CFB == iMode) //CFB mode, using the Chain, not using Decrypt()
+	else if (CFB == p_iMode) // CFB 解密复用加密分组函数生成密钥流。
 	{
-		for (i = 0, pin = in, presult = result; i < n / m_blockSize; i++)
+		for (uIndex = 0, pInputBlock = p_pInput, pOutputBlock = p_pResult;
+			uIndex < p_szLength / m_iBlockSize; ++uIndex)
 		{
-			EncryptBlock(m_chain, presult);
-			//memcpy(presult, pin, m_blockSize);
-			Xor(presult, pin);
-			memcpy(m_chain, pin, m_blockSize);
-			pin += m_blockSize;
-			presult += m_blockSize;
+			EncryptBlock(m_aChainBlock, pOutputBlock);
+			Xor(pOutputBlock, pInputBlock);
+			memcpy(m_aChainBlock, pInputBlock, m_iBlockSize);
+			pInputBlock += m_iBlockSize;
+			pOutputBlock += m_iBlockSize;
 		}
 	}
-	else //ECB mode, not using the Chain
+	else // ECB 模式不使用链块。
 	{
-		for (i = 0, pin = in, presult = result; i < n / m_blockSize; i++)
+		for (uIndex = 0, pInputBlock = p_pInput, pOutputBlock = p_pResult;
+			uIndex < p_szLength / m_iBlockSize; ++uIndex)
 		{
-			DecryptBlock(pin, presult);
-			pin += m_blockSize;
-			presult += m_blockSize;
+			DecryptBlock(pInputBlock, pOutputBlock);
+			pInputBlock += m_iBlockSize;
+			pOutputBlock += m_iBlockSize;
 		}
 	}
 }

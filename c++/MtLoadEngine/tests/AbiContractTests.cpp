@@ -80,15 +80,15 @@ public:
         int length = sizeof(address);
         Check(getsockname(listener_, reinterpret_cast<sockaddr*>(&address), &length) == 0, "getsockname");
         port_ = ntohs(address.sin_port);
-        worker_ = std::thread([this]() { Serve(); });
+        m_clWorker = std::thread([this]() { Serve(); });
     }
 
     // 先关闭监听套接字解除 accept，再联结线程并成对释放 Winsock。
     ~MockHttpServer()
     {
-        stopping_.store(true);
+        m_bStopping.store(true);
         if (listener_ != INVALID_SOCKET) closesocket(listener_);
-        if (worker_.joinable()) worker_.join();
+        if (m_clWorker.joinable()) m_clWorker.join();
         WSACleanup();
     }
 
@@ -108,7 +108,7 @@ private:
     // 串行接受请求、记录原文并返回确定 JSON，便于断言执行顺序和变量提取。
     void Serve()
     {
-        while (!stopping_.load())
+        while (!m_bStopping.load())
         {
             SOCKET client = accept(listener_, nullptr, nullptr);
             if (client == INVALID_SOCKET) return;
@@ -160,11 +160,11 @@ private:
     SOCKET listener_ = INVALID_SOCKET;              // 回环监听套接字，由析构函数关闭。
     unsigned short port_ = 0;                       // 系统分配的监听端口。
     uint32_t responseDelayMs_ = 0;                  // 每个响应前的人工延迟，单位：毫秒。
-    std::atomic<bool> stopping_{ false };            // 服务线程协作停止标志。
+    std::atomic<bool> m_bStopping{ false };            // 服务线程协作停止标志。
     std::atomic<uint64_t> requestCount_{ 0 };        // 已接受连接的累计数量。
     mutable std::mutex requestsMutex_;               // 保护 requests_ 的读写。
     std::vector<std::string> requests_;              // 测试期间接收的原始 HTTP 请求。
-    std::thread worker_;                             // 唯一 Mock 服务线程。
+    std::thread m_clWorker;                             // 唯一 Mock 服务线程。
 };
 }
 

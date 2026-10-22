@@ -4,6 +4,8 @@ VisualStudioVersion = 17.11.35327.3
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CredCore", "CredCore.vcxproj", "{3EBC8EE5-6149-4D29-92FC-53A0B8017C31}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CredCoreCompatibilityTests", "..\..\..\tests\CredCoreCompatibilityTests.vcxproj", "{98944F29-43CB-49D5-AFDC-A2B39026E22D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Release|x64 = Release|x64
@@ -14,6 +16,9 @@ Global
 		{3EBC8EE5-6149-4D29-92FC-53A0B8017C31}.Release|x64.Build.0 = Release|x64
 		{3EBC8EE5-6149-4D29-92FC-53A0B8017C31}.ReleaseStatic|x64.ActiveCfg = ReleaseStatic|x64
 		{3EBC8EE5-6149-4D29-92FC-53A0B8017C31}.ReleaseStatic|x64.Build.0 = ReleaseStatic|x64
+		{98944F29-43CB-49D5-AFDC-A2B39026E22D}.Release|x64.ActiveCfg = Release|x64
+		{98944F29-43CB-49D5-AFDC-A2B39026E22D}.Release|x64.Build.0 = Release|x64
+		{98944F29-43CB-49D5-AFDC-A2B39026E22D}.ReleaseStatic|x64.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

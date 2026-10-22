@@ -45,8 +45,8 @@ bool CAppLog::Initialize(const std::wstring& executableDirectory, std::wstring& 
         return false;
     }
 
-    std::lock_guard<std::mutex> guard(mutex_);
-    filePath_ = path.wstring();
+    std::lock_guard<std::mutex> guard(m_clMutex);
+    m_wstrFilePath = path.wstring();
     return true;
 }
 
@@ -64,15 +64,15 @@ void CAppLog::Add(const wchar_t* level, const std::wstring& message)
         if (character == L'\r' || character == L'\n') character = L' ';
     }
 
-    std::lock_guard<std::mutex> guard(mutex_);
-    entry.sequence = nextSequence_++;
-    entries_.push_back(entry);
-    if (entries_.size() > kMaxMemoryEntries)
-        entries_.erase(entries_.begin(), entries_.begin() + (entries_.size() - kMaxMemoryEntries));
+    std::lock_guard<std::mutex> guard(m_clMutex);
+    entry.sequence = m_u64NextSequence++;
+    m_vecEntries.push_back(entry);
+    if (m_vecEntries.size() > kMaxMemoryEntries)
+        m_vecEntries.erase(m_vecEntries.begin(), m_vecEntries.begin() + (m_vecEntries.size() - kMaxMemoryEntries));
 
-    if (filePath_.empty()) return;
+    if (m_wstrFilePath.empty()) return;
     const std::wstring line = L"[" + entry.timestamp + L"][" + entry.level + L"] " + entry.message + L"\r\n";
-    std::ofstream output(std::filesystem::path(filePath_), std::ios::binary | std::ios::app);
+    std::ofstream output(std::filesystem::path(m_wstrFilePath), std::ios::binary | std::ios::app);
     if (output)
     {
         const std::string utf8 = ToUtf8(line);
@@ -83,22 +83,22 @@ void CAppLog::Add(const wchar_t* level, const std::wstring& message)
 // 关键实现：在锁内复制全部条目，调用方随后可无锁遍历。
 std::vector<AppLogEntry> CAppLog::Snapshot() const
 {
-    std::lock_guard<std::mutex> guard(mutex_);
-    return entries_;
+    std::lock_guard<std::mutex> guard(m_clMutex);
+    return m_vecEntries;
 }
 
 // 关键实现：返回路径副本，避免调用方持有受锁保护字符串的引用。
 std::wstring CAppLog::FilePath() const
 {
-    std::lock_guard<std::mutex> guard(mutex_);
-    return filePath_;
+    std::lock_guard<std::mutex> guard(m_clMutex);
+    return m_wstrFilePath;
 }
 
 // 关键实现：只清空内存条目并保留递增序号和磁盘历史。
 void CAppLog::ClearMemory()
 {
-    std::lock_guard<std::mutex> guard(mutex_);
-    entries_.clear();
+    std::lock_guard<std::mutex> guard(m_clMutex);
+    m_vecEntries.clear();
 }
 
 // 关键实现：按两次转换取得精确 UTF-8 容量，避免固定缓冲区截断中文。

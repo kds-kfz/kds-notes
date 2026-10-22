@@ -92,7 +92,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level4</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
@@ -190,7 +190,7 @@
       <PreprocessorDefinitions>_WINDOWS;NDEBUG;_CRT_SECURE_NO_WARNINGS;WIN32_LEAN_AND_MEAN;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>.\;.\public;.\vender\nsdk\include;.\vender\thread\include;%(AdditionalIncludeDirectories);.\vender\tinyxml\include</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp14</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <DisableSpecificWarnings>4190;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
@@ -200,6 +200,8 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>$(SolutionDir)\vender\nsdk\lib\$(Platform)vc14;$(SolutionDir)\vender\thread\lib\$(Platform)vc14;.\vender\tinyxml\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>version.lib;libnsdk.lib;pthreadVC2.lib;tinyxml.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- 既有 tinyxml 发布库未随包提供对象 PDB；仅忽略该调试信息告警，不影响代码或符号解析。 -->
+      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
       <Command>if not exist "$(OutDir)MtAssistant.xml" copy /Y "$(ProjectDir)conf\MtAssistant.xml" "$(OutDir)MtAssistant.xml"</Command>

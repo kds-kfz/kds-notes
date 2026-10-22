@@ -94,45 +94,45 @@ public:
 
     // 建立本地监听端口并启动独立的服务线程。
     explicit LoopbackServer(Kind p_enKind, int p_iConnections = 1)
-        : kind_(p_enKind), count_(p_iConnections), socket_(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))
+        : m_enKind(p_enKind), m_iCount(p_iConnections), m_hSocket(socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))
     {
-        Check(socket_ != INVALID_SOCKET, "server socket");
+        Check(m_hSocket != INVALID_SOCKET, "server socket");
         sockaddr_in addr = {};
         addr.sin_family = AF_INET;
         addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
         addr.sin_port = 0;
-        Check(bind(socket_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0, "bind");
-        Check(listen(socket_, SOMAXCONN) == 0, "listen");
+        Check(bind(m_hSocket, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0, "bind");
+        Check(listen(m_hSocket, SOMAXCONN) == 0, "listen");
         int len = sizeof(addr);
-        Check(getsockname(socket_, reinterpret_cast<sockaddr*>(&addr), &len) == 0, "port");
-        port_ = ntohs(addr.sin_port);
-        worker_ = std::thread([this]() { Serve(); });
+        Check(getsockname(m_hSocket, reinterpret_cast<sockaddr*>(&addr), &len) == 0, "port");
+        m_usPort = ntohs(addr.sin_port);
+        m_clWorker = std::thread([this]() { Serve(); });
     }
 
     // 关闭监听套接字并等待服务线程结束。
     ~LoopbackServer()
     {
-        closesocket(socket_);
-        if (worker_.joinable()) worker_.join();
+        closesocket(m_hSocket);
+        if (m_clWorker.joinable()) m_clWorker.join();
     }
 
     // 返回操作系统分配的回环监听端口。
-    unsigned short Port() const { return port_; }
+    unsigned short Port() const { return m_usPort; }
 
 private:
     // 处理指定数量的独立回环客户端连接。
     void Serve()
     {
-        for (int i = 0; i < count_; ++i)
+        for (int i = 0; i < m_iCount; ++i)
         {
-            SOCKET client = accept(socket_, nullptr, nullptr);
+            SOCKET client = accept(m_hSocket, nullptr, nullptr);
             if (client == INVALID_SOCKET) return;
-            if (kind_ == Tcp)
+            if (m_enKind == Tcp)
             {
                 char data[4];
                 if (ReadBytes(client, data, 4)) send(client, data, 4, 0);
             }
-            else if (kind_ == Stress)
+            else if (m_enKind == Stress)
             {
                 char data[80];
                 if (ReadBytes(client, data, 80))
@@ -147,22 +147,22 @@ private:
             }
             else
             {
-                const int responseCount = kind_ == HttpKeepAlive ? 2 : 1;
+                const int responseCount = m_enKind == HttpKeepAlive ? 2 : 1;
                 for (int responseIndex = 0; responseIndex < responseCount; ++responseIndex)
                 {
                     std::string request;
                     if (!ReadHttpHeaders(client, request)) break;
-                    if (kind_ == Http || kind_ == HttpKeepAlive)
+                    if (m_enKind == Http || m_enKind == HttpKeepAlive)
                     {
                         // 首个响应短暂延迟，用于确定性验证同连接的第二个在途请求会被拒绝。
-                        if (kind_ == HttpKeepAlive && responseIndex == 0)
+                        if (m_enKind == HttpKeepAlive && responseIndex == 0)
                             std::this_thread::sleep_for(std::chrono::milliseconds(100));
                         const std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: " +
-                            std::string(kind_ == HttpKeepAlive && responseIndex == 0 ?
+                            std::string(m_enKind == HttpKeepAlive && responseIndex == 0 ?
                                 "keep-alive" : "close") + "\r\n\r\nok";
                         send(client, response.data(), static_cast<int>(response.size()), 0);
                     }
-                    else if (kind_ == HttpEncoding)
+                    else if (m_enKind == HttpEncoding)
                     {
                     static const unsigned char gzipBody[] = {
                         0x1F,0x8B,0x08,0x00,0x00,0x00,0x00,0x00,0x00,0x0A,0xAB,0x56,0x72,
@@ -195,13 +195,13 @@ private:
                     if (first != std::string::npos)
                     {
                         const size_t start = first + marker.size();
-                        const std::string accept = kind_ == WebBad ? "invalid" :
+                        const std::string accept = m_enKind == WebBad ? "invalid" :
                             Accept(request.substr(start, request.find("\r\n", start) - start));
                         const std::string response = "HTTP/1.1 101 Switching Protocols\r\n"
                             "Upgrade: websocket\r\nConnection: Upgrade\r\n"
                             "Sec-WebSocket-Accept: " + accept + "\r\n\r\n";
                         send(client, response.data(), static_cast<int>(response.size()), 0);
-                        if (kind_ == Web)
+                        if (m_enKind == Web)
                         {
                             const unsigned char frame[] = {0x81, 0x02, 'o', 'k'};
                             send(client, reinterpret_cast<const char*>(frame), sizeof(frame), 0);
@@ -225,11 +225,11 @@ private:
         }
     }
 
-    Kind kind_; // 服务端协议类型。
-    int count_; // 预期连接数量。
-    SOCKET socket_; // 自有监听套接字。
-    unsigned short port_; // 操作系统分配的回环端口。
-    std::thread worker_; // 接受连接并回复数据的线程。
+    Kind m_enKind; // 服务端协议类型。
+    int m_iCount; // 预期连接数量。
+    SOCKET m_hSocket; // 自有监听套接字。
+    unsigned short m_usPort; // 操作系统分配的回环端口。
+    std::thread m_clWorker; // 接受连接并回复数据的线程。
 };
 
 // 线程安全地累计 HP-Socket 工作线程投递的测试事件。

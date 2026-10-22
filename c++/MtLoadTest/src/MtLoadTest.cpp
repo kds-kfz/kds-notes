@@ -69,8 +69,8 @@ CMtLoadTestApp theApp;
 // 关键实现：先建立当前用户单实例互斥量，再初始化 MFC 并模态运行主窗口。
 BOOL CMtLoadTestApp::InitInstance()
 {
-    singleInstanceMutex_ = ::CreateMutexW(nullptr, FALSE, kSingleInstanceMutexName);
-    if (singleInstanceMutex_ == nullptr)
+    m_hSingleInstanceMutex = ::CreateMutexW(nullptr, FALSE, kSingleInstanceMutexName);
+    if (m_hSingleInstanceMutex == nullptr)
     {
         AfxMessageBox(L"无法创建 MtLoadTest 单实例标识，程序未启动。", MB_OK | MB_ICONERROR);
         return FALSE;
@@ -78,8 +78,8 @@ BOOL CMtLoadTestApp::InitInstance()
 
     if (::GetLastError() == ERROR_ALREADY_EXISTS)
     {
-        ::CloseHandle(singleInstanceMutex_);
-        singleInstanceMutex_ = nullptr;
+        ::CloseHandle(m_hSingleInstanceMutex);
+        m_hSingleInstanceMutex = nullptr;
         if (!ActivateExistingInstance())
         {
             AfxMessageBox(L"MtLoadTest 已在运行，但暂时无法定位现有窗口。", MB_OK | MB_ICONINFORMATION);
@@ -104,10 +104,10 @@ BOOL CMtLoadTestApp::InitInstance()
 // 关键实现：在 MFC 公共清理前释放互斥量，保证进程退出后可以再次启动。
 int CMtLoadTestApp::ExitInstance()
 {
-    if (singleInstanceMutex_ != nullptr)
+    if (m_hSingleInstanceMutex != nullptr)
     {
-        ::CloseHandle(singleInstanceMutex_);
-        singleInstanceMutex_ = nullptr;
+        ::CloseHandle(m_hSingleInstanceMutex);
+        m_hSingleInstanceMutex = nullptr;
     }
     return CWinApp::ExitInstance();
 }

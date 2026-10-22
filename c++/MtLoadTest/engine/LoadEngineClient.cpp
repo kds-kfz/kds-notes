@@ -13,7 +13,7 @@ CLoadEngineClient::~CLoadEngineClient()
 // 关键实现：动态配置中每个导出符号解析失败立即返回具体函数名，禁止保留半初始化函数表。
 template<class T> bool CLoadEngineClient::Resolve(T& target, const char* name, std::wstring& error)
 {
-    target = reinterpret_cast<T>(GetProcAddress(module_, name));
+    target = reinterpret_cast<T>(GetProcAddress(m_hModule, name));
     if (target != nullptr) return true;
     error = L"MtLoadEngine.dll 缺少导出函数: " + FromUtf8(name);
     return false;
@@ -22,33 +22,33 @@ template<class T> bool CLoadEngineClient::Resolve(T& target, const char* name, s
 // 关键实现：静态配置直接取得已链接符号地址，复用后续统一的 ABI 校验和生命周期代码。
 void CLoadEngineClient::BindStaticApi()
 {
-    getAbiVersion_ = &MtLoad_GetAbiVersion;
-    initOptions_ = &MtLoad_InitOptions;
-    create_ = &MtLoad_Create;
-    loadPlan_ = &MtLoad_LoadPlan;
-    validatePlan_ = &MtLoad_ValidatePlan;
-    getEnvironments_ = &MtLoad_GetEnvironments;
-    selectEnvironment_ = &MtLoad_SelectEnvironment;
-    getScenarios_ = &MtLoad_GetScenarios;
-    selectScenario_ = &MtLoad_SelectScenario;
-    getWorkloads_ = &MtLoad_GetWorkloads;
-    selectWorkload_ = &MtLoad_SelectWorkload;
+    m_pfnGetAbiVersion = &MtLoad_GetAbiVersion;
+    m_pfnInitOptions = &MtLoad_InitOptions;
+    m_pfnCreate = &MtLoad_Create;
+    m_pfnLoadPlan = &MtLoad_LoadPlan;
+    m_pfnValidatePlan = &MtLoad_ValidatePlan;
+    m_pfnGetEnvironments = &MtLoad_GetEnvironments;
+    m_pfnSelectEnvironment = &MtLoad_SelectEnvironment;
+    m_pfnGetScenarios = &MtLoad_GetScenarios;
+    m_pfnSelectScenario = &MtLoad_SelectScenario;
+    m_pfnGetWorkloads = &MtLoad_GetWorkloads;
+    m_pfnSelectWorkload = &MtLoad_SelectWorkload;
     getUsers_ = &MtLoad_GetUsers;
-    selectUser_ = &MtLoad_SelectUser;
-    start_ = &MtLoad_Start;
-    pause_ = &MtLoad_Pause;
-    resume_ = &MtLoad_Resume;
-    stop_ = &MtLoad_Stop;
-    clearResults_ = &MtLoad_ClearResults;
-    wait_ = &MtLoad_Wait;
-    getRunState_ = &MtLoad_GetRunState;
-    getMetricRows_ = &MtLoad_GetMetricRows;
-    getScenarioMetricRows_ = &MtLoad_GetScenarioMetricRows;
-    getThresholdResults_ = &MtLoad_GetThresholdResults;
-    getErrorSamples_ = &MtLoad_GetErrorSamples;
-    exportConfiguredReport_ = &MtLoad_ExportConfiguredReport;
-    getLastError_ = &MtLoad_GetLastError;
-    destroy_ = &MtLoad_Destroy;
+    m_pfnSelectUser = &MtLoad_SelectUser;
+    m_pfnStart = &MtLoad_Start;
+    m_pfnPause = &MtLoad_Pause;
+    m_pfnResume = &MtLoad_Resume;
+    m_pfnStop = &MtLoad_Stop;
+    m_pfnClearResults = &MtLoad_ClearResults;
+    m_pfnWait = &MtLoad_Wait;
+    m_pfnGetRunState = &MtLoad_GetRunState;
+    m_pfnGetMetricRows = &MtLoad_GetMetricRows;
+    m_pfnGetScenarioMetricRows = &MtLoad_GetScenarioMetricRows;
+    m_pfnGetThresholdResults = &MtLoad_GetThresholdResults;
+    m_pfnGetErrorSamples = &MtLoad_GetErrorSamples;
+    m_pfnExportConfiguredReport = &MtLoad_ExportConfiguredReport;
+    m_pfnGetLastError = &MtLoad_GetLastError;
+    m_pfnDestroy = &MtLoad_Destroy;
 }
 #endif
 
@@ -60,39 +60,39 @@ bool CLoadEngineClient::Load(const std::wstring& dllPath, std::wstring& error)
     (void)dllPath;
     BindStaticApi();
 #else
-    module_ = LoadLibraryW(dllPath.c_str());
-    if (module_ == nullptr)
+    m_hModule = LoadLibraryW(dllPath.c_str());
+    if (m_hModule == nullptr)
     {
         error = L"无法加载 MtLoadEngine.dll，Windows 错误码=" + std::to_wstring(GetLastError());
         return false;
     }
-    if (!Resolve(getAbiVersion_, "MtLoad_GetAbiVersion", error) ||
-        !Resolve(initOptions_, "MtLoad_InitOptions", error) || !Resolve(create_, "MtLoad_Create", error) ||
-        !Resolve(loadPlan_, "MtLoad_LoadPlan", error) || !Resolve(validatePlan_, "MtLoad_ValidatePlan", error) ||
-        !Resolve(getEnvironments_, "MtLoad_GetEnvironments", error) ||
-        !Resolve(selectEnvironment_, "MtLoad_SelectEnvironment", error) ||
-        !Resolve(getScenarios_, "MtLoad_GetScenarios", error) ||
-        !Resolve(selectScenario_, "MtLoad_SelectScenario", error) ||
-        !Resolve(getWorkloads_, "MtLoad_GetWorkloads", error) ||
-        !Resolve(selectWorkload_, "MtLoad_SelectWorkload", error) ||
+    if (!Resolve(m_pfnGetAbiVersion, "MtLoad_GetAbiVersion", error) ||
+        !Resolve(m_pfnInitOptions, "MtLoad_InitOptions", error) || !Resolve(m_pfnCreate, "MtLoad_Create", error) ||
+        !Resolve(m_pfnLoadPlan, "MtLoad_LoadPlan", error) || !Resolve(m_pfnValidatePlan, "MtLoad_ValidatePlan", error) ||
+        !Resolve(m_pfnGetEnvironments, "MtLoad_GetEnvironments", error) ||
+        !Resolve(m_pfnSelectEnvironment, "MtLoad_SelectEnvironment", error) ||
+        !Resolve(m_pfnGetScenarios, "MtLoad_GetScenarios", error) ||
+        !Resolve(m_pfnSelectScenario, "MtLoad_SelectScenario", error) ||
+        !Resolve(m_pfnGetWorkloads, "MtLoad_GetWorkloads", error) ||
+        !Resolve(m_pfnSelectWorkload, "MtLoad_SelectWorkload", error) ||
         !Resolve(getUsers_, "MtLoad_GetUsers", error) ||
-        !Resolve(selectUser_, "MtLoad_SelectUser", error) ||
-        !Resolve(start_, "MtLoad_Start", error) || !Resolve(pause_, "MtLoad_Pause", error) ||
-        !Resolve(resume_, "MtLoad_Resume", error) || !Resolve(stop_, "MtLoad_Stop", error) ||
-        !Resolve(clearResults_, "MtLoad_ClearResults", error) ||
-        !Resolve(wait_, "MtLoad_Wait", error) || !Resolve(getRunState_, "MtLoad_GetRunState", error) ||
-        !Resolve(getMetricRows_, "MtLoad_GetMetricRows", error) ||
-        !Resolve(getScenarioMetricRows_, "MtLoad_GetScenarioMetricRows", error) ||
-        !Resolve(getThresholdResults_, "MtLoad_GetThresholdResults", error) ||
-        !Resolve(getErrorSamples_, "MtLoad_GetErrorSamples", error) ||
-        !Resolve(exportConfiguredReport_, "MtLoad_ExportConfiguredReport", error) ||
-        !Resolve(getLastError_, "MtLoad_GetLastError", error) || !Resolve(destroy_, "MtLoad_Destroy", error))
+        !Resolve(m_pfnSelectUser, "MtLoad_SelectUser", error) ||
+        !Resolve(m_pfnStart, "MtLoad_Start", error) || !Resolve(m_pfnPause, "MtLoad_Pause", error) ||
+        !Resolve(m_pfnResume, "MtLoad_Resume", error) || !Resolve(m_pfnStop, "MtLoad_Stop", error) ||
+        !Resolve(m_pfnClearResults, "MtLoad_ClearResults", error) ||
+        !Resolve(m_pfnWait, "MtLoad_Wait", error) || !Resolve(m_pfnGetRunState, "MtLoad_GetRunState", error) ||
+        !Resolve(m_pfnGetMetricRows, "MtLoad_GetMetricRows", error) ||
+        !Resolve(m_pfnGetScenarioMetricRows, "MtLoad_GetScenarioMetricRows", error) ||
+        !Resolve(m_pfnGetThresholdResults, "MtLoad_GetThresholdResults", error) ||
+        !Resolve(m_pfnGetErrorSamples, "MtLoad_GetErrorSamples", error) ||
+        !Resolve(m_pfnExportConfiguredReport, "MtLoad_ExportConfiguredReport", error) ||
+        !Resolve(m_pfnGetLastError, "MtLoad_GetLastError", error) || !Resolve(m_pfnDestroy, "MtLoad_Destroy", error))
     {
         Unload();
         return false;
     }
 #endif
-    if (getAbiVersion_() != MTLOAD_ABI_VERSION)
+    if (m_pfnGetAbiVersion() != MTLOAD_ABI_VERSION)
     {
         error = L"MtLoadEngine ABI 版本不匹配";
         Unload();
@@ -100,7 +100,7 @@ bool CLoadEngineClient::Load(const std::wstring& dllPath, std::wstring& error)
     }
     MTLOAD_ENGINE_OPTIONS options{};
     options.structSize = sizeof(options);
-    if (initOptions_(&options) != MTLOAD_OK || create_(&options, &handle_) != MTLOAD_OK)
+    if (m_pfnInitOptions(&options) != MTLOAD_OK || m_pfnCreate(&options, &m_hEngine) != MTLOAD_OK)
     {
         error = L"创建 MtLoadEngine 实例失败";
         Unload();
@@ -112,31 +112,31 @@ bool CLoadEngineClient::Load(const std::wstring& dllPath, std::wstring& error)
 // 关键实现：先请求停止和等待终态，再销毁实例；只有动态配置需要释放模块。
 void CLoadEngineClient::Unload()
 {
-    if (handle_ != nullptr && destroy_ != nullptr)
+    if (m_hEngine != nullptr && m_pfnDestroy != nullptr)
     {
-        if (stop_ != nullptr) stop_(handle_);
-        if (wait_ != nullptr) wait_(handle_, UINT32_MAX);
-        destroy_(handle_);
-        handle_ = nullptr;
+        if (m_pfnStop != nullptr) m_pfnStop(m_hEngine);
+        if (m_pfnWait != nullptr) m_pfnWait(m_hEngine, UINT32_MAX);
+        m_pfnDestroy(m_hEngine);
+        m_hEngine = nullptr;
     }
-    if (module_ != nullptr)
+    if (m_hModule != nullptr)
     {
-        FreeLibrary(module_);
-        module_ = nullptr;
+        FreeLibrary(m_hModule);
+        m_hModule = nullptr;
     }
 }
 
 // 关键实现：宽路径只转换一次 UTF-8，加载或校验失败均读取 DLL 最近错误。
 bool CLoadEngineClient::LoadAndValidatePlan(const std::wstring& planPath, std::wstring& error)
 {
-    if (handle_ == nullptr)
+    if (m_hEngine == nullptr)
     {
         error = L"压测引擎尚未加载";
         return false;
     }
     const std::string path = ToUtf8(planPath);
-    int result = loadPlan_(handle_, path.c_str());
-    if (result == MTLOAD_OK) result = validatePlan_(handle_);
+    int result = m_pfnLoadPlan(m_hEngine, path.c_str());
+    if (result == MTLOAD_OK) result = m_pfnValidatePlan(m_hEngine);
     if (result != MTLOAD_OK)
     {
         error = LastError();
@@ -149,12 +149,12 @@ bool CLoadEngineClient::LoadAndValidatePlan(const std::wstring& planPath, std::w
 // 关键实现：只提交异步启动命令，UI 后续通过定时快照观察 RUNNING 和终态。
 bool CLoadEngineClient::Start(const std::string& runName, std::wstring& error)
 {
-    if (handle_ == nullptr)
+    if (m_hEngine == nullptr)
     {
         error = L"压测引擎尚未加载";
         return false;
     }
-    const int result = start_(handle_, runName.c_str());
+    const int result = m_pfnStart(m_hEngine, runName.c_str());
     if (result == MTLOAD_OK) return true;
     error = LastError();
     if (error.empty()) error = L"启动压测失败，错误码=" + std::to_wstring(result);
@@ -164,13 +164,13 @@ bool CLoadEngineClient::Start(const std::string& runName, std::wstring& error)
 // 关键实现：先查询所需数量，再初始化每行 ABI 头并执行第二次复制。
 std::vector<MTLOAD_ENVIRONMENT> CLoadEngineClient::GetEnvironments() const
 {
-    if (handle_ == nullptr || getEnvironments_ == nullptr) return {};
+    if (m_hEngine == nullptr || m_pfnGetEnvironments == nullptr) return {};
     uint32_t count = 0;
-    int result = getEnvironments_(handle_, nullptr, &count);
+    int result = m_pfnGetEnvironments(m_hEngine, nullptr, &count);
     if (result != MTLOAD_E_BUFFER_TOO_SMALL && result != MTLOAD_OK) return {};
     std::vector<MTLOAD_ENVIRONMENT> rows(count);
     if (count == 0) return rows;
-    if (getEnvironments_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
+    if (m_pfnGetEnvironments(m_hEngine, rows.data(), &count) != MTLOAD_OK) return {};
     rows.resize(count);
     return rows;
 }
@@ -179,12 +179,12 @@ std::vector<MTLOAD_ENVIRONMENT> CLoadEngineClient::GetEnvironments() const
 bool CLoadEngineClient::SelectEnvironment(const std::string& environmentId,
     std::wstring& error)
 {
-    if (handle_ == nullptr || selectEnvironment_ == nullptr)
+    if (m_hEngine == nullptr || m_pfnSelectEnvironment == nullptr)
     {
         error = L"压测引擎尚未加载";
         return false;
     }
-    const int result = selectEnvironment_(handle_, environmentId.c_str());
+    const int result = m_pfnSelectEnvironment(m_hEngine, environmentId.c_str());
     if (result == MTLOAD_OK) return true;
     error = LastError();
     if (error.empty()) error = L"选择运行环境失败，错误码=" + std::to_wstring(result);
@@ -194,13 +194,13 @@ bool CLoadEngineClient::SelectEnvironment(const std::string& environmentId,
 // 关键实现：遵循 ABI 两次调用模式取得完整场景摘要数组。
 std::vector<MTLOAD_SCENARIO> CLoadEngineClient::GetScenarios() const
 {
-    if (handle_ == nullptr || getScenarios_ == nullptr) return {};
+    if (m_hEngine == nullptr || m_pfnGetScenarios == nullptr) return {};
     uint32_t count = 0;
-    int result = getScenarios_(handle_, nullptr, &count);
+    int result = m_pfnGetScenarios(m_hEngine, nullptr, &count);
     if (result != MTLOAD_E_BUFFER_TOO_SMALL && result != MTLOAD_OK) return {};
     std::vector<MTLOAD_SCENARIO> rows(count);
     if (count == 0) return rows;
-    if (getScenarios_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
+    if (m_pfnGetScenarios(m_hEngine, rows.data(), &count) != MTLOAD_OK) return {};
     rows.resize(count);
     return rows;
 }
@@ -209,12 +209,12 @@ std::vector<MTLOAD_SCENARIO> CLoadEngineClient::GetScenarios() const
 bool CLoadEngineClient::SelectScenario(const std::string& scenarioId,
     std::wstring& error)
 {
-    if (handle_ == nullptr || selectScenario_ == nullptr)
+    if (m_hEngine == nullptr || m_pfnSelectScenario == nullptr)
     {
         error = L"压测引擎尚未加载";
         return false;
     }
-    const int result = selectScenario_(handle_, scenarioId.c_str());
+    const int result = m_pfnSelectScenario(m_hEngine, scenarioId.c_str());
     if (result == MTLOAD_OK) return true;
     error = LastError();
     if (error.empty()) error = L"选择压测场景失败，错误码=" + std::to_wstring(result);
@@ -224,13 +224,13 @@ bool CLoadEngineClient::SelectScenario(const std::string& scenarioId,
 // 关键实现：通过统一两次调用协议取得工作负载，兼容项和显式项由 DLL 标记。
 std::vector<MTLOAD_WORKLOAD> CLoadEngineClient::GetWorkloads() const
 {
-    if (handle_ == nullptr || getWorkloads_ == nullptr) return {};
+    if (m_hEngine == nullptr || m_pfnGetWorkloads == nullptr) return {};
     uint32_t count = 0;
-    int result = getWorkloads_(handle_, nullptr, &count);
+    int result = m_pfnGetWorkloads(m_hEngine, nullptr, &count);
     if (result != MTLOAD_E_BUFFER_TOO_SMALL && result != MTLOAD_OK) return {};
     std::vector<MTLOAD_WORKLOAD> rows(count);
     if (count == 0) return rows;
-    if (getWorkloads_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
+    if (m_pfnGetWorkloads(m_hEngine, rows.data(), &count) != MTLOAD_OK) return {};
     rows.resize(count);
     return rows;
 }
@@ -239,12 +239,12 @@ std::vector<MTLOAD_WORKLOAD> CLoadEngineClient::GetWorkloads() const
 bool CLoadEngineClient::SelectWorkload(const std::string& workloadId,
     std::wstring& error)
 {
-    if (handle_ == nullptr || selectWorkload_ == nullptr)
+    if (m_hEngine == nullptr || m_pfnSelectWorkload == nullptr)
     {
         error = L"压测引擎尚未加载";
         return false;
     }
-    const int result = selectWorkload_(handle_, workloadId.c_str());
+    const int result = m_pfnSelectWorkload(m_hEngine, workloadId.c_str());
     if (result == MTLOAD_OK) return true;
     error = LastError();
     if (error.empty()) error = L"选择工作负载失败，错误码=" + std::to_wstring(result);
@@ -254,13 +254,13 @@ bool CLoadEngineClient::SelectWorkload(const std::string& workloadId,
 // 关键实现：只复制 DLL 提供的脱敏用户摘要，宿主不读取 XML 密码。
 std::vector<MTLOAD_USER> CLoadEngineClient::GetUsers() const
 {
-    if (handle_ == nullptr || getUsers_ == nullptr) return {};
+    if (m_hEngine == nullptr || getUsers_ == nullptr) return {};
     uint32_t count = 0;
-    int result = getUsers_(handle_, nullptr, &count);
+    int result = getUsers_(m_hEngine, nullptr, &count);
     if (result != MTLOAD_E_BUFFER_TOO_SMALL && result != MTLOAD_OK) return {};
     std::vector<MTLOAD_USER> rows(count);
     if (count == 0) return rows;
-    if (getUsers_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
+    if (getUsers_(m_hEngine, rows.data(), &count) != MTLOAD_OK) return {};
     rows.resize(count);
     return rows;
 }
@@ -268,12 +268,12 @@ std::vector<MTLOAD_USER> CLoadEngineClient::GetUsers() const
 // 关键实现：转发统一用户覆盖 ID，空字符串恢复场景配置。
 bool CLoadEngineClient::SelectUser(const std::string& userId, std::wstring& error)
 {
-    if (handle_ == nullptr || selectUser_ == nullptr)
+    if (m_hEngine == nullptr || m_pfnSelectUser == nullptr)
     {
         error = L"压测引擎尚未加载";
         return false;
     }
-    const int result = selectUser_(handle_, userId.c_str());
+    const int result = m_pfnSelectUser(m_hEngine, userId.c_str());
     if (result == MTLOAD_OK) return true;
     error = LastError();
     if (error.empty()) error = L"选择压测用户失败，错误码=" + std::to_wstring(result);
@@ -283,8 +283,8 @@ bool CLoadEngineClient::SelectUser(const std::string& userId, std::wstring& erro
 // 关键实现：提交暂停命令但不等待在途请求结束。
 bool CLoadEngineClient::Pause(std::wstring& error)
 {
-    if (handle_ == nullptr || pause_ == nullptr) { error = L"压测引擎尚未加载"; return false; }
-    const int result = pause_(handle_);
+    if (m_hEngine == nullptr || m_pfnPause == nullptr) { error = L"压测引擎尚未加载"; return false; }
+    const int result = m_pfnPause(m_hEngine);
     if (result == MTLOAD_OK) return true;
     error = LastError();
     if (error.empty()) error = L"暂停压测失败，错误码=" + std::to_wstring(result);
@@ -294,8 +294,8 @@ bool CLoadEngineClient::Pause(std::wstring& error)
 // 关键实现：提交继续命令并保留当前 runId 和场景位置。
 bool CLoadEngineClient::Resume(std::wstring& error)
 {
-    if (handle_ == nullptr || resume_ == nullptr) { error = L"压测引擎尚未加载"; return false; }
-    const int result = resume_(handle_);
+    if (m_hEngine == nullptr || m_pfnResume == nullptr) { error = L"压测引擎尚未加载"; return false; }
+    const int result = m_pfnResume(m_hEngine);
     if (result == MTLOAD_OK) return true;
     error = LastError();
     if (error.empty()) error = L"继续压测失败，错误码=" + std::to_wstring(result);
@@ -305,8 +305,8 @@ bool CLoadEngineClient::Resume(std::wstring& error)
 // 关键实现：由 DLL 状态机拒绝运行中清理，宿主只转换错误文本。
 bool CLoadEngineClient::ClearResults(std::wstring& error)
 {
-    if (handle_ == nullptr || clearResults_ == nullptr) { error = L"压测引擎尚未加载"; return false; }
-    const int result = clearResults_(handle_);
+    if (m_hEngine == nullptr || m_pfnClearResults == nullptr) { error = L"压测引擎尚未加载"; return false; }
+    const int result = m_pfnClearResults(m_hEngine);
     if (result == MTLOAD_OK) return true;
     error = LastError();
     if (error.empty()) error = L"清空结果失败，错误码=" + std::to_wstring(result);
@@ -316,29 +316,29 @@ bool CLoadEngineClient::ClearResults(std::wstring& error)
 // 关键实现：句柄和函数入口有效时幂等提交停止，不阻塞 UI。
 void CLoadEngineClient::Stop()
 {
-    if (handle_ != nullptr && stop_ != nullptr) stop_(handle_);
+    if (m_hEngine != nullptr && m_pfnStop != nullptr) m_pfnStop(m_hEngine);
 }
 
 // 关键实现：每次调用重新填写结构大小和 ABI 版本，防止复用旧快照头部。
 bool CLoadEngineClient::GetState(MTLOAD_RUN_STATE& state) const
 {
-    if (handle_ == nullptr) return false;
+    if (m_hEngine == nullptr) return false;
     state = {};
     state.structSize = sizeof(state);
     state.abiVersion = MTLOAD_ABI_VERSION;
-    return getRunState_(handle_, &state) == MTLOAD_OK;
+    return m_pfnGetRunState(m_hEngine, &state) == MTLOAD_OK;
 }
 
 // 关键实现：两次调用间指标可能增长，容量不足时返回空集合并等待下一轮刷新。
 std::vector<MTLOAD_METRIC_ROW> CLoadEngineClient::GetMetrics() const
 {
-    if (handle_ == nullptr) return {};
+    if (m_hEngine == nullptr) return {};
     uint32_t count = 0;
-    int result = getMetricRows_(handle_, nullptr, &count);
+    int result = m_pfnGetMetricRows(m_hEngine, nullptr, &count);
     if (result != MTLOAD_E_BUFFER_TOO_SMALL && result != MTLOAD_OK) return {};
     std::vector<MTLOAD_METRIC_ROW> rows(count);
     if (count == 0) return rows;
-    if (getMetricRows_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
+    if (m_pfnGetMetricRows(m_hEngine, rows.data(), &count) != MTLOAD_OK) return {};
     rows.resize(count);
     return rows;
 }
@@ -346,13 +346,13 @@ std::vector<MTLOAD_METRIC_ROW> CLoadEngineClient::GetMetrics() const
 // 关键实现：事务指标与接口指标使用不同 ABI 结构，防止宿主混淆吞吐口径。
 std::vector<MTLOAD_SCENARIO_METRIC_ROW> CLoadEngineClient::GetScenarioMetrics() const
 {
-    if (handle_ == nullptr || getScenarioMetricRows_ == nullptr) return {};
+    if (m_hEngine == nullptr || m_pfnGetScenarioMetricRows == nullptr) return {};
     uint32_t count = 0;
-    int result = getScenarioMetricRows_(handle_, nullptr, &count);
+    int result = m_pfnGetScenarioMetricRows(m_hEngine, nullptr, &count);
     if (result != MTLOAD_E_BUFFER_TOO_SMALL && result != MTLOAD_OK) return {};
     std::vector<MTLOAD_SCENARIO_METRIC_ROW> rows(count);
     if (count == 0) return rows;
-    if (getScenarioMetricRows_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
+    if (m_pfnGetScenarioMetricRows(m_hEngine, rows.data(), &count) != MTLOAD_OK) return {};
     rows.resize(count);
     return rows;
 }
@@ -360,13 +360,13 @@ std::vector<MTLOAD_SCENARIO_METRIC_ROW> CLoadEngineClient::GetScenarioMetrics() 
 // 关键实现：运行未结束时通常返回空集合，终态后返回完整阈值明细。
 std::vector<MTLOAD_THRESHOLD_RESULT> CLoadEngineClient::GetThresholdResults() const
 {
-    if (handle_ == nullptr || getThresholdResults_ == nullptr) return {};
+    if (m_hEngine == nullptr || m_pfnGetThresholdResults == nullptr) return {};
     uint32_t count = 0;
-    int result = getThresholdResults_(handle_, nullptr, &count);
+    int result = m_pfnGetThresholdResults(m_hEngine, nullptr, &count);
     if (result != MTLOAD_E_BUFFER_TOO_SMALL && result != MTLOAD_OK) return {};
     std::vector<MTLOAD_THRESHOLD_RESULT> rows(count);
     if (count == 0) return rows;
-    if (getThresholdResults_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
+    if (m_pfnGetThresholdResults(m_hEngine, rows.data(), &count) != MTLOAD_OK) return {};
     rows.resize(count);
     return rows;
 }
@@ -374,13 +374,13 @@ std::vector<MTLOAD_THRESHOLD_RESULT> CLoadEngineClient::GetThresholdResults() co
 // 关键实现：按 ABI 头初始化每个错误样本，并把数组所有权留在宿主容器。
 std::vector<MTLOAD_ERROR_SAMPLE> CLoadEngineClient::GetErrorSamples() const
 {
-    if (handle_ == nullptr || getErrorSamples_ == nullptr) return {};
+    if (m_hEngine == nullptr || m_pfnGetErrorSamples == nullptr) return {};
     uint32_t count = 0;
-    int result = getErrorSamples_(handle_, nullptr, &count);
+    int result = m_pfnGetErrorSamples(m_hEngine, nullptr, &count);
     if (result != MTLOAD_E_BUFFER_TOO_SMALL && result != MTLOAD_OK) return {};
     std::vector<MTLOAD_ERROR_SAMPLE> rows(count);
     if (count == 0) return rows;
-    if (getErrorSamples_(handle_, rows.data(), &count) != MTLOAD_OK) return {};
+    if (m_pfnGetErrorSamples(m_hEngine, rows.data(), &count) != MTLOAD_OK) return {};
     rows.resize(count);
     return rows;
 }
@@ -389,13 +389,13 @@ std::vector<MTLOAD_ERROR_SAMPLE> CLoadEngineClient::GetErrorSamples() const
 bool CLoadEngineClient::ExportConfiguredReport(uint32_t format,
     std::wstring& outputPath, std::wstring& error)
 {
-    if (handle_ == nullptr || exportConfiguredReport_ == nullptr)
+    if (m_hEngine == nullptr || m_pfnExportConfiguredReport == nullptr)
     {
         error = L"压测引擎尚未加载";
         return false;
     }
     std::vector<char> path(32768);
-    const int result = exportConfiguredReport_(handle_, format, path.data(),
+    const int result = m_pfnExportConfiguredReport(m_hEngine, format, path.data(),
         static_cast<uint32_t>(path.size()));
     if (result == MTLOAD_OK)
     {
@@ -410,11 +410,11 @@ bool CLoadEngineClient::ExportConfiguredReport(uint32_t format,
 // 关键实现：先查询所需字节数，再读取完整 UTF-8 错误，避免截断中文诊断。
 std::wstring CLoadEngineClient::LastError() const
 {
-    if (handle_ == nullptr || getLastError_ == nullptr) return {};
+    if (m_hEngine == nullptr || m_pfnGetLastError == nullptr) return {};
     uint32_t bytes = 0;
-    getLastError_(handle_, nullptr, &bytes);
+    m_pfnGetLastError(m_hEngine, nullptr, &bytes);
     std::vector<char> buffer(bytes == 0 ? 1 : bytes);
-    if (getLastError_(handle_, buffer.data(), &bytes) != MTLOAD_OK) return {};
+    if (m_pfnGetLastError(m_hEngine, buffer.data(), &bytes) != MTLOAD_OK) return {};
     return FromUtf8(buffer.data());
 }
 

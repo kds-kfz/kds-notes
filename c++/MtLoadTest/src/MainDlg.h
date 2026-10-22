@@ -19,5 +19,5 @@ protected:
     DECLARE_MESSAGE_MAP()
 
 private:
-    HICON mainIcon_ = nullptr;   // 从应用资源借用的主图标句柄，不由本类销毁。
+    HICON m_hMainIcon = nullptr;   // 从应用资源借用的主图标句柄，不由本类销毁。
 };

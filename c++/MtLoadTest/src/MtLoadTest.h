@@ -19,7 +19,7 @@ public:
 
 private:
     // 当前用户会话内的单实例互斥量，由应用对象持有至退出。
-    HANDLE singleInstanceMutex_ = nullptr; // 当前用户会话内唯一互斥量句柄，由 ExitInstance 关闭。
+    HANDLE m_hSingleInstanceMutex = nullptr; // 当前用户会话内唯一互斥量句柄，由 ExitInstance 关闭。
 };
 
 extern CMtLoadTestApp theApp; // MFC 框架创建的进程级应用单例。

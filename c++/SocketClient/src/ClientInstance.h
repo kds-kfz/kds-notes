@@ -29,6 +29,9 @@ public:
     // 判断当前实例是否要求先完成 TLS 握手。
     bool IsSecure() const;
 
+    // TLS 握手完成后校验证书中的 DNS/IP 身份；失败时不发布连接成功事件。
+    bool CompleteSecureHandshake();
+
     // 异步连接远端；已经运行时应先调用 Stop。
     bool Connect(const char* p_szHost, unsigned short p_unPort,
         SOCKET_CLIENT_NOTIFY_PROC p_pNotify, void* p_pContext) override;
@@ -104,36 +107,37 @@ public:
     void FrameComplete();
 
 private:
-    EN_SOCKET_CLIENT_TYPE type_; // 工厂确定的协议类型。
-    bool secure_; // HTTPS/WSS 使用 HPSocket TLS 组件；校验开启时验证 CA 链，但官方预编译库不验证主机名。
-    bool tlsConfigured_; // TLS 上下文是否已按调用方策略初始化。
-    std::string name_; // 创建时确定的逻辑名称。
-    unsigned long long id_; // 不复用的诊断实例编号。
-    TcpClientListener tcpListener_; // TCP 专用监听器。
-    HttpClientListener httpListener_; // HTTP/WebSocket 专用监听器。
-    ITcpClient* tcp_; // 自有 HP 组件，HTTP/Web 时与 http_ 别名。
-    IHttpClient* http_; // TCP 类型为空；仅在 HTTP/Web 时销毁。
-    mutable std::recursive_mutex control_; // 串行化公开组件操作。
-    std::atomic<SOCKET_CLIENT_NOTIFY_PROC> notify_; // 业务回调函数。
-    std::atomic<void*> context_; // 业务回调上下文。
-    std::atomic<bool> started_; // Start 成功且 Stop 尚未完成。
-    std::atomic<bool> connected_; // 传输连接有效状态。
-    std::atomic<bool> upgraded_; // WebSocket 握手成功状态。
-    bool stopping_; // 由控制锁保护的停机标志。
-    std::atomic<unsigned short> status_; // 最近一次 HTTP 状态码。
-    std::atomic<bool> httpRequestActive_; // HTTP/HTTPS 每条连接只允许一个尚未完成的响应。
-    std::string host_; // 最近一次请求连接的地址。
-    unsigned short port_; // 最近一次请求连接的端口。
-    std::mutex frameMutex_; // 保护 WebSocket 握手及帧缓冲区。
-    std::string expectedAccept_; // 预期的服务端握手应答。
-    std::string receivedAccept_; // 实际收到的握手应答。
-    std::vector<BYTE> frame_; // 当前 WebSocket 帧的数据缓存。
-    BYTE frameOpcode_; // 当前帧的操作码。
-    bool frameFinal_; // 当前帧的 FIN 标志。
-    std::mutex httpBodyMutex_; // 保护单个 HTTP 响应的编码名称、缓存和线上字节数。
-    std::string contentEncoding_; // 服务端 Content-Encoding；空值表示未压缩正文。
-    std::vector<BYTE> encodedBody_; // 压缩响应在完成前的原始字节缓存。
-    unsigned long long wireBodyBytes_; // 当前 HTTP 响应在线路上传输的正文累计字节数。
+    EN_SOCKET_CLIENT_TYPE m_enType; // 工厂确定的协议类型。
+    bool m_bSecure; // HTTPS/WSS 使用 HPSocket TLS 组件。
+    bool m_bTlsConfigured; // TLS 上下文是否已按调用方策略初始化。
+    bool m_bTlsVerifyPeer; // 开启时同时校验证书链和目标主机名。
+    std::string m_strName; // 创建时确定的逻辑名称。
+    unsigned long long m_ullId; // 不复用的诊断实例编号。
+    TcpClientListener m_clTcpListener; // TCP 专用监听器。
+    HttpClientListener m_clHttpListener; // HTTP/WebSocket 专用监听器。
+    ITcpClient* m_pTcpClient; // 自有 HP 组件，HTTP/Web 时与 m_pHttpClient 别名。
+    IHttpClient* m_pHttpClient; // TCP 类型为空；仅在 HTTP/Web 时销毁。
+    mutable std::recursive_mutex m_clControlMutex; // 串行化公开组件操作。
+    std::atomic<SOCKET_CLIENT_NOTIFY_PROC> m_pfnNotify; // 业务回调函数。
+    std::atomic<void*> m_pContext; // 业务回调上下文。
+    std::atomic<bool> m_bStarted; // Start 成功且 Stop 尚未完成。
+    std::atomic<bool> m_bConnected; // 传输连接有效状态。
+    std::atomic<bool> m_bUpgraded; // WebSocket 握手成功状态。
+    bool m_bStopping; // 由控制锁保护的停机标志。
+    std::atomic<unsigned short> m_usStatus; // 最近一次 HTTP 状态码。
+    std::atomic<bool> m_bHttpRequestActive; // HTTP/HTTPS 每条连接只允许一个尚未完成的响应。
+    std::string m_strHost; // 最近一次请求连接的地址。
+    unsigned short m_usPort; // 最近一次请求连接的端口。
+    std::mutex m_clFrameMutex; // 保护 WebSocket 握手及帧缓冲区。
+    std::string m_strExpectedAccept; // 预期的服务端握手应答。
+    std::string m_strReceivedAccept; // 实际收到的握手应答。
+    std::vector<BYTE> m_vecFrame; // 当前 WebSocket 帧的数据缓存。
+    BYTE m_byFrameOpcode; // 当前帧的操作码。
+    bool m_bFrameFinal; // 当前帧的 FIN 标志。
+    std::mutex m_clHttpBodyMutex; // 保护单个 HTTP 响应的编码名称、缓存和线上字节数。
+    std::string m_strContentEncoding; // 服务端 Content-Encoding；空值表示未压缩正文。
+    std::vector<BYTE> m_vecEncodedBody; // 压缩响应在完成前的原始字节缓存。
+    unsigned long long m_ullWireBodyBytes; // 当前 HTTP 响应在线路上传输的正文累计字节数。
 };
 
 #endif

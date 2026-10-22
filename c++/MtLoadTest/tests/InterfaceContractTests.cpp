@@ -53,14 +53,14 @@ public:
         Check(::getsockname(listener_, reinterpret_cast<sockaddr*>(&address), &length) == 0,
             "getsockname");
         port_ = ntohs(address.sin_port);
-        worker_ = std::thread(&MockHttpServer::Serve, this);
+        m_clWorker = std::thread(&MockHttpServer::Serve, this);
     }
 
     ~MockHttpServer()
     {
-        stopping_.store(true);
+        m_bStopping.store(true);
         if (listener_ != INVALID_SOCKET) ::closesocket(listener_);
-        if (worker_.joinable()) worker_.join();
+        if (m_clWorker.joinable()) m_clWorker.join();
         ::WSACleanup();
     }
 
@@ -70,7 +70,7 @@ private:
     // 每条连接只处理一个请求，符合接口测试当前“单次执行、确定性关闭”的语义。
     void Serve()
     {
-        while (!stopping_.load())
+        while (!m_bStopping.load())
         {
             SOCKET client = ::accept(listener_, nullptr, nullptr);
             if (client == INVALID_SOCKET) return;
@@ -97,8 +97,8 @@ private:
 
     SOCKET listener_ = INVALID_SOCKET;       // 析构关闭以解除 accept。
     unsigned short port_ = 0;                // 系统分配的回环端口。
-    std::atomic<bool> stopping_{false};       // 服务线程协作停止标记。
-    std::thread worker_;                      // 唯一服务线程。
+    std::atomic<bool> m_bStopping{false};       // 服务线程协作停止标记。
+    std::thread m_clWorker;                      // 唯一服务线程。
 };
 
 // 构造一条使用回环服务的 HTTP 请求；调用方只覆盖路径和响应上限。

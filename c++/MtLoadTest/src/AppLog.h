@@ -39,8 +39,8 @@ private:
     // 将 Windows 宽字符串转换为写盘使用的 UTF-8；转换失败返回空字符串。
     static std::string ToUtf8(const std::wstring& value);
 
-    mutable std::mutex mutex_;              // 保护条目、路径和序号。
-    std::vector<AppLogEntry> entries_;      // 当前进程内可供界面查看的日志副本。
-    std::wstring filePath_;                 // 当前日期日志文件绝对路径。
-    uint64_t nextSequence_ = 1;             // 下一条日志的进程内序号。
+    mutable std::mutex m_clMutex;              // 保护条目、路径和序号。
+    std::vector<AppLogEntry> m_vecEntries;      // 当前进程内可供界面查看的日志副本。
+    std::wstring m_wstrFilePath;                 // 当前日期日志文件绝对路径。
+    uint64_t m_u64NextSequence = 1;             // 下一条日志的进程内序号。
 };

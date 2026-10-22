@@ -144,15 +144,15 @@ WebMessage MakeWebMessage(const std::string& direction, const std::string& json)
 SocketHttpTransport::~SocketHttpTransport()
 {
     Cancel();
-    std::lock_guard<std::mutex> execution(executionMutex_);
+    std::lock_guard<std::mutex> execution(m_clExecutionMutex);
 }
 
 HttpResponse SocketHttpTransport::Execute(const HttpRequest& request)
 {
-    std::lock_guard<std::mutex> execution(executionMutex_);
+    std::lock_guard<std::mutex> execution(m_clExecutionMutex);
     HttpResponse response;
     const auto started = std::chrono::steady_clock::now();
-    cancelRequested_.store(false);
+    m_bCancelRequested.store(false);
     HttpCallbackState callback;
     callback.maxResponseBytes = request.server.maxResponseBytes;
     const bool secure = request.server.transport == TransportKind::Https || request.server.scheme == "https";
@@ -165,8 +165,8 @@ HttpResponse SocketHttpTransport::Execute(const HttpRequest& request)
         return response;
     }
     auto destroy = [&]() {
-        std::lock_guard<std::mutex> active(activeMutex_);
-        if (activeClient_ == client) activeClient_ = nullptr;
+        std::lock_guard<std::mutex> active(m_clActiveMutex);
+        if (m_pActiveClient == client) m_pActiveClient = nullptr;
         client->Stop();
         if (secure) DelHttpsClientInstance(client); else DelHttpClientInstance(client);
         response.elapsedMs = std::chrono::duration<double, std::milli>(
@@ -180,11 +180,11 @@ HttpResponse SocketHttpTransport::Execute(const HttpRequest& request)
         return response;
     }
     {
-        std::lock_guard<std::mutex> active(activeMutex_);
-        activeClient_ = client;
-        if (cancelRequested_.load()) client->Stop();
+        std::lock_guard<std::mutex> active(m_clActiveMutex);
+        m_pActiveClient = client;
+        if (m_bCancelRequested.load()) client->Stop();
     }
-    if (cancelRequested_.load())
+    if (m_bCancelRequested.load())
     {
         response.error = "HTTP 请求已取消";
         destroy();
@@ -199,8 +199,8 @@ HttpResponse SocketHttpTransport::Execute(const HttpRequest& request)
     {
         std::unique_lock<std::mutex> lock(callback.mutex);
         const bool ready = WaitFor(callback.changed, lock, request.server.connectTimeoutMs,
-            cancelRequested_, [&]() { return callback.connected || callback.closed; });
-        if (cancelRequested_.load()) response.error = "HTTP 请求已取消";
+            m_bCancelRequested, [&]() { return callback.connected || callback.closed; });
+        if (m_bCancelRequested.load()) response.error = "HTTP 请求已取消";
         else if (!ready || !callback.connected)
             response.error = "HTTP 连接超时或断开，SocketClient 错误码=" + std::to_string(callback.errorCode);
         if (!response.error.empty()) { lock.unlock(); destroy(); return response; }
@@ -235,13 +235,13 @@ HttpResponse SocketHttpTransport::Execute(const HttpRequest& request)
     {
         std::unique_lock<std::mutex> lock(callback.mutex);
         const bool ready = WaitFor(callback.changed, lock, request.server.requestTimeoutMs,
-            cancelRequested_, [&]() { return callback.complete || callback.closed || callback.tooLarge; });
+            m_bCancelRequested, [&]() { return callback.complete || callback.closed || callback.tooLarge; });
         response.statusCode = callback.status;
         response.responseHeaders = callback.headers;
         response.responseBody = callback.body;
         response.responseBytes = callback.complete && callback.wireBodyBytes != 0 ?
             callback.wireBodyBytes : callback.body.size();
-        if (cancelRequested_.load()) response.error = "HTTP 请求已取消";
+        if (m_bCancelRequested.load()) response.error = "HTTP 请求已取消";
         else if (!ready) response.error = "HTTP 响应超时";
         else if (callback.tooLarge) response.error = "HTTP 响应超过 maxResponseBytes";
         else if (!callback.complete)
@@ -254,9 +254,9 @@ HttpResponse SocketHttpTransport::Execute(const HttpRequest& request)
 
 void SocketHttpTransport::Cancel()
 {
-    cancelRequested_.store(true);
-    std::lock_guard<std::mutex> active(activeMutex_);
-    if (activeClient_ != nullptr) activeClient_->Stop();
+    m_bCancelRequested.store(true);
+    std::lock_guard<std::mutex> active(m_clActiveMutex);
+    if (m_pActiveClient != nullptr) m_pActiveClient->Stop();
 }
 
 SocketWebTransport::~SocketWebTransport() { Disconnect(); }
@@ -267,8 +267,8 @@ bool SocketWebTransport::Connect(const ServerProfile& server,
 {
     Disconnect();
     error.clear();
-    stopping_.store(false);
-    heartbeatStop_.store(false);
+    m_bStopping.store(false);
+    m_bHeartbeatStop.store(false);
     const bool secure = server.scheme == "wss";
     const std::string name = NextClientName("mt-interface-web-");
     CSocketClient* created = secure ? CreateWssClientInstanceByName(name.c_str()) :
@@ -281,25 +281,25 @@ bool SocketWebTransport::Connect(const ServerProfile& server,
         return false;
     }
     {
-        std::lock_guard<std::mutex> calls(clientCallMutex_);
-        std::lock_guard<std::mutex> state(mutex_);
-        client_ = created; secure_ = secure; transportConnected_ = false; webOpened_ = false;
-        closed_ = false; errorCode_ = 0; messageCallback_ = std::move(messageCallback);
-        stateCallback_ = std::move(stateCallback);
+        std::lock_guard<std::mutex> calls(m_clClientCallMutex);
+        std::lock_guard<std::mutex> state(m_clMutex);
+        m_pClient = created; m_bSecure = secure; m_bTransportConnected = false; m_bWebOpened = false;
+        m_bClosed = false; m_iErrorCode = 0; m_clMessageCallback = std::move(messageCallback);
+        m_clStateCallback = std::move(stateCallback);
     }
     {
-        std::lock_guard<std::mutex> calls(clientCallMutex_);
+        std::lock_guard<std::mutex> calls(m_clClientCallMutex);
         if (!created->Connect(server.host.c_str(), server.port, OnSocketEvent, this))
         { error = "SocketClient WebSocket Connect 调用失败"; }
     }
     if (!error.empty()) { Disconnect(); return false; }
     {
-        std::unique_lock<std::mutex> state(mutex_);
-        const bool ready = changed_.wait_for(state, std::chrono::milliseconds(server.connectTimeoutMs),
-            [&]() { return transportConnected_ || closed_ || stopping_.load(); });
-        if (!ready || !transportConnected_)
-            error = stopping_.load() ? "WebSocket 连接已取消" :
-                "WebSocket 连接超时或断开，SocketClient 错误码=" + std::to_string(errorCode_);
+        std::unique_lock<std::mutex> state(m_clMutex);
+        const bool ready = m_clChanged.wait_for(state, std::chrono::milliseconds(server.connectTimeoutMs),
+            [&]() { return m_bTransportConnected || m_bClosed || m_bStopping.load(); });
+        if (!ready || !m_bTransportConnected)
+            error = m_bStopping.load() ? "WebSocket 连接已取消" :
+                "WebSocket 连接超时或断开，SocketClient 错误码=" + std::to_string(m_iErrorCode);
     }
     if (!error.empty()) { Disconnect(); return false; }
 
@@ -311,10 +311,10 @@ bool SocketWebTransport::Connect(const ServerProfile& server,
     const bool defaultPort = (secure && server.port == 443) || (!secure && server.port == 80);
     const std::string host = defaultPort ? server.host : server.host + ":" + std::to_string(server.port);
     {
-        std::lock_guard<std::mutex> calls(clientCallMutex_);
+        std::lock_guard<std::mutex> calls(m_clClientCallMutex);
         {
-            std::lock_guard<std::mutex> state(mutex_);
-            if (client_ != created || stopping_.load()) error = "WebSocket 连接已取消";
+            std::lock_guard<std::mutex> state(m_clMutex);
+            if (m_pClient != created || m_bStopping.load()) error = "WebSocket 连接已取消";
         }
         if (error.empty() && !created->UpgradeWithHeaders(server.webSocketPath.c_str(), host.c_str(),
             namePointers.empty() ? nullptr : namePointers.data(),
@@ -323,12 +323,12 @@ bool SocketWebTransport::Connect(const ServerProfile& server,
     }
     if (!error.empty()) { Disconnect(); return false; }
     {
-        std::unique_lock<std::mutex> state(mutex_);
-        const bool ready = changed_.wait_for(state, std::chrono::milliseconds(server.requestTimeoutMs),
-            [&]() { return webOpened_ || closed_ || stopping_.load(); });
-        if (!ready || !webOpened_)
-            error = stopping_.load() ? "WebSocket 握手已取消" :
-                "WebSocket 握手失败或超时，SocketClient 错误码=" + std::to_string(errorCode_);
+        std::unique_lock<std::mutex> state(m_clMutex);
+        const bool ready = m_clChanged.wait_for(state, std::chrono::milliseconds(server.requestTimeoutMs),
+            [&]() { return m_bWebOpened || m_bClosed || m_bStopping.load(); });
+        if (!ready || !m_bWebOpened)
+            error = m_bStopping.load() ? "WebSocket 握手已取消" :
+                "WebSocket 握手失败或超时，SocketClient 错误码=" + std::to_string(m_iErrorCode);
     }
     if (!error.empty()) { Disconnect(); return false; }
     return true;
@@ -339,14 +339,14 @@ bool SocketWebTransport::Send(const std::string& json, std::string& error)
     error.clear();
     MessageCallback callback;
     {
-        std::lock_guard<std::mutex> calls(clientCallMutex_);
+        std::lock_guard<std::mutex> calls(m_clClientCallMutex);
         CSocketClient* target = nullptr;
         {
-            std::lock_guard<std::mutex> state(mutex_);
-            if (client_ == nullptr || !webOpened_ || stopping_.load())
+            std::lock_guard<std::mutex> state(m_clMutex);
+            if (m_pClient == nullptr || !m_bWebOpened || m_bStopping.load())
             { error = "WebSocket 尚未连接"; return false; }
-            target = client_;
-            callback = messageCallback_;
+            target = m_pClient;
+            callback = m_clMessageCallback;
         }
         if (!target->SendFrame(1, json.data(), static_cast<int>(json.size())))
         { error = "SocketClient SendFrame 调用失败"; return false; }
@@ -357,37 +357,37 @@ bool SocketWebTransport::Send(const std::string& json, std::string& error)
 
 void SocketWebTransport::SetHeartbeat(const std::string& json, uint32_t intervalMs)
 {
-    heartbeatStop_.store(true);
-    changed_.notify_all();
-    if (heartbeatThread_.joinable() && heartbeatThread_.get_id() != std::this_thread::get_id())
-        heartbeatThread_.join();
+    m_bHeartbeatStop.store(true);
+    m_clChanged.notify_all();
+    if (m_clHeartbeatThread.joinable() && m_clHeartbeatThread.get_id() != std::this_thread::get_id())
+        m_clHeartbeatThread.join();
     {
-        std::lock_guard<std::mutex> state(mutex_);
-        heartbeatJson_ = json; heartbeatIntervalMs_ = intervalMs;
+        std::lock_guard<std::mutex> state(m_clMutex);
+        m_strHeartbeatJson = json; m_u32HeartbeatIntervalMs = intervalMs;
     }
-    heartbeatStop_.store(false);
-    if (!json.empty() && intervalMs != 0 && !stopping_.load())
-        heartbeatThread_ = std::thread(&SocketWebTransport::HeartbeatLoop, this);
+    m_bHeartbeatStop.store(false);
+    if (!json.empty() && intervalMs != 0 && !m_bStopping.load())
+        m_clHeartbeatThread = std::thread(&SocketWebTransport::HeartbeatLoop, this);
 }
 
 void SocketWebTransport::HeartbeatLoop()
 {
-    while (!stopping_.load() && !heartbeatStop_.load())
+    while (!m_bStopping.load() && !m_bHeartbeatStop.load())
     {
         std::string payload;
         uint32_t interval = 0;
         {
-            std::unique_lock<std::mutex> state(mutex_);
-            payload = heartbeatJson_; interval = heartbeatIntervalMs_;
-            if (changed_.wait_for(state, std::chrono::milliseconds(interval),
-                [&]() { return stopping_.load() || heartbeatStop_.load(); })) return;
+            std::unique_lock<std::mutex> state(m_clMutex);
+            payload = m_strHeartbeatJson; interval = m_u32HeartbeatIntervalMs;
+            if (m_clChanged.wait_for(state, std::chrono::milliseconds(interval),
+                [&]() { return m_bStopping.load() || m_bHeartbeatStop.load(); })) return;
         }
         std::string error;
         if (!Send(payload, error))
         {
             StateCallback callback;
-            { std::lock_guard<std::mutex> state(mutex_); callback = stateCallback_; }
-            if (callback && !stopping_.load()) callback(false, "WebSocket 心跳发送失败: " + error);
+            { std::lock_guard<std::mutex> state(m_clMutex); callback = m_clStateCallback; }
+            if (callback && !m_bStopping.load()) callback(false, "WebSocket 心跳发送失败: " + error);
             return;
         }
     }
@@ -395,24 +395,24 @@ void SocketWebTransport::HeartbeatLoop()
 
 void SocketWebTransport::Disconnect()
 {
-    stopping_.store(true);
-    heartbeatStop_.store(true);
-    changed_.notify_all();
-    if (heartbeatThread_.joinable() && heartbeatThread_.get_id() != std::this_thread::get_id())
-        heartbeatThread_.join();
-    std::lock_guard<std::mutex> calls(clientCallMutex_);
+    m_bStopping.store(true);
+    m_bHeartbeatStop.store(true);
+    m_clChanged.notify_all();
+    if (m_clHeartbeatThread.joinable() && m_clHeartbeatThread.get_id() != std::this_thread::get_id())
+        m_clHeartbeatThread.join();
+    std::lock_guard<std::mutex> calls(m_clClientCallMutex);
     CSocketClient* client = nullptr;
     bool secure = false;
     {
-        std::lock_guard<std::mutex> state(mutex_);
-        client = client_; secure = secure_;
+        std::lock_guard<std::mutex> state(m_clMutex);
+        client = m_pClient; secure = m_bSecure;
     }
     if (client != nullptr) client->Stop();
     {
-        std::lock_guard<std::mutex> state(mutex_);
-        if (client_ == client) client_ = nullptr;
-        transportConnected_ = false; webOpened_ = false; closed_ = true;
-        messageCallback_ = {}; stateCallback_ = {}; heartbeatJson_.clear(); heartbeatIntervalMs_ = 0;
+        std::lock_guard<std::mutex> state(m_clMutex);
+        if (m_pClient == client) m_pClient = nullptr;
+        m_bTransportConnected = false; m_bWebOpened = false; m_bClosed = true;
+        m_clMessageCallback = {}; m_clStateCallback = {}; m_strHeartbeatJson.clear(); m_u32HeartbeatIntervalMs = 0;
     }
     if (client != nullptr)
     {
@@ -422,8 +422,8 @@ void SocketWebTransport::Disconnect()
 
 bool SocketWebTransport::IsConnected() const
 {
-    std::lock_guard<std::mutex> state(mutex_);
-    return client_ != nullptr && webOpened_ && !closed_ && !stopping_.load();
+    std::lock_guard<std::mutex> state(m_clMutex);
+    return m_pClient != nullptr && m_bWebOpened && !m_bClosed && !m_bStopping.load();
 }
 
 void SocketWebTransport::OnSocketEvent(CSocketClient* client,
@@ -445,42 +445,42 @@ void SocketWebTransport::HandleSocketEvent(CSocketClient* source, const ST_SOCKE
     if (event.enEvent == EN_SOCKET_CLIENT_WEB_FRAME && event.byOpcode == 9)
     {
         // 回调执行期间 source 的生命周期由 SocketClient 保证。这里不能获取
-        // clientCallMutex_，否则 Disconnect 持锁调用 Stop 等待本回调时会死锁。
+        // m_clClientCallMutex，否则 Disconnect 持锁调用 Stop 等待本回调时会死锁。
         if (source != nullptr) source->SendFrame(10, event.pData, event.iDataLength);
         return;
     }
     {
-        std::lock_guard<std::mutex> state(mutex_);
+        std::lock_guard<std::mutex> state(m_clMutex);
         switch (event.enEvent)
         {
-        case EN_SOCKET_CLIENT_CONNECTED: transportConnected_ = true; break;
+        case EN_SOCKET_CLIENT_CONNECTED: m_bTransportConnected = true; break;
         case EN_SOCKET_CLIENT_WEB_OPEN:
-            webOpened_ = true; closed_ = false; notifyState = true; stateValue = true;
+            m_bWebOpened = true; m_bClosed = false; notifyState = true; stateValue = true;
             stateText = "WebSocket 已连接"; break;
         case EN_SOCKET_CLIENT_WEB_FRAME:
             if (event.byOpcode == 1 && event.pData != nullptr && event.iDataLength >= 0)
             {
                 message = MakeWebMessage("接收", std::string(static_cast<const char*>(event.pData),
                     static_cast<size_t>(event.iDataLength)));
-                messageCallback = messageCallback_; hasMessage = true;
+                messageCallback = m_clMessageCallback; hasMessage = true;
             }
             else if (event.byOpcode == 8)
             {
-                closed_ = true; webOpened_ = false; notifyState = true;
+                m_bClosed = true; m_bWebOpened = false; notifyState = true;
                 stateText = "服务端关闭 WebSocket";
             }
             break;
         case EN_SOCKET_CLIENT_CLOSED:
-            closed_ = true; transportConnected_ = false; webOpened_ = false;
-            errorCode_ = event.iErrorCode; notifyState = !stopping_.load();
-            stateText = "WebSocket 已断开，错误码=" + std::to_string(errorCode_); break;
+            m_bClosed = true; m_bTransportConnected = false; m_bWebOpened = false;
+            m_iErrorCode = event.iErrorCode; notifyState = !m_bStopping.load();
+            stateText = "WebSocket 已断开，错误码=" + std::to_string(m_iErrorCode); break;
         case EN_SOCKET_CLIENT_HTTP_ERROR:
-            closed_ = true; errorCode_ = event.iErrorCode; notifyState = !stopping_.load();
-            stateText = "WebSocket 协议错误，错误码=" + std::to_string(errorCode_); break;
+            m_bClosed = true; m_iErrorCode = event.iErrorCode; notifyState = !m_bStopping.load();
+            stateText = "WebSocket 协议错误，错误码=" + std::to_string(m_iErrorCode); break;
         default: break;
         }
-        if (notifyState) stateCallback = stateCallback_;
-        changed_.notify_all();
+        if (notifyState) stateCallback = m_clStateCallback;
+        m_clChanged.notify_all();
     }
     if (hasMessage && messageCallback) messageCallback(message);
     if (notifyState && stateCallback) stateCallback(stateValue, stateText);

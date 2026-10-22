@@ -46,5 +46,17 @@
   <ItemGroup>
     <ClCompile Include="CredCoreCompatibilityTests.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\project\vs2022\CredCore\CredCore.vcxproj">
+      <Project>{3EBC8EE5-6149-4D29-92FC-53A0B8017C31}</Project>
+    </ProjectReference>
+  </ItemGroup>
+  <Target Name="CopyTestRuntimeDependencies" AfterTargets="Build">
+    <ItemGroup>
+      <TestRuntimeDependency Include="$(ProjectDir)..\lib\x64vc14\libCredCore.dll" />
+      <TestRuntimeDependency Include="$(ProjectDir)..\vender\openssl\3.5.6\bin\x64vc14\dynamic\libcrypto-3-x64.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TestRuntimeDependency)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

@@ -24,7 +24,7 @@ public:
         const BYTE* p_byData, int p_iLength) override;
 
 private:
-    ClientInstance& owner_; // 所属实例负责保证监听器生命周期。
+    ClientInstance& m_refOwner; // 所属实例负责保证监听器生命周期。
 };
 
 #endif

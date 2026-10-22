@@ -34,14 +34,18 @@
       <SubSystem>Console</SubSystem><GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\vender\tinyxml\lib\$(Platform)vc14;$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\share;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libSocketClient.lib;tinyxml.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- 既有 tinyxml 发布库未携带对象 PDB；仅忽略缺少调试信息的 LNK4099。 -->
+      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <Link Condition="'$(Configuration)'=='ReleaseStatic'">
       <SubSystem>Console</SubSystem><GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\vender\tinyxml\lib\$(Platform)vc14;$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\static;$(ProjectDir)..\..\..\..\SocketClient\vender\hpsocket\lib\$(Platform)vc14\static;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libSocketClient_static.lib;tinyxml.lib;HPSocket.lib;bcrypt.lib;crypt32.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\vender\tinyxml\lib\$(Platform)vc14;$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\static;$(ProjectDir)..\..\..\..\SocketClient\vender\hpsocket\lib\$(Platform)vc14\static;$(ProjectDir)..\..\..\..\SocketClient\vender\openssl\3.5.6\lib\$(Platform)vc14\dynamic;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libSocketClient_static.lib;tinyxml.lib;HPSocket.lib;libssl.lib;libcrypto.lib;bcrypt.lib;crypt32.lib;Ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- 既有 tinyxml/SocketClient 静态发布库未携带对象 PDB；仅忽略缺少调试信息的 LNK4099。 -->
+      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
     </Link>
-    <PostBuildEvent Condition="'$(Configuration)'!='ReleaseStatic'"><Command>copy /Y "$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\share\libSocketClient.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\..\SocketClient\vender\hpsocket\lib\$(Platform)vc14\HPSocket.dll" "$(OutDir)"</Command></PostBuildEvent>
-    <PostBuildEvent Condition="'$(Configuration)'=='ReleaseStatic'"><Command>if exist "$(OutDir)HPSocket.dll" del /Q "$(OutDir)HPSocket.dll"</Command></PostBuildEvent>
+    <PostBuildEvent Condition="'$(Configuration)'!='ReleaseStatic'"><Command>copy /Y "$(ProjectDir)..\..\..\..\SocketClient\lib\$(Platform)vc14\share\libSocketClient.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\..\SocketClient\vender\hpsocket\lib\$(Platform)vc14\HPSocket.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\..\SocketClient\vender\openssl\3.5.6\bin\$(Platform)vc14\dynamic\libssl-3-x64.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\..\SocketClient\vender\openssl\3.5.6\bin\$(Platform)vc14\dynamic\libcrypto-3-x64.dll" "$(OutDir)"</Command></PostBuildEvent>
+    <PostBuildEvent Condition="'$(Configuration)'=='ReleaseStatic'"><Command>if exist "$(OutDir)HPSocket.dll" del /Q "$(OutDir)HPSocket.dll"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\..\SocketClient\vender\openssl\3.5.6\bin\$(Platform)vc14\dynamic\libssl-3-x64.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\..\..\..\SocketClient\vender\openssl\3.5.6\bin\$(Platform)vc14\dynamic\libcrypto-3-x64.dll" "$(OutDir)"</Command></PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\tests\InterfaceContractTests.cpp" />

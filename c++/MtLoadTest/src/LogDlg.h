@@ -38,7 +38,7 @@ private:
     // 根据列表客户区宽度铺满时间、等级和消息列。
     void ResizeColumns();
 
-    CAppLog& log_;                 // 借用的线程安全日志存储。
-    CListCtrl list_;              // 日志列表控件包装对象。
-    uint64_t lastSequence_ = 0;   // 已显示的最大日志序号。
+    CAppLog& m_refLog;                 // 借用的线程安全日志存储。
+    CListCtrl m_clList;              // 日志列表控件包装对象。
+    uint64_t m_u64LastSequence = 0;   // 已显示的最大日志序号。
 };

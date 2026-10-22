@@ -87,29 +87,29 @@ private:
     // 更新底部状态文字，不写入日志。
     void SetStatus(const CString& text);
 
-    CEdit planPathEdit_;                         // XML 计划路径编辑框。
-    CComboBox environmentCombo_;                // 环境只读选择框。
-    CComboBox scenarioCombo_;                   // 场景只读选择框。
-    CComboBox userCombo_;                       // 用户摘要只读选择框。
-    CStatic runStateText_;                      // 顶部运行状态和总进度文本。
-    CStatic statusText_;                        // 底部操作结果提示。
-    CListCtrl metricList_;                      // JMeter 风格聚合指标列表。
-    CListCtrl transactionList_;                 // 独立业务事务汇总列表。
-    CLoadEngineClient engine_;                  // DLL 的唯一界面适配器和句柄所有者。
-    CAppLog appLog_;                            // 应用级线程安全日志存储。
-    HICON mainIcon_ = nullptr;                  // 从资源借用的窗口图标句柄。
-    std::unique_ptr<CLogDlg> logDialog_;        // 唯一非模态日志窗口所有权。
-    std::vector<MTLOAD_ENVIRONMENT> environments_; // 当前环境摘要快照。
-    std::vector<MTLOAD_WORKLOAD> workloads_;    // 当前工作负载摘要快照。
-    std::vector<MTLOAD_USER> users_;            // 当前用户摘要快照，不含密码。
-    bool engineLoaded_ = false;                 // DLL 与引擎句柄是否可用。
-    bool planValidated_ = false;                // 当前路径计划是否已通过校验。
-    bool hasExportableResults_ = false;         // 是否至少存在一个已完成样本。
-    uint64_t observedRunId_ = 0;                // 界面最后观察到的运行编号。
-    uint64_t summarizedRunId_ = 0;              // 已记录终态摘要的运行编号。
-    size_t observedErrorCount_ = 0;             // 已写入日志的错误样本数量。
-    int lastLoggedState_ = -1;                  // 最近一次写日志的状态，避免定时器重复记录。
-    int currentState_ = MTLOAD_STATE_CREATED;   // 当前界面使用的引擎状态快照。
-    bool closing_ = false;                      // 防止关闭流程重入。
+    CEdit m_clPlanPathEdit;                         // XML 计划路径编辑框。
+    CComboBox m_clEnvironmentCombo;                // 环境只读选择框。
+    CComboBox m_clScenarioCombo;                   // 场景只读选择框。
+    CComboBox m_clUserCombo;                       // 用户摘要只读选择框。
+    CStatic m_clRunStateText;                      // 顶部运行状态和总进度文本。
+    CStatic m_clStatusText;                        // 底部操作结果提示。
+    CListCtrl m_clMetricList;                      // JMeter 风格聚合指标列表。
+    CListCtrl m_clTransactionList;                 // 独立业务事务汇总列表。
+    CLoadEngineClient m_clEngine;                  // DLL 的唯一界面适配器和句柄所有者。
+    CAppLog m_clAppLog;                            // 应用级线程安全日志存储。
+    HICON m_hMainIcon = nullptr;                  // 从资源借用的窗口图标句柄。
+    std::unique_ptr<CLogDlg> m_pLogDialog;        // 唯一非模态日志窗口所有权。
+    std::vector<MTLOAD_ENVIRONMENT> m_vecEnvironments; // 当前环境摘要快照。
+    std::vector<MTLOAD_WORKLOAD> m_vecWorkloads;    // 当前工作负载摘要快照。
+    std::vector<MTLOAD_USER> m_vecUsers;            // 当前用户摘要快照，不含密码。
+    bool m_bEngineLoaded = false;                 // DLL 与引擎句柄是否可用。
+    bool m_bPlanValidated = false;                // 当前路径计划是否已通过校验。
+    bool m_bHasExportableResults = false;         // 是否至少存在一个已完成样本。
+    uint64_t m_u64ObservedRunId = 0;                // 界面最后观察到的运行编号。
+    uint64_t m_u64SummarizedRunId = 0;              // 已记录终态摘要的运行编号。
+    size_t m_szObservedErrorCount = 0;             // 已写入日志的错误样本数量。
+    int m_iLastLoggedState = -1;                  // 最近一次写日志的状态，避免定时器重复记录。
+    int m_iCurrentState = MTLOAD_STATE_CREATED;   // 当前界面使用的引擎状态快照。
+    bool m_bClosing = false;                      // 防止关闭流程重入。
 };
 

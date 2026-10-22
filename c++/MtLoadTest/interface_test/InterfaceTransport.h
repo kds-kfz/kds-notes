@@ -64,10 +64,10 @@ public:
     void Cancel();
 
 private:
-    std::mutex executionMutex_;
-    std::mutex activeMutex_;
-    CSocketClient* activeClient_ = nullptr;
-    std::atomic<bool> cancelRequested_{false};
+    std::mutex m_clExecutionMutex;
+    std::mutex m_clActiveMutex;
+    CSocketClient* m_pActiveClient = nullptr;
+    std::atomic<bool> m_bCancelRequested{false};
 };
 
 class SocketWebTransport
@@ -95,21 +95,21 @@ private:
 
     // 客户端公开调用与销毁串行化；SocketClient 回调只使用下面的状态锁，
     // Stop 等待回调退出时不会形成反向等待。
-    mutable std::mutex clientCallMutex_;
-    mutable std::mutex mutex_;
-    std::condition_variable changed_;
-    CSocketClient* client_ = nullptr;
-    bool secure_ = false;
-    bool transportConnected_ = false;
-    bool webOpened_ = false;
-    bool closed_ = false;
-    int errorCode_ = 0;
-    std::atomic<bool> stopping_{false};
-    std::atomic<bool> heartbeatStop_{false};
-    MessageCallback messageCallback_;
-    StateCallback stateCallback_;
-    std::string heartbeatJson_;
-    uint32_t heartbeatIntervalMs_ = 0;
-    std::thread heartbeatThread_;
+    mutable std::mutex m_clClientCallMutex;
+    mutable std::mutex m_clMutex;
+    std::condition_variable m_clChanged;
+    CSocketClient* m_pClient = nullptr;
+    bool m_bSecure = false;
+    bool m_bTransportConnected = false;
+    bool m_bWebOpened = false;
+    bool m_bClosed = false;
+    int m_iErrorCode = 0;
+    std::atomic<bool> m_bStopping{false};
+    std::atomic<bool> m_bHeartbeatStop{false};
+    MessageCallback m_clMessageCallback;
+    StateCallback m_clStateCallback;
+    std::string m_strHeartbeatJson;
+    uint32_t m_u32HeartbeatIntervalMs = 0;
+    std::thread m_clHeartbeatThread;
 };
 } // namespace interface_test

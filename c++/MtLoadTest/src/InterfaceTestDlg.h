@@ -95,11 +95,11 @@ protected:
 
 private:
     // 提交当前编辑内容后才能切换用例或发送，保证字段表与原始 JSON 不分叉。
-    // 成功时替换 config_ 和工作副本；失败时保留当前界面内容供修正。
+    // 成功时替换 m_stConfig 和工作副本；失败时保留当前界面内容供修正。
     bool LoadConfiguration(const std::wstring& path);
     // 对脏工作副本提示保存、放弃或取消；返回 false 表示终止当前切换。
     bool ConfirmPendingChanges();
-    // 将控件值提交到 workingCase_ 并校验 JSON/字段表一致性。
+    // 将控件值提交到 m_stWorkingCase 并校验 JSON/字段表一致性。
     bool CommitEditors(std::string& error);
     // 使用指定会话变量从当前字段表生成真实和脱敏 JSON。
     bool BuildCurrentBody(interface_test::SessionVariables& session, std::string& body,
@@ -116,7 +116,7 @@ private:
     void ResizeFieldColumns();
     // 按客户区宽度动态铺满 WebSocket 各列，窄窗口保留水平滚动。
     void ResizeWebColumns();
-    // 填充环境下拉并维护 environmentIds_ 索引映射。
+    // 填充环境下拉并维护 m_vecEnvironmentIds 索引映射。
     void PopulateEnvironments();
     // 填充四种服务类型及实现状态。
     void PopulateTransports();
@@ -130,11 +130,11 @@ private:
     void PopulateCategories();
     // 根据服务器组、协议和分类填充接口用例。
     void PopulateCases();
-    // 从 config_ 复制选中用例形成可编辑工作副本。
+    // 从 m_stConfig 复制选中用例形成可编辑工作副本。
     void LoadSelectedCase();
     // 刷新说明、方法、路径、字段、JSON 和请求预览。
     void RefreshCaseDisplay();
-    // 从 workingCase_.fields 重建字段列表。
+    // 从 m_stWorkingCase.fields 重建字段列表。
     void RefreshFieldList();
     // 使用脱敏会话副本生成实际请求预览，不消耗正式 sequence。
     void RefreshRequestPreview();
@@ -157,41 +157,41 @@ private:
     // 取消活动请求、断开 WebSocket，并等待本窗口创建的工作线程全部退出。
     void StopWorkers();
 
-    CComboBox environmentCombo_;       // 环境选择框。
-    CComboBox transportCombo_;         // TCP/HTTP/HTTPS/Web 服务类型选择框。
-    CComboBox serverCombo_;            // 当前环境和类型下的服务器选择框。
-    CComboBox payloadCombo_;           // Binary/JSON/Protobuf 报文类型选择框。
-    CComboBox variableSetCombo_;       // 账号及通用变量组选择框。
-    CComboBox categoryCombo_;          // 接口分类选择框。
-    CComboBox caseCombo_;              // 接口用例选择框。
-    CComboBox fieldTypeCombo_;         // 当前字段 JSON 类型编辑框。
-    CListCtrl fieldList_;              // 字段启用、Pointer、类型、值和说明列表。
-    CListCtrl webList_;                // WebSocket 收发消息列表。
-    CAppLog appLog_;                   // 复用的线程安全应用日志存储，不记录敏感报文。
-    std::unique_ptr<CLogDlg> logDialog_; // 复用的唯一非模态日志窗口所有权。
+    CComboBox m_clEnvironmentCombo;       // 环境选择框。
+    CComboBox m_clTransportCombo;         // TCP/HTTP/HTTPS/Web 服务类型选择框。
+    CComboBox m_clServerCombo;            // 当前环境和类型下的服务器选择框。
+    CComboBox m_clPayloadCombo;           // Binary/JSON/Protobuf 报文类型选择框。
+    CComboBox m_clVariableSetCombo;       // 账号及通用变量组选择框。
+    CComboBox m_clCategoryCombo;          // 接口分类选择框。
+    CComboBox m_clCaseCombo;              // 接口用例选择框。
+    CComboBox m_clFieldTypeCombo;         // 当前字段 JSON 类型编辑框。
+    CListCtrl m_clFieldList;              // 字段启用、Pointer、类型、值和说明列表。
+    CListCtrl m_clWebList;                // WebSocket 收发消息列表。
+    CAppLog m_clAppLog;                   // 复用的线程安全应用日志存储，不记录敏感报文。
+    std::unique_ptr<CLogDlg> m_pLogDialog; // 复用的唯一非模态日志窗口所有权。
 
-    interface_test::InterfaceTestConfig config_; // 当前已加载且可保存的完整配置模型。
-    // workingCase_ 是可编辑副本；只有保存成功后才覆盖 config_ 中的正式用例。
-    interface_test::InterfaceCase workingCase_; // 当前用例可编辑副本。
-    interface_test::SessionVariables session_; // 当前变量组和响应提取的内存会话。
-    std::unique_ptr<interface_test::SocketHttpTransport> httpTransport_; // SocketClient HTTP/HTTPS 请求所有者。
-    std::unique_ptr<interface_test::SocketWebTransport> webTransport_; // SocketClient WebSocket/WSS 连接所有者。
-    std::thread worker_;                  // 单个 HTTP 后台任务线程，由窗口联结。
-    std::atomic<bool> workerRunning_{false}; // 防止并发启动两个 HTTP 请求。
-    std::atomic<bool> closing_{false};    // 阻止关闭后继续投递窗口消息。
+    interface_test::InterfaceTestConfig m_stConfig; // 当前已加载且可保存的完整配置模型。
+    // m_stWorkingCase 是可编辑副本；只有保存成功后才覆盖 m_stConfig 中的正式用例。
+    interface_test::InterfaceCase m_stWorkingCase; // 当前用例可编辑副本。
+    interface_test::SessionVariables m_stSession; // 当前变量组和响应提取的内存会话。
+    std::unique_ptr<interface_test::SocketHttpTransport> m_pHttpTransport; // SocketClient HTTP/HTTPS 请求所有者。
+    std::unique_ptr<interface_test::SocketWebTransport> m_pWebTransport; // SocketClient WebSocket/WSS 连接所有者。
+    std::thread m_clWorker;                  // 单个 HTTP 后台任务线程，由窗口联结。
+    std::atomic<bool> m_bWorkerRunning{false}; // 防止并发启动两个 HTTP 请求。
+    std::atomic<bool> m_bClosing{false};    // 阻止关闭后继续投递窗口消息。
 
-    std::wstring configPath_;              // 当前配置文件绝对路径。
-    std::string selectedCaseId_;           // 工作副本来源用例 ID。
-    std::vector<std::string> environmentIds_; // 环境下拉索引到稳定 ID 的映射。
-    std::vector<interface_test::TransportKind> transportValues_; // 服务类型下拉枚举映射。
-    std::vector<std::string> serverIds_;    // 服务器下拉索引到稳定 ID 的映射。
-    std::vector<interface_test::PayloadKind> payloadValues_; // 报文下拉枚举映射。
-    std::vector<std::string> variableSetIds_; // 变量组下拉索引到稳定 ID 的映射。
-    std::vector<std::string> categoryValues_; // 分类下拉索引到 UTF-8 分类名的映射。
-    std::vector<std::string> caseIds_;      // 用例下拉索引到稳定 ID 的映射。
-    std::vector<interface_test::WebMessage> webMessages_; // 与 Web 列表行同步的消息副本。
-    // refreshing_ 屏蔽程序刷新控件产生的通知；dirty_ 只记录用户修改。
-    bool refreshing_ = false;       // 程序刷新控件期间屏蔽变更通知。
-    bool dirty_ = false;            // 工作副本是否包含尚未保存的修改。
-    bool rawJsonDirty_ = false;     // 原始 JSON 是否领先于字段表，提交前需同步。
+    std::wstring m_wstrConfigPath;              // 当前配置文件绝对路径。
+    std::string m_strSelectedCaseId;           // 工作副本来源用例 ID。
+    std::vector<std::string> m_vecEnvironmentIds; // 环境下拉索引到稳定 ID 的映射。
+    std::vector<interface_test::TransportKind> m_vecTransportValues; // 服务类型下拉枚举映射。
+    std::vector<std::string> m_vecServerIds;    // 服务器下拉索引到稳定 ID 的映射。
+    std::vector<interface_test::PayloadKind> m_vecPayloadValues; // 报文下拉枚举映射。
+    std::vector<std::string> m_vecVariableSetIds; // 变量组下拉索引到稳定 ID 的映射。
+    std::vector<std::string> m_vecCategoryValues; // 分类下拉索引到 UTF-8 分类名的映射。
+    std::vector<std::string> m_vecCaseIds;      // 用例下拉索引到稳定 ID 的映射。
+    std::vector<interface_test::WebMessage> m_vecWebMessages; // 与 Web 列表行同步的消息副本。
+    // m_bRefreshing 屏蔽程序刷新控件产生的通知；m_bDirty 只记录用户修改。
+    bool m_bRefreshing = false;       // 程序刷新控件期间屏蔽变更通知。
+    bool m_bDirty = false;            // 工作副本是否包含尚未保存的修改。
+    bool m_bRawJsonDirty = false;     // 原始 JSON 是否领先于字段表，提交前需同步。
 };

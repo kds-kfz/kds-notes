@@ -1,0 +1,189 @@
+{
+  "schemaVersion": 1,
+  "fieldDescriptions": {
+    "root": "被审计的 C++ 工程根目录。",
+    "generatedAtUtc": "审计执行时间，使用 UTC ISO-8601 格式。",
+    "versionBaselineRef": "可选 Git 基线引用；设置后严格校验历史正文保持为当前文件的完整前缀。",
+    "summary": "项目数、源码数和问题数量汇总。",
+    "findings": "所有不符合项；空数组表示自动门禁全部通过。",
+    "severity": "问题等级，error 会使脚本返回非零。",
+    "rule": "稳定的规则标识，便于 CI 分类。",
+    "path": "问题文件绝对路径。",
+    "line": "问题行号；工程级问题为 0。",
+    "message": "整改要求说明。",
+    "projectCount": "纳入审计的 vcxproj 数量。",
+    "sourceFileCount": "纳入危险 API 与 DllMain 扫描的源码数量。",
+    "memberNamingFileCount": "纳入自研成员变量命名扫描的头文件数量；排除官方、第三方及需保持跨平台 ABI 的历史源码。",
+    "versionFileCount": "纳入追加式历史校验的版本说明文件数量。",
+    "sourceEncoding": "新增源码使用 UTF-8；历史源码保留原编码，编码迁移必须单独评审，不由审计脚本自动改写。",
+    "errorCount": "阻断构建或发布的问题数量。",
+    "warningCount": "需要人工复核但不阻断的问题数量。"
+  },
+  "root": "F:\\开发资料\\MyCode\\kds-notes\\c++",
+  "versionBaselineRef": "",
+  "generatedAtUtc": "2026-10-21T11:23:18.2903121Z",
+  "summary": {
+    "projectCount": 26,
+    "sourceFileCount": 354,
+    "memberNamingFileCount": 156,
+    "versionFileCount": 11,
+    "errorCount": 0,
+    "warningCount": 22
+  },
+  "findings": [
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\demoServer\\src\\NetQueueMng.cpp",
+      "line": 486,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\IceRPCPush\\src\\CJsonBinRPCImp.cpp",
+      "line": 441,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\IceRPCPush\\src\\CJsonBinRPCImp.cpp",
+      "line": 471,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\IceRPCPush\\src\\CJsonBinRPCImp.cpp",
+      "line": 539,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\IceRPCPush\\src\\CJsonBinRPCImp.cpp",
+      "line": 541,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\IceRPCPush\\src\\TCPPushSrv.cpp",
+      "line": 42,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\MtAssistant\\ServiceDlg.cpp",
+      "line": 831,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 370,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 371,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 372,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 378,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 379,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 380,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 429,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 430,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 431,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 445,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 446,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 695,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 707,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\nsdk\\src\\nsdk.cpp",
+      "line": 749,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    },
+    {
+      "severity": "warning",
+      "rule": "unsafe-crt",
+      "path": "F:\\开发资料\\MyCode\\kds-notes\\c++\\SocketServer\\project\\vs2015\\SocketServer\\TcpSockMng.cpp",
+      "line": 256,
+      "message": "发现无容量参数的字符串复制或格式化 API，需要所属工程结合缓冲区边界单独复核。"
+    }
+  ]
+}

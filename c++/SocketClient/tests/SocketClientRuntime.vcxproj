@@ -45,13 +45,14 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories Condition="'$(Configuration)'=='Release'">$(ProjectDir)..\lib\$(Platform)vc14\share;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalLibraryDirectories Condition="'$(Configuration)'=='ReleaseStatic'">$(ProjectDir)..\lib\$(Platform)vc14\static;$(ProjectDir)..\vender\hpsocket\lib\$(Platform)vc14\static;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories Condition="'$(Configuration)'=='ReleaseStatic'">$(ProjectDir)..\lib\$(Platform)vc14\static;$(ProjectDir)..\vender\hpsocket\lib\$(Platform)vc14\static;$(ProjectDir)..\vender\openssl\3.5.6\lib\$(Platform)vc14\dynamic;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies Condition="'$(Configuration)'=='Release'">libSocketClient.lib;ws2_32.lib;bcrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(Configuration)'=='ReleaseStatic'">libSocketClient_static.lib;HPSocket.lib;ws2_32.lib;bcrypt.lib;crypt32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <!-- 静态 HP-Socket 只收录网络实现，OpenSSL 保持动态；最终 EXE 必须同时解析 SSL 与 Crypto 导入符号。 -->
+      <AdditionalDependencies Condition="'$(Configuration)'=='ReleaseStatic'">libSocketClient_static.lib;HPSocket.lib;libssl.lib;libcrypto.lib;ws2_32.lib;bcrypt.lib;crypt32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <PostBuildEvent><Command>copy /Y "$(ProjectDir)..\lib\$(Platform)vc14\share\libSocketClient.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\vender\hpsocket\lib\$(Platform)vc14\HPSocket.dll" "$(OutDir)"</Command></PostBuildEvent>
+    <PostBuildEvent><Command>copy /Y "$(ProjectDir)..\lib\$(Platform)vc14\share\libSocketClient.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\vender\hpsocket\lib\$(Platform)vc14\HPSocket.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\vender\openssl\3.5.6\bin\$(Platform)vc14\dynamic\libssl-3-x64.dll" "$(OutDir)"&#xD;&#xA;copy /Y "$(ProjectDir)..\vender\openssl\3.5.6\bin\$(Platform)vc14\dynamic\libcrypto-3-x64.dll" "$(OutDir)"</Command></PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
     <PostBuildEvent><Command>if exist "$(OutDir)HPSocket.dll" del /Q "$(OutDir)HPSocket.dll"</Command></PostBuildEvent>

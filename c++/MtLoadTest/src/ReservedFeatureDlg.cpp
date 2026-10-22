@@ -5,7 +5,7 @@
 
 // 关键实现：复制调用方文本，避免窗口显示期间依赖临时 CString 生命周期。
 CReservedFeatureDlg::CReservedFeatureDlg(UINT templateId, const CString& title, const CString& message)
-    : CDialogEx(templateId), title_(title), message_(message)
+    : CDialogEx(templateId), m_strTitle(title), m_strMessage(message)
 {
 }
 
@@ -13,10 +13,10 @@ CReservedFeatureDlg::CReservedFeatureDlg(UINT templateId, const CString& title, 
 BOOL CReservedFeatureDlg::OnInitDialog()
 {
     CDialogEx::OnInitDialog();
-    SetWindowTextW(title_);
+    SetWindowTextW(m_strTitle);
     SetIcon(AfxGetApp()->LoadIcon(IDI_MTLOADTEST_ICON), TRUE);
     SetIcon(AfxGetApp()->LoadIcon(IDI_MTLOADTEST_ICON), FALSE);
-    GetDlgItem(IDC_RESERVED_TITLE)->SetWindowTextW(title_);
-    GetDlgItem(IDC_RESERVED_MESSAGE)->SetWindowTextW(message_);
+    GetDlgItem(IDC_RESERVED_TITLE)->SetWindowTextW(m_strTitle);
+    GetDlgItem(IDC_RESERVED_MESSAGE)->SetWindowTextW(m_strMessage);
     return TRUE;
 }

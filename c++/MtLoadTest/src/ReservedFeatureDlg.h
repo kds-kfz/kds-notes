@@ -12,6 +12,6 @@ protected:
     BOOL OnInitDialog() override;
 
 private:
-    CString title_;      // 窗口标题及功能名称。
-    CString message_;    // 面向用户的预留状态说明。
+    CString m_strTitle;      // 窗口标题及功能名称。
+    CString m_strMessage;    // 面向用户的预留状态说明。
 };
