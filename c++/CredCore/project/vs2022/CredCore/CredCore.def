@@ -1,0 +1,25 @@
+LIBRARY libCredCore
+EXPORTS
+	Aes
+	AuthFeatrue
+	AuthFeatrueByPlainClientInfo
+	Base64Decode
+	Base64Encode
+	BuildFeatrue
+	BuildFeatrueByPlainClientInfo
+	BuildFeatrueByPlainClientInfoSeconds
+	CreateRs256PublicKeyVerifier
+	CredCore_AuthFeatureByPlainClientInfo
+	CredCore_BuildFeatureByPlainClientInfo
+	CredCore_CreateRs256PublicKeyVerifier
+	CredCore_DestroyRs256PublicKeyVerifier
+	CredCore_GetAbiInfo
+	CredCore_GetCompactJwtSha256Fingerprint
+	CredCore_ReadRs256JwtKeyId
+	CredCore_VerifyRs256JwtSignature
+	Deaes
+	DestroyRs256PublicKeyVerifier
+	GetCompactJwtSha256Fingerprint
+	MakeFeatrue
+	ReadRs256JwtKeyId
+	VerifyRs256JwtSignature

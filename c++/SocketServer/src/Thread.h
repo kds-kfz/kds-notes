@@ -1,29 +1,27 @@
-#ifndef _THREAD_H_
+﻿#ifndef _THREAD_H_
 #define _THREAD_H_
 
-#include "nsdk_define.h"
-
-#include <pthread.h>
-//#include <atomic>
-//#include <mutex>
+#include <condition_variable>
+#include <mutex>
 #include <string>
-//#include <condition_variable>
+#include <thread>
 
 
 
-BGN_NAMESPACE_NSDK
+namespace nsdk
+{
 
-//֪ͨ����
+//通知类型
 enum NotifyType
 {
-	NT_FINISH = 1,	// ���
-	NT_COLLECT		// �ɼ�
+	NT_FINISH = 1,	// 完成
+	NT_COLLECT		// 采集
 };
 
 class CDataNotify
 {
 public:
-	// ֪ͨ�ص��ӿ�
+	// 通知回调接口
 	virtual void OnDataNotify(unsigned long long p_lluThreadId, NotifyType p_enType, void *p_pData, int p_iDataLen) = 0;
 };
 
@@ -35,9 +33,9 @@ public:
 
 	enum ThreadState
 	{
-		Stoped,     ///<ֹͣ״̬��������δ��������������ֹͣ
-		Running,    ///<����״̬
-		Paused      ///<��ͣ״̬
+		Stoped,     ///<停止状态，包括从未启动过和启动后被停止
+		Running,    ///<运行状态
+		Paused      ///<暂停状态
 	};
 
 	ThreadState State() const;
@@ -47,8 +45,8 @@ public:
 	int Stop();
 	int Pause();
 	int Resume();
-	bool GetFinish() { return m_bFinishFlag; };
-	unsigned long long GetThreadId() { return m_ulThreadId; }
+	bool GetFinish() const;
+	unsigned long long GetThreadId() const;
 
 
 
@@ -56,24 +54,25 @@ protected:
 	virtual int Work() = 0;
 	virtual bool AddNotify(CDataNotify* p_pNotify) = 0;
 	virtual bool DelNotify(CDataNotify* p_pNotify) = 0;
-	virtual void SendNotify(unsigned long long p_lluThreadId, NotifyType p_enNotifyType, void *p_pData, int p_iDataLen) = 0;//֪ͨ�쳣����λ��
+	virtual void SendNotify(unsigned long long p_lluThreadId, NotifyType p_enNotifyType, void *p_pData, int p_iDataLen) = 0;//通知异常数据位置
 
-	bool m_bFinishFlag;   ///<��ɱ�ʶ
-	unsigned int m_ulThreadId;//�̺߳�
+	bool m_bFinishFlag;   ///<完成标识
+	unsigned int m_ulThreadId;//线程号
 
 private:
 	unsigned long long ThreadId2uLong(unsigned long p_ulThreadId);
 
 private:
-	pthread_t *m_ptrThread;
-	pthread_mutex_t m_mutex;
-	pthread_cond_t m_condition;
-	bool m_bPauseFlag;   ///<��ͣ��ʶ
-	bool m_bStopFlag;   ///<ֹͣ��ʶ
+	std::thread m_clThread;                 ///< 进程内工作线程；Linux 标准库仍通过 pthread 实现。
+	mutable std::mutex m_clStateMutex;      ///< 保护线程状态、暂停/停止标识及业务线程号。
+	std::condition_variable m_clStateCondition; ///< 暂停线程等待及恢复/停止通知。
+	bool m_bJoinInProgress;              ///< Stop 已取走线程且正在等待退出，期间禁止再次 Start。
+	bool m_bPauseFlag;   ///<暂停标识
+	bool m_bStopFlag;   ///<停止标识
 	ThreadState m_enState;
 };
 
-END_NAMESPACE_NSDK
+}
 
 #endif // THREAD_H
 

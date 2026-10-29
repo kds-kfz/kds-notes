@@ -1,6 +1,8 @@
 ﻿#ifndef _STRUCT_SERVER_H_
 #define _STRUCT_SERVER_H_
 
+#include <cstring>
+
 // wyl 2026-04-25：请求缓存：TCP/Web 共用的连接级缓存对象。
 // wyl 2026-04-25：WebSocket 优化会在这里维护帧分片累计状态、完整消息缓存和待上层处理的任务配额。
 struct ReqCacheData
@@ -31,7 +33,7 @@ public:
 		ulWsFrameLength(0), ulWsFramePos(0), ulWsControlLength(0), ulWsControlPos(0), bWsFinalFrame(true),
 		bWsIgnoreFrame(false), bWsMessageActive(false), ucWsFrameOperationCode(0), ucWsOperationCode(0), pBuf(nullptr)
 	{
-		memset(szWsControlBuf, 0, sizeof(szWsControlBuf));
+		std::memset(szWsControlBuf, 0, sizeof(szWsControlBuf));
 	}
 	// wyl 2026-04-25：拷贝时对 pBuf 做深拷贝，避免两个缓存对象指向同一块内存。
 	ReqCacheData(const ReqCacheData& p_stData)
@@ -40,7 +42,7 @@ public:
 		ulWsFrameLength(0), ulWsFramePos(0), ulWsControlLength(0), ulWsControlPos(0), bWsFinalFrame(true),
 		bWsIgnoreFrame(false), bWsMessageActive(false), ucWsFrameOperationCode(0), ucWsOperationCode(0), pBuf(nullptr)
 	{
-		memset(szWsControlBuf, 0, sizeof(szWsControlBuf));
+		std::memset(szWsControlBuf, 0, sizeof(szWsControlBuf));
 		*this = p_stData;
 	}
 	// wyl 2026-04-25：默认由 ReqCacheData 持有 pBuf；若大包已经转移给 NotifyTask，这里看到的 pBuf 会是 nullptr。
@@ -70,7 +72,7 @@ public:
 			bWsMessageActive = p_stData.bWsMessageActive;
 			ucWsFrameOperationCode = p_stData.ucWsFrameOperationCode;
 			ucWsOperationCode = p_stData.ucWsOperationCode;
-			memcpy(szWsControlBuf, p_stData.szWsControlBuf, sizeof(szWsControlBuf));
+			std::memcpy(szWsControlBuf, p_stData.szWsControlBuf, sizeof(szWsControlBuf));
 
 			if (nullptr != pBuf)
 			{
@@ -81,7 +83,7 @@ public:
 			if (nullptr != p_stData.pBuf && p_stData.ulCapacity > 0)
 			{
 				pBuf = new char[p_stData.ulCapacity];
-				memcpy(pBuf, p_stData.pBuf, p_stData.ulPos);
+				std::memcpy(pBuf, p_stData.pBuf, p_stData.ulPos);
 			}
 		}
 		return *this;
@@ -97,14 +99,14 @@ struct ClientData
 	bool bConnected;					// wyl 2026-03-30：当前连接是否已经完成业务层可见的建链；Web 侧在握手成功后才置 true。
 public:
 	ClientData(){
-		memset(this, 0, sizeof(ClientData));
+		std::memset(this, 0, sizeof(ClientData));
 	}
 	ClientData& operator=(const ClientData &p_stData) {
 		if (this != &p_stData) {
 			ullConnID = p_stData.ullConnID;
 			unPort = p_stData.unPort;
 			bConnected = p_stData.bConnected;
-			memcpy(szIp, p_stData.szIp, 32);
+			std::memcpy(szIp, p_stData.szIp, 32);
 		}
 		return *this;
 	}
@@ -122,7 +124,7 @@ struct NotifyTask
 	WebSockNotifyType enWebNotifyType;
 public:
 	NotifyTask(): pBuf(nullptr), uiLen(0), ullConnID(0), ullTaskID(0){
-		memset(szErrMsg, 0, 1024);
+		std::memset(szErrMsg, 0, 1024);
 	}
 	~NotifyTask() {
 		if (nullptr != pBuf)

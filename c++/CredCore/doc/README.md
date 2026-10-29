@@ -24,7 +24,11 @@ Access JWT 所需的 RS256 公钥验签原语。拆分后 nsdk 只保留通用�
 - 项目级规则位于 `project\vs2022\CredCore\AGENTS.md`，由 V3 通用规则裁剪而来；七服务、V2 迁移、
   Gateway 路由和部署门禁不适用于本库。
 - `include\CredCore.h`：稳定公开接口、不透明句柄和 `EN_CREDCORE_RS256_RESULT` 返回码。
+- `include\CredCoreC.h`：V3 使用的稳定 C ABI，只暴露固定宽度类型、字符串/缓冲区视图和不透明句柄。
+- `include\CredCoreCxxAdapter.h`：调用方本地 C++ 便利层，把 `std::string` 转为 C ABI 视图；STL 对象不
+  越过 DLL 边界。
 - `src\CredCore.cpp`：历史 Base64、AES 和 Token 兼容封装层。
+- `src\CredCoreC.cpp`：C ABI 参数校验、调用方缓冲区复制和历史算法适配层。
 - `src\aes.h/.cpp`：历史 AES/Rijndael 内核；成员、参数和固定表遵守 CredCore 命名规则，算法字节行为
   由固定向量锁定。
 - `src\JwtRs256Verifier.h/.cpp`：JWK 公钥构造、JWT Header 严格解析、指纹和 RS256 验签私有实现。
@@ -35,10 +39,12 @@ Access JWT 所需的 RS256 公钥验签原语。拆分后 nsdk 只保留通用�
 
 - `CredCore_define.h` 使用 `CRED_CORE_DEFINE_H` 保护宏，并提供
   `BGN_NAMESPACE_CREDCORE`、`END_NAMESPACE_CREDCORE`、`USE_NAMESPACE_CREDCORE`。
-- 公开函数位于 `credcore` 命名空间中，并使用 `extern "C"` 固定 DLL 导出名，避免 MSVC C++
-  名称修饰随函数签名变化。
-- 接口参数和返回值仍包含 `std::string`，所以它不是 C ABI。调用方必须使用兼容的 MSVC C++
-  ABI、`/MD` 运行时和相同的标准库边界。
+- V3 只包含 `CredCoreC.h` 或调用方本地的 `CredCoreCxxAdapter.h`；跨 DLL 只传递
+  `ST_FACADE_STRING_VIEW`、`ST_FACADE_MUTABLE_BUFFER`、固定宽度整数和不透明句柄。
+- 历史 15 个 `std::string` 接口暂留 `.def` 白名单供既有外部调用方兼容，但 V3 不再使用。新接口禁止
+  增加 STL、异常、OpenSSL 类型或由另一模块释放的内存。
+- `CredCore.def` 是 DLL 的唯一导出白名单。源码构建侧不使用 `__declspec(dllexport)` 自动扩大 ABI；
+  调用方仍通过 `dllimport` 和导入库链接。
 - `CREDCORE_EXPORTS` 用于构建 DLL，`CREDCORE_STATIC` 用于静态消费；普通 DLL 调用方使用默认
   `dllimport`。
 
@@ -60,7 +66,7 @@ Access JWT 所需的 RS256 公钥验签原语。拆分后 nsdk 只保留通用�
 
 ## 构建产物
 
-- `Release|x64` 生成 `libCredCore.dll/lib/pdb`，供 Gateway 和 Trade 动态调用。
+- `Release|x64` 在 `lib/x64vc14/dynamic` 生成 `libCredCore.dll/lib/pdb`，供 Gateway 和 Trade 动态调用。
 - `ReleaseStatic|x64` 生成 `libCredCore_static.lib`，仅作为可选构建形态；V3 生产发布不静态链接。
 - RS256 私有实现固定使用 OpenSSL 3.5.6。DLL 只导入 `libcrypto-3-x64.dll`，不导入 `libssl`；
   JSON Header 使用随仓库保存的 nlohmann/json 3.12.0 严格解析。
@@ -71,11 +77,13 @@ Access JWT 所需的 RS256 公钥验签原语。拆分后 nsdk 只保留通用�
 
 ## V3 集成
 
-- Gateway 调用 `credcore::AuthFeatrueByPlainClientInfo` 校验 Token。
-- Trade 调用 `credcore::BuildFeatrueByPlainClientInfo` 生成 Token。
+- Gateway 和 Trade 通过 `CredCoreCxxAdapter.h` 调用 `CredCore_*` C ABI；适配器中的 `std::string` 仅存在
+  于调用方模块，DLL 只借用字节视图并写入调用方缓冲区。
+- Gateway 使用 C ABI 校验 Token、读取 JWT `kid`、创建公钥句柄、验证 RS256 和生成令牌指纹；Trade
+  使用 C ABI 生成历史 Token。
 - Quote、Query、Event、Derive 和 ClientData 不链接 CredCore。
-- V3 七服务统一静态链接 nsdk/snappy；CloudNetDataApi、IceRPCPush、SocketServer、HP-Socket
-  继续保持 DLL 边界。
+- V3 的 Dynamic/Static 两种兼容模式都保持 CredCore 动态；Network、CloudNetDataApi 和 Database 由
+  各自 Facade 管理，CredCore 不静态吸收这些模块，也不允许业务 EXE 直接链接 OpenSSL。
 
 ## 验证
 
@@ -83,6 +91,6 @@ Access JWT 所需的 RS256 公钥验签原语。拆分后 nsdk 只保留通用�
 - 独立 `CredCoreCompatibilityTests` 覆盖编码往返、加解密往返、正确客户信息及错误客户信息。
 - RS256 测试使用独立生成的 2048 位测试公钥和固定签名向量，覆盖合法签名、Payload 篡改、错误算法、
   `kid` 不匹配、非法 Base64URL、异常 JWK 以及 8 线程共享句柄并发验签。
-- 运行测试时把 `lib/x64vc14` 与 `vender/openssl/3.5.6/bin/x64vc14/dynamic` 加入 `PATH`。
-- `dumpbin /EXPORTS` 已确认旧 10 个和新增 5 个公开函数均以未修饰名称导出；
+- 测试把 `lib/x64vc14/dynamic` 和 OpenSSL 动态运行库复制到测试 EXE 同目录，避免依赖公共 `PATH`。
+- `dumpbin /EXPORTS` 必须只出现 `CredCore.def` 列出的旧兼容接口和版本化 C ABI，且全部为未修饰名称；
   `dumpbin /DEPENDENTS` 已确认 DLL 只新增 `libcrypto-3-x64.dll` 依赖。

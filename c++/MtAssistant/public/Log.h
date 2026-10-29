@@ -3,12 +3,9 @@
 
 #include "Thread.h"
 
+#include <mutex>
 #include <string>
 #include <vector>
-
-using namespace std;
-
-USE_NAMESPACE_NSDK
 
 #define MA_OK 0
 #define MA_KO (-1)
@@ -37,19 +34,19 @@ public:
 	int InitLog(const char* p_szFold, enHQLogType p_eType = eInfo, const char* p_szLogFileName = "");
 	int InitLog(int p_iLogDate = 0);
 	void AddLog(enHQLogType p_eType, const char* p_szFormat, ...);
-	const string& GetLogPath() const { return m_strLogPath; }// wyl 2026-05-06：对外只暴露当前日志完整路径，按钮打开也复用该变量。
+	const std::string& GetLogPath() const { return m_strLogPath; }// wyl 2026-05-06：对外只暴露当前日志完整路径，按钮打开也复用该变量。
 	void SetLogLevel(char* p_strLogLevel);
 	void Resume();
 private:
-	pthread_mutex_t m_mutexLog;
-	std::vector<string> m_vecLog;
+	std::mutex m_clLogMutex; // 保护待写日志队列；持锁期间不执行文件 I/O 或休眠。
+	std::vector<std::string> m_vecLog;
 	CLogFileThread* m_pLogFileThread;
 	volatile enHQLogType m_enLogType;
 	FILE* m_pFileLog;
 	unsigned int m_uiLastDate;
-	string m_strLogFold;
-	string m_strLogName;
-	string m_strLogPath;
+	std::string m_strLogFold;
+	std::string m_strLogName;
+	std::string m_strLogPath;
 	volatile bool m_bInitStatus;
 
 	void Close();
@@ -57,7 +54,7 @@ private:
 	void BaseRelease();
 };
 
-class CLogFileThread : public CThread
+class CLogFileThread : public nsdk::CThread
 {
 public:
 	CLogFileThread(void) : m_pParent(nullptr) {}
@@ -68,9 +65,9 @@ public:
 		return (m_pParent != nullptr) ? m_pParent->ThreadLog() : MA_KO;
 	}
 
-	virtual bool AddNotify(CDataNotify* p_pNotify) { return false; }
-	virtual bool DelNotify(CDataNotify* p_pNotify) { return false; }
-	virtual void SendNotify(unsigned long long p_lluThreadId, NotifyType p_enNotifyType, void* p_pData, int p_iDataLen) {}
+	virtual bool AddNotify(nsdk::CDataNotify* p_pNotify) { return false; }
+	virtual bool DelNotify(nsdk::CDataNotify* p_pNotify) { return false; }
+	virtual void SendNotify(unsigned long long p_lluThreadId, nsdk::NotifyType p_enNotifyType, void* p_pData, int p_iDataLen) {}
 
 	void SetThis(CBaseLog* p_pParent)
 	{

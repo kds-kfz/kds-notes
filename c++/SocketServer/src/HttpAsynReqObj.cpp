@@ -59,7 +59,7 @@ namespace
 		{
 			return;
 		}
-		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		SocketServerMutexLock(&p_pRuntime->clRequestMutex);
 		std::map<CONNID, unsigned long long>::iterator itActive =
 			p_pRuntime->mapActiveRequest.find(dwConnID);
 		if (itActive != p_pRuntime->mapActiveRequest.end() &&
@@ -67,7 +67,7 @@ namespace
 		{
 			p_pRuntime->mapActiveRequest.erase(itActive);
 		}
-		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+		SocketServerMutexUnlock(&p_pRuntime->clRequestMutex);
 	}
 
 	bool HttpSocketIsConnectedNoThrow(IHttpServer* pSender, CONNID dwConnID, unsigned long long ullReqID)
@@ -234,7 +234,7 @@ const char* CHttpAsynReqObj::GetHead(const char* p_szName)
 
 void CHttpAsynReqObj::GetAddress(char* p_szClientIp, int p_iIpLen, unsigned short& p_nClientPort)
 {
-	SafeCopyCString(p_szClientIp, p_iIpLen, m_szClientIp);
+	SocketServerSafeCopyCString(p_szClientIp, p_iIpLen, m_szClientIp);
 	p_nClientPort = m_unClientPort;
 }
 
@@ -443,7 +443,7 @@ EN_HTTP_QUERY_PARSE_RESULT CHttpAsynReqObj::SetRequestUrl(const char* p_szRawUrl
 
 void CHttpAsynReqObj::SetAddress(const char* p_szClientIp, unsigned short p_unClientPort)
 {
-	SafeCopyCString(m_szClientIp, sizeof(m_szClientIp), p_szClientIp);
+	SocketServerSafeCopyCString(m_szClientIp, sizeof(m_szClientIp), p_szClientIp);
 	m_unClientPort = p_unClientPort;
 }
 

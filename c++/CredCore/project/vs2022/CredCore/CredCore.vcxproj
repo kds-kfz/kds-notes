@@ -43,7 +43,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(ProjectDir)..\..\..\lib\$(Platform)vc14\</OutDir>
+    <OutDir>$(ProjectDir)..\..\..\lib\$(Platform)vc14\dynamic\</OutDir>
     <IntDir>$(ProjectDir)..\..\..\build\$(Platform)\$(Configuration)\</IntDir>
     <TargetName>libCredCore</TargetName>
   </PropertyGroup>
@@ -64,7 +64,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\include;$(ProjectDir)..\..\..\src;$(ProjectDir)..\..\..\vender;$(ProjectDir)..\..\..\vender\openssl\3.5.6\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\include;$(ProjectDir)..\..\..\src;$(ProjectDir)..\..\..\..\FacadeCommon\include;$(ProjectDir)..\..\..\vender;$(ProjectDir)..\..\..\vender\openssl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <AdditionalOptions>/utf-8 /external:anglebrackets %(AdditionalOptions)</AdditionalOptions>
       <!-- Legacy AES arithmetic is copied byte-for-byte for token compatibility. -->
@@ -77,8 +77,9 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\vender\openssl\3.5.6\lib\x64vc14\dynamic;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\vender\openssl\lib\x64vc14\dynamic;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libcrypto.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ModuleDefinitionFile>$(ProjectDir)CredCore.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
@@ -93,7 +94,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\include;$(ProjectDir)..\..\..\src;$(ProjectDir)..\..\..\vender;$(ProjectDir)..\..\..\vender\openssl\3.5.6\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\include;$(ProjectDir)..\..\..\src;$(ProjectDir)..\..\..\..\FacadeCommon\include;$(ProjectDir)..\..\..\vender;$(ProjectDir)..\..\..\vender\openssl\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <AdditionalOptions>/utf-8 /external:anglebrackets %(AdditionalOptions)</AdditionalOptions>
       <DisableSpecificWarnings>4190;4244;4458;4505;%(DisableSpecificWarnings)</DisableSpecificWarnings>
@@ -104,13 +105,17 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\include\CredCore.h" />
+    <ClInclude Include="..\..\..\include\CredCoreC.h" />
+    <ClInclude Include="..\..\..\include\CredCoreCxxAdapter.h" />
     <ClInclude Include="..\..\..\include\CredCore_define.h" />
+    <ClInclude Include="..\..\..\..\FacadeCommon\include\FacadeAbi.h" />
     <ClInclude Include="..\..\..\src\JwtRs256Verifier.h" />
     <ClInclude Include="..\..\..\src\aes.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\CredCore.cpp" />
+    <ClCompile Include="..\..\..\src\CredCoreC.cpp" />
     <ClCompile Include="..\..\..\src\JwtRs256Verifier.cpp" />
     <ClCompile Include="..\..\..\src\aes.cpp" />
   </ItemGroup>
@@ -118,6 +123,9 @@
     <ResourceCompile Include="CredCore.rc">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">true</ExcludedFromBuild>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CredCore.def" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

@@ -46,6 +46,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\..\conf\interface-test.xml"><Filter>配置文件</Filter></None>
+    <None Include="..\..\..\conf\v2-chart-http.xml"><Filter>配置文件</Filter></None>
     <None Include="..\..\..\conf\v3-http.xml"><Filter>配置文件</Filter></None>
   </ItemGroup>
 </Project>

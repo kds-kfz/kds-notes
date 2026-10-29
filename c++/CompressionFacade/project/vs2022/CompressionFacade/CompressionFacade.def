@@ -1,0 +1,9 @@
+LIBRARY "libCompressionFacade"
+EXPORTS
+	CompressionFacade_GetAbiInfo
+	CompressionFacade_CreateCodec
+	CompressionFacade_DestroyCodec
+	CompressionFacade_GetMaxCompressedLength
+	CompressionFacade_Compress
+	CompressionFacade_GetUncompressedLength
+	CompressionFacade_Decompress

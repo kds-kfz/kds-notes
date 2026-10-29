@@ -154,12 +154,12 @@ namespace
 			return;
 		}
 
-		pthread_mutex_lock(&p_pRuntime->mutexConnection);
+		SocketServerMutexLock(&p_pRuntime->clConnectionMutex);
 		p_pRuntime->mapClient.clear();
 		p_pRuntime->setLocalClosing.clear();
-		pthread_mutex_unlock(&p_pRuntime->mutexConnection);
+		SocketServerMutexUnlock(&p_pRuntime->clConnectionMutex);
 
-		pthread_mutex_lock(&p_pRuntime->mutexTask);
+		SocketServerMutexLock(&p_pRuntime->clTaskMutex);
 		foreach(p_pRuntime->mapNotifyQueue, it_queue)
 		{
 			for (NotifyTask* pTask : it_queue->second.deqTasks)
@@ -168,15 +168,15 @@ namespace
 			}
 		}
 		p_pRuntime->mapNotifyQueue.clear();
-		pthread_mutex_unlock(&p_pRuntime->mutexTask);
+		SocketServerMutexUnlock(&p_pRuntime->clTaskMutex);
 
-		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		SocketServerMutexLock(&p_pRuntime->clRequestMutex);
 		foreach(p_pRuntime->mapRequest, it_queue)
 		{
 			delete it_queue->second;
 		}
 		p_pRuntime->mapRequest.clear();
-		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+		SocketServerMutexUnlock(&p_pRuntime->clRequestMutex);
 	}
 
 	bool HpSocketIsConnectedNoThrow(IHttpServer *pSender, CONNID dwConnID)
@@ -207,7 +207,7 @@ namespace
 		}
 
 		bool bMapAlive = false;
-		pthread_mutex_lock(&p_pRuntime->mutexConnection);
+		SocketServerMutexLock(&p_pRuntime->clConnectionMutex);
 		std::map<CONNID, ClientData>::iterator itClient =
 			p_pRuntime->mapClient.find(dwConnID);
 		// wyl 2026-05-19：发送前同时校验本地连接表和 HP-Socket 状态，避免关闭通知排队期间继续推送旧 ConnID。
@@ -217,7 +217,7 @@ namespace
 			&& itClient->second.bConnected
 			&& p_pRuntime->setLocalClosing.find(dwConnID) ==
 			p_pRuntime->setLocalClosing.end();
-		pthread_mutex_unlock(&p_pRuntime->mutexConnection);
+		SocketServerMutexUnlock(&p_pRuntime->clConnectionMutex);
 
 		return bMapAlive && HpSocketIsConnectedNoThrow(pSender, dwConnID);
 	}
@@ -307,7 +307,7 @@ namespace
 		const bool bCanClose = IsWebSocketSendable(p_pRuntime, pSender, dwConnID);
 		if (p_pRuntime != nullptr && bCanClose)
 		{
-			pthread_mutex_lock(&p_pRuntime->mutexConnection);
+			SocketServerMutexLock(&p_pRuntime->clConnectionMutex);
 			std::map<CONNID, ClientData>::iterator itClient =
 				p_pRuntime->mapClient.find(dwConnID);
 			if (itClient != p_pRuntime->mapClient.end())
@@ -315,7 +315,7 @@ namespace
 				itClient->second.bConnected = false;
 			}
 			p_pRuntime->setLocalClosing.insert(dwConnID);
-			pthread_mutex_unlock(&p_pRuntime->mutexConnection);
+			SocketServerMutexUnlock(&p_pRuntime->clConnectionMutex);
 		}
 
 		if (!bCanClose)
@@ -335,19 +335,19 @@ namespace
 		}
 		if (!pSender->Disconnect(dwConnID, false) && p_pRuntime != nullptr)
 		{
-			pthread_mutex_lock(&p_pRuntime->mutexConnection);
+			SocketServerMutexLock(&p_pRuntime->clConnectionMutex);
 			p_pRuntime->setLocalClosing.erase(dwConnID);
 			p_pRuntime->mapClient.erase(dwConnID);
-			pthread_mutex_unlock(&p_pRuntime->mutexConnection);
+			SocketServerMutexUnlock(&p_pRuntime->clConnectionMutex);
 
-			pthread_mutex_lock(&p_pRuntime->mutexRequest);
+			SocketServerMutexLock(&p_pRuntime->clRequestMutex);
 			auto itQueue = p_pRuntime->mapRequest.find(dwConnID);
 			if (itQueue != p_pRuntime->mapRequest.end())
 			{
 				delete itQueue->second;
 				p_pRuntime->mapRequest.erase(itQueue);
 			}
-			pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+			SocketServerMutexUnlock(&p_pRuntime->clRequestMutex);
 			MarkWebSocketSendConnectionClosed(p_pRuntime, dwConnID);
 		}
 	}
@@ -659,7 +659,7 @@ bool CWebSockServerObj::CreateWebSock(const char *p_szIp, unsigned short p_unPor
 	if (!m_ptrRuntime->pPackServer->Start(p_szIp, p_unPort))
 	{
 		char szErrDesc[256] = { 0 };
-		SafeCopyCString(szErrDesc, sizeof(szErrDesc),
+		SocketServerSafeCopyCString(szErrDesc, sizeof(szErrDesc),
 			m_ptrRuntime->pPackServer->GetLastErrorDesc());
 		snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			m_ptrRuntime->pPackServer->GetLastError(), szErrDesc);

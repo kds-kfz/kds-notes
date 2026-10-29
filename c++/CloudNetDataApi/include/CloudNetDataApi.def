@@ -2,6 +2,7 @@
 EXPORTS
 	Create
 	Destroy
+	SetIceConfigPath
 	StartService
 	StopService
 	Connect

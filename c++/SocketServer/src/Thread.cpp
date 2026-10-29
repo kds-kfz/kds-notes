@@ -1,24 +1,22 @@
 ﻿#include "Thread.h"
-#include <iostream>
 #include <sstream>
+#include <system_error>
+#include <utility>
 
-USE_NAMESPACE_NSDK
+using namespace nsdk;
 
 using namespace std;
 
-void *ThreadHandle(void *param)
-{
-	CThread* pThis = (CThread*)param;
-	pThis->Run();
-	return (void*)1;
-}
-
 CThread::CThread():
-	m_ptrThread(nullptr),
+	m_bFinishFlag(false),
+	m_ulThreadId(0),
+	m_clThread(),
+	m_clStateMutex(),
+	m_clStateCondition(),
+	m_bJoinInProgress(false),
 	m_bPauseFlag(true),
 	m_bStopFlag(false),
-	m_enState(Stoped),
-	m_bFinishFlag(false)
+	m_enState(Stoped)
 {
 }
 
@@ -29,98 +27,122 @@ CThread::~CThread()
 
 CThread::ThreadState CThread::State() const
 {
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
 	return m_enState;
+}
+
+bool CThread::GetFinish() const
+{
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
+	return m_bFinishFlag;
+}
+
+unsigned long long CThread::GetThreadId() const
+{
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
+	return m_ulThreadId;
 }
 
 int CThread::Start(unsigned int p_uiId)
 {
-	int iRet = -1;
-	if (m_ptrThread == nullptr)
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
+	if (m_clThread.joinable() || m_bJoinInProgress)
 	{
-		pthread_mutex_init(&m_mutex, nullptr);
-		pthread_cond_init(&m_condition, nullptr);
-
-		m_ptrThread = new pthread_t;
-		pthread_create(m_ptrThread, nullptr, ThreadHandle, this);
-		m_bPauseFlag = true;
-		m_bStopFlag = false;
-		m_enState = Paused;
-		m_bFinishFlag = false;
-		iRet = 0;
-		//m_lluThreadId = ThreadId2uLong(std::this_thread::get_id());
-		//pthread_t threadId = pthread_self(); // 获取当前线程的pthread_t结构
-		//unsigned long ulThreadId = pthread_getw32threadid_np(threadId); // 获取Windows线程ID
-		//m_ulThreadId = ThreadId2uLong(ulThreadId);
-		m_ulThreadId = p_uiId;
+		return -1;
 	}
-	return iRet;
+
+	m_bPauseFlag = true;
+	m_bStopFlag = false;
+	m_enState = Paused;
+	m_bFinishFlag = false;
+	m_ulThreadId = p_uiId;
+	try
+	{
+		m_clThread = std::thread(&CThread::Run, this);
+	}
+	catch (const std::system_error&)
+	{
+		m_enState = Stoped;
+		m_bFinishFlag = true;
+		return -1;
+	}
+	return 0;
 }
 
 int CThread::Stop()
 {
-	int iRet = -1;
-	if (m_ptrThread != nullptr)
+	std::thread clThread;
 	{
+		std::lock_guard<std::mutex> clLock(m_clStateMutex);
+		if (!m_clThread.joinable() ||
+			m_clThread.get_id() == std::this_thread::get_id())
+		{
+			return -1;
+		}
 		m_bPauseFlag = false;
 		m_bStopFlag = true;
-		pthread_cond_signal(&m_condition);  // Notify one waiting thread, if there is one.
-		pthread_join(*m_ptrThread,nullptr); // wait for thread finished
-		delete m_ptrThread;
-		m_ptrThread = nullptr;
-		m_enState = Stoped;
-		iRet = 0;
-
-		pthread_mutex_destroy(&m_mutex);
-		pthread_cond_destroy(&m_condition);
+		m_bJoinInProgress = true;
+		m_clStateCondition.notify_all();
+		clThread = std::move(m_clThread);
 	}
-	return iRet;
+
+	clThread.join();
+	{
+		std::lock_guard<std::mutex> clLock(m_clStateMutex);
+		m_bStopFlag = false;
+		m_bJoinInProgress = false;
+		m_enState = Stoped;
+	}
+	return 0;
 }
 
 int CThread::Pause()
 {
-	int iRet = -1;
-	if (m_ptrThread != nullptr)
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
+	if (!m_clThread.joinable() || m_bJoinInProgress)
 	{
-		m_bPauseFlag = true;
-		m_enState = Paused;
-		iRet = 0;
+		return -1;
 	}
-	return iRet;
+	m_bPauseFlag = true;
+	m_enState = Paused;
+	return 0;
 }
 
 int CThread::Resume()
 {
-	int iRet = -1;
-	if (m_ptrThread != nullptr)
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
+	if (!m_clThread.joinable() || m_bJoinInProgress)
 	{
-		m_bPauseFlag = false;
-		//pthread_mutex_lock(&m_mutex);
-		pthread_cond_signal(&m_condition);
-		m_enState = Running;
-		//pthread_mutex_unlock(&m_mutex);
-		iRet = 0;
+		return -1;
 	}
-	return iRet;
+	m_bPauseFlag = false;
+	m_enState = Running;
+	m_clStateCondition.notify_one();
+	return 0;
 }
 
 void CThread::Run()
 {
-	while (!m_bStopFlag)
+	for (;;)
 	{
-		
-		if (m_bPauseFlag)
 		{
-			pthread_mutex_lock(&m_mutex);
-			while (m_bPauseFlag)
+			std::unique_lock<std::mutex> clLock(m_clStateMutex);
+			m_clStateCondition.wait(clLock, [this]()
 			{
-				 pthread_cond_wait(&m_condition, &m_mutex); // Unlock m_mutex and wait to be notified
+				return !m_bPauseFlag || m_bStopFlag;
+			});
+			if (m_bStopFlag)
+			{
+				break;
 			}
-			pthread_mutex_unlock(&m_mutex);
 		}
 		Work();
 	}
+
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
+	m_bFinishFlag = true;
 	m_bPauseFlag = false;
-	m_bStopFlag = false;
+	m_enState = Stoped;
 }
 
 unsigned long long CThread::ThreadId2uLong(unsigned long p_ulThreadId)

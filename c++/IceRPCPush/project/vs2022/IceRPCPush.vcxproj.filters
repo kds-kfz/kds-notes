@@ -33,10 +33,16 @@
     <ClInclude Include="..\..\src\compat\ByteCompat.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\src\compat\FoundationCompat.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\src\compat\IceCompat.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\compat\SimplePool.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\compat\SnappyCompat.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\concurrentqueue.h">
@@ -105,6 +111,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\compat\SocketServerCompat.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\compat\FoundationCompat.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\compat\SnappyCompat.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\Corba\JSONBINRPCU.cpp">

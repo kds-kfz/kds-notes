@@ -134,7 +134,7 @@ namespace
 		}
 
 		bool bReserved = false;
-		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		SocketServerMutexLock(&p_pRuntime->clRequestMutex);
 		ReqCacheData *&refReqCacheData = p_pRuntime->mapRequest[dwConnID];
 		if (nullptr == refReqCacheData)
 		{
@@ -142,7 +142,7 @@ namespace
 			refReqCacheData = new (std::nothrow) ReqCacheData();
 			if (nullptr == refReqCacheData)
 			{
-				pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+				SocketServerMutexUnlock(&p_pRuntime->clRequestMutex);
 				return false;
 			}
 			refReqCacheData->ullConnID = dwConnID;
@@ -156,7 +156,7 @@ namespace
 			refReqCacheData->ullWebPendingBytes += uiDataLen;
 			bReserved = true;
 		}
-		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+		SocketServerMutexUnlock(&p_pRuntime->clRequestMutex);
 		return bReserved;
 	}
 
@@ -168,7 +168,7 @@ namespace
 		{
 			return;
 		}
-		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		SocketServerMutexLock(&p_pRuntime->clRequestMutex);
 		std::map<CONNID, ReqCacheData*>::iterator itReq =
 			p_pRuntime->mapRequest.find(dwConnID);
 		if (itReq != p_pRuntime->mapRequest.end() && nullptr != itReq->second)
@@ -202,7 +202,7 @@ namespace
 				p_pRuntime->mapRequest.erase(itReq);
 			}
 		}
-		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+		SocketServerMutexUnlock(&p_pRuntime->clRequestMutex);
 	}
 }
 
@@ -218,7 +218,7 @@ namespace
 		}
 
 		ClientData stClientData;
-		pthread_mutex_lock(&p_pRuntime->mutexConnection);
+		SocketServerMutexLock(&p_pRuntime->clConnectionMutex);
 		auto itClient = p_pRuntime->mapClient.find(pTask->ullConnID);
 		if (itClient != p_pRuntime->mapClient.end())
 		{
@@ -228,18 +228,18 @@ namespace
 		{
 			p_pRuntime->mapClient.erase(pTask->ullConnID);
 		}
-		pthread_mutex_unlock(&p_pRuntime->mutexConnection);
+		SocketServerMutexUnlock(&p_pRuntime->clConnectionMutex);
 
 		if (enWebClose == pTask->enWebNotifyType)
 		{
-			pthread_mutex_lock(&p_pRuntime->mutexRequest);
+			SocketServerMutexLock(&p_pRuntime->clRequestMutex);
 			auto itQueue = p_pRuntime->mapRequest.find(pTask->ullConnID);
 			if (itQueue != p_pRuntime->mapRequest.end())
 			{
 				delete itQueue->second;
 				p_pRuntime->mapRequest.erase(itQueue);
 			}
-			pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+			SocketServerMutexUnlock(&p_pRuntime->clRequestMutex);
 		}
 
 		bool bCallbackOk = true;
@@ -343,7 +343,7 @@ void ThreadWebNotifyTask(LPTSocketTask socketTask)
 	for (; uiProcessedCount < g_uiWebNotifyDrainBatchSize; ++uiProcessedCount)
 	{
 		NotifyTask *pTask = nullptr;
-		pthread_mutex_lock(&pRuntime->mutexTask);
+		SocketServerMutexLock(&pRuntime->clTaskMutex);
 		auto itQueue = pRuntime->mapNotifyQueue.find(ullConnID);
 		if (itQueue == pRuntime->mapNotifyQueue.end() || itQueue->second.deqTasks.empty())
 		{
@@ -351,12 +351,12 @@ void ThreadWebNotifyTask(LPTSocketTask socketTask)
 			{
 				pRuntime->mapNotifyQueue.erase(itQueue);
 			}
-			pthread_mutex_unlock(&pRuntime->mutexTask);
+			SocketServerMutexUnlock(&pRuntime->clTaskMutex);
 			break;
 		}
 		pTask = itQueue->second.deqTasks.front();
 		itQueue->second.deqTasks.pop_front();
-		pthread_mutex_unlock(&pRuntime->mutexTask);
+		SocketServerMutexUnlock(&pRuntime->clTaskMutex);
 
 		const bool bCallbackOk = ProcessOneWebNotifyTask(pRuntime, pSender, pTask);
 		delete pTask;
@@ -367,7 +367,7 @@ void ThreadWebNotifyTask(LPTSocketTask socketTask)
 	}
 
 	// 单连接每批最多处理固定数量，队列仍有任务时重新提交，给其它连接公平执行机会。
-	pthread_mutex_lock(&pRuntime->mutexTask);
+	SocketServerMutexLock(&pRuntime->clTaskMutex);
 	auto itQueue = pRuntime->mapNotifyQueue.find(ullConnID);
 	if (itQueue != pRuntime->mapNotifyQueue.end() && !itQueue->second.deqTasks.empty())
 	{
@@ -390,7 +390,7 @@ void ThreadWebNotifyTask(LPTSocketTask socketTask)
 	{
 		pRuntime->mapNotifyQueue.erase(itQueue);
 	}
-	pthread_mutex_unlock(&pRuntime->mutexTask);
+	SocketServerMutexUnlock(&pRuntime->clTaskMutex);
 }
 
 namespace
@@ -481,12 +481,12 @@ namespace
 			return false;
 		}
 
-		pthread_mutex_lock(&p_pRuntime->mutexTask);
+		SocketServerMutexLock(&p_pRuntime->clTaskMutex);
 		pNotifyTask->ullTaskID = ++p_pRuntime->ullTaskId;
 		ST_WEB_NOTIFY_QUEUE_V2& refQueue = p_pRuntime->mapNotifyQueue[dwConnID];
 		if (refQueue.bClosed)
 		{
-			pthread_mutex_unlock(&p_pRuntime->mutexTask);
+			SocketServerMutexUnlock(&p_pRuntime->clTaskMutex);
 			delete pNotifyTask;
 			return false;
 		}
@@ -497,7 +497,7 @@ namespace
 		}
 		if (refQueue.bDraining)
 		{
-			pthread_mutex_unlock(&p_pRuntime->mutexTask);
+			SocketServerMutexUnlock(&p_pRuntime->clTaskMutex);
 			return true;
 		}
 		refQueue.bDraining = true;
@@ -509,11 +509,11 @@ namespace
 				delete pQueuedTask;
 			}
 			p_pRuntime->mapNotifyQueue.erase(dwConnID);
-			pthread_mutex_unlock(&p_pRuntime->mutexTask);
+			SocketServerMutexUnlock(&p_pRuntime->clTaskMutex);
 			return false;
 		}
 
-		pthread_mutex_unlock(&p_pRuntime->mutexTask);
+		SocketServerMutexUnlock(&p_pRuntime->clTaskMutex);
 		return true;
 	}
 }
@@ -602,7 +602,7 @@ EnHttpParseResult CWebServerListerNet::OnUpgrade(IHttpServer* pSender, CONNID dw
 
 	bool bFoundClient = false;
 	bool bAlreadyConnected = false;
-	pthread_mutex_lock(&m_pRuntime->mutexConnection);
+	SocketServerMutexLock(&m_pRuntime->clConnectionMutex);
 	std::map<CONNID, ClientData>::iterator itClient =
 		m_pRuntime->mapClient.find(dwConnID);
 	if (itClient != m_pRuntime->mapClient.end())
@@ -614,7 +614,7 @@ EnHttpParseResult CWebServerListerNet::OnUpgrade(IHttpServer* pSender, CONNID dw
 			itClient->second.bConnected = true;
 		}
 	}
-	pthread_mutex_unlock(&m_pRuntime->mutexConnection);
+	SocketServerMutexUnlock(&m_pRuntime->clConnectionMutex);
 
 	if (!bFoundClient)
 	{
@@ -637,13 +637,13 @@ EnHttpParseResult CWebServerListerNet::OnUpgrade(IHttpServer* pSender, CONNID dw
 
 	if (!SubmitWebNotifyTask(m_pRuntime, pSender, dwConnID, pNotifyTask))
 	{
-		pthread_mutex_lock(&m_pRuntime->mutexConnection);
+		SocketServerMutexLock(&m_pRuntime->clConnectionMutex);
 		itClient = m_pRuntime->mapClient.find(dwConnID);
 		if (itClient != m_pRuntime->mapClient.end())
 		{
 			itClient->second.bConnected = false;
 		}
-		pthread_mutex_unlock(&m_pRuntime->mutexConnection);
+		SocketServerMutexUnlock(&m_pRuntime->clConnectionMutex);
 		return HPR_ERROR;
 	}
 
@@ -684,15 +684,15 @@ EnHandleResult CWebServerListerNet::OnWSMessageHeader(IHttpServer* pSender, CONN
 		return HR_ERROR;
 	}
 
-	pthread_mutex_lock(&m_pRuntime->mutexConnection);
+	SocketServerMutexLock(&m_pRuntime->clConnectionMutex);
 	bool bHasClient = (m_pRuntime->mapClient.find(dwConnID) !=
 		m_pRuntime->mapClient.end());
-	pthread_mutex_unlock(&m_pRuntime->mutexConnection);
+	SocketServerMutexUnlock(&m_pRuntime->clConnectionMutex);
 	if (!bHasClient)
 		return HR_ERROR;
 
 	bool bProtocolError = false;
-	pthread_mutex_lock(&m_pRuntime->mutexRequest);
+	SocketServerMutexLock(&m_pRuntime->clRequestMutex);
 	// wyl 2026-04-25：帧头阶段准备连接级缓存，后续 Body 回调按该状态累计，Complete 阶段再统一判断是否完整。
 	ReqCacheData *&refReqCacheData = m_pRuntime->mapRequest[dwConnID];
 	if (nullptr == refReqCacheData)
@@ -701,7 +701,7 @@ EnHandleResult CWebServerListerNet::OnWSMessageHeader(IHttpServer* pSender, CONN
 		refReqCacheData = new (std::nothrow) ReqCacheData();
 		if (nullptr == refReqCacheData)
 		{
-			pthread_mutex_unlock(&m_pRuntime->mutexRequest);
+			SocketServerMutexUnlock(&m_pRuntime->clRequestMutex);
 			WEB_ERROR("ConnID=%llu,WebSocketCacheAllocFail", (unsigned long long)dwConnID);
 			return HR_ERROR;
 		}
@@ -779,7 +779,7 @@ EnHandleResult CWebServerListerNet::OnWSMessageHeader(IHttpServer* pSender, CONN
 	{
 		ResetWebFrameState(refReqCacheData, true);
 	}
-	pthread_mutex_unlock(&m_pRuntime->mutexRequest);
+	SocketServerMutexUnlock(&m_pRuntime->clRequestMutex);
 
 	if (bProtocolError)
 	{
@@ -797,19 +797,19 @@ EnHandleResult CWebServerListerNet::OnWSMessageBody(IHttpServer* pSender, CONNID
 	if (m_pRuntime == nullptr || !m_pRuntime->bServerStatus.load())
 		return HR_ERROR;
 
-	pthread_mutex_lock(&m_pRuntime->mutexConnection);
+	SocketServerMutexLock(&m_pRuntime->clConnectionMutex);
 	if (m_pRuntime->mapClient.find(dwConnID) == m_pRuntime->mapClient.end())
 	{
-		pthread_mutex_unlock(&m_pRuntime->mutexConnection);
+		SocketServerMutexUnlock(&m_pRuntime->clConnectionMutex);
 		return HR_ERROR;
 	}
-	pthread_mutex_unlock(&m_pRuntime->mutexConnection);
+	SocketServerMutexUnlock(&m_pRuntime->clConnectionMutex);
 
 	if (nullptr == pData || iLength <= 0)
 		return HR_OK;
 
 	bool bProtocolError = false;
-	pthread_mutex_lock(&m_pRuntime->mutexRequest);
+	SocketServerMutexLock(&m_pRuntime->clRequestMutex);
 	std::map<CONNID, ReqCacheData*>::iterator itReqCache =
 		m_pRuntime->mapRequest.find(dwConnID);
 	if (itReqCache == m_pRuntime->mapRequest.end() || nullptr == itReqCache->second)
@@ -864,7 +864,7 @@ EnHandleResult CWebServerListerNet::OnWSMessageBody(IHttpServer* pSender, CONNID
 			ResetWebFrameState(pReqCacheData, true);
 		}
 	}
-	pthread_mutex_unlock(&m_pRuntime->mutexRequest);
+	SocketServerMutexUnlock(&m_pRuntime->clRequestMutex);
 
 	if (bProtocolError)
 	{
@@ -889,7 +889,7 @@ EnHandleResult CWebServerListerNet::OnWSMessageComplete(IHttpServer* pSender, CO
 	unsigned long ulNotifyLenForLog = 0;
 	char szPongBuf[125] = { 0 };
 
-	pthread_mutex_lock(&m_pRuntime->mutexRequest);
+	SocketServerMutexLock(&m_pRuntime->clRequestMutex);
 	std::map<CONNID, ReqCacheData*>::iterator itReqCache =
 		m_pRuntime->mapRequest.find(dwConnID);
 	if (itReqCache != m_pRuntime->mapRequest.end() && nullptr != itReqCache->second)
@@ -988,7 +988,7 @@ EnHandleResult CWebServerListerNet::OnWSMessageComplete(IHttpServer* pSender, CO
 			ResetWebFrameState(pReqCacheData, true);
 		}
 	}
-	pthread_mutex_unlock(&m_pRuntime->mutexRequest);
+	SocketServerMutexUnlock(&m_pRuntime->clRequestMutex);
 
 	if (bProtocolError)
 	{
@@ -1062,15 +1062,15 @@ EnHandleResult CWebServerListerNet::OnAccept(ITcpServer* pSender, CONNID dwConnI
 	pSender->GetRemoteAddress(dwConnID, szAddress, iAddressLen, usPort);
 
 	//管理连接
-	pthread_mutex_lock(&m_pRuntime->mutexConnection);
+	SocketServerMutexLock(&m_pRuntime->clConnectionMutex);
 	ClientData &refClientData = m_pRuntime->mapClient[dwConnID];
 	refClientData.ullConnID = dwConnID;
 	refClientData.unPort = usPort;
 	// wyl 2026-03-30：WebSocket 连接要等 HTTP Upgrade 成功后才算业务层真正建链，这里先记为未连接。
 	refClientData.bConnected = false;
 	// wyl 2026-04-08：项目侧统一使用 char 地址缓存，避免字符集宏扩散到业务代码。
-	SafeCopyCString(refClientData.szIp, sizeof(refClientData.szIp), szAddress);
-	pthread_mutex_unlock(&m_pRuntime->mutexConnection);
+	SocketServerSafeCopyCString(refClientData.szIp, sizeof(refClientData.szIp), szAddress);
+	SocketServerMutexUnlock(&m_pRuntime->clConnectionMutex);
 	return HR_OK;
 }
 
@@ -1088,7 +1088,7 @@ EnHandleResult CWebServerListerNet::OnClose(ITcpServer* pSender, CONNID dwConnID
 	bool bHasClient = false;
 	bool bLocalClosing = false;
 	bool bConnected = false;
-	pthread_mutex_lock(&m_pRuntime->mutexConnection);
+	SocketServerMutexLock(&m_pRuntime->clConnectionMutex);
 	// wyl 2026-03-30：主动断连由本端标记判断，不再依赖 SO_CLOSE 这类操作类型猜测关闭来源。
 	if (m_pRuntime->setLocalClosing.find(dwConnID) !=
 		m_pRuntime->setLocalClosing.end())
@@ -1110,19 +1110,19 @@ EnHandleResult CWebServerListerNet::OnClose(ITcpServer* pSender, CONNID dwConnID
 			m_pRuntime->mapClient.erase(itClient);
 		}
 	}
-	pthread_mutex_unlock(&m_pRuntime->mutexConnection);
+	SocketServerMutexUnlock(&m_pRuntime->clConnectionMutex);
 
 	if (bLocalClosing || !bConnected)
 	{
 		// wyl 2026-03-30：本端主动关闭，或尚未完成 Upgrade 就断开的连接，只做内部清理，不向上层重复发关闭通知。
-		pthread_mutex_lock(&m_pRuntime->mutexRequest);
+		SocketServerMutexLock(&m_pRuntime->clRequestMutex);
 		if (m_pRuntime->mapRequest.find(dwConnID) !=
 			m_pRuntime->mapRequest.end())
 		{
 			delete m_pRuntime->mapRequest[dwConnID];
 			m_pRuntime->mapRequest.erase(dwConnID);
 		}
-		pthread_mutex_unlock(&m_pRuntime->mutexRequest);
+		SocketServerMutexUnlock(&m_pRuntime->clRequestMutex);
 		return HR_OK;
 	}
 
@@ -1153,13 +1153,13 @@ EnHandleResult CWebServerListerNet::OnReceive(ITcpServer*, CONNID dwConnID, int 
 	if (m_pRuntime == nullptr || !m_pRuntime->bServerStatus.load())
 		return HR_ERROR;
 
-	pthread_mutex_lock(&m_pRuntime->mutexConnection);
+	SocketServerMutexLock(&m_pRuntime->clConnectionMutex);
 	if (m_pRuntime->mapClient.find(dwConnID) == m_pRuntime->mapClient.end())
 	{
-		pthread_mutex_unlock(&m_pRuntime->mutexConnection);
+		SocketServerMutexUnlock(&m_pRuntime->clConnectionMutex);
 		return HR_ERROR;
 	}
-	pthread_mutex_unlock(&m_pRuntime->mutexConnection);
+	SocketServerMutexUnlock(&m_pRuntime->clConnectionMutex);
 
 	// wyl 2026-03-30：当前 Web 服务的数据主链路走 HTTP 解析和 WebSocket 回调，这个原始 Pull 收包回调不应进入。
 	// wyl 2026-04-25：如果这里被触发，通常说明底层模型或配置和当前实现预期不一致，直接拒绝比继续分配错误缓存更安全。

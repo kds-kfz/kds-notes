@@ -1,4 +1,4 @@
-// Log.h: IceRPCPush ��־�������ҵ����־�ࡣ
+﻿// Log.h: IceRPCPush 日志基础类和业务日志类。
 //////////////////////////////////////////////////////////////////////
 
 #if !defined(AFX_GATHERLOG_H__F9C4FB28_8DBA_4290_8383_02AB51DB467C__INCLUDED_)
@@ -8,11 +8,11 @@
 #pragma once
 #endif // _MSC_VER > 1000
 
-#include "nsdk_define.h"
-
-#include <pthread.h>
+#include <condition_variable>
 #include <cstdio>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 struct ST_XML_CONFIG_DATA;
@@ -32,93 +32,97 @@ struct ST_XML_CONFIG_DATA;
 #define HQTIME_BUF_SIZE	(128)
 #define HQLOG_BUF_SIZE	(1024)
 #define HQLOG_BUF_MAX	(4)
+#define HQLOG_PATH_MAX	(4096)
 
-BGN_NAMESPACE_NSDK
+namespace nsdk
+{
 
-// �߳�֪ͨ���ͣ����� SocketServer ��־�̵߳�֪ͨ�ӿ���̬��
+// 线程通知类型，保留 SocketServer 日志线程的通知接口形态。
 enum NotifyType
 {
-	NT_FINISH = 1,	// �߳��������֪ͨ��
-	NT_COLLECT		// �̲߳ɼ�����֪ͨ��
+	NT_FINISH = 1,	// 线程任务完成通知。
+	NT_COLLECT		// 线程采集数据通知。
 };
 
-// �߳�����֪ͨ�ӿڣ���ǰ��־�̲߳������ɷ�֪ͨ��������������Լ��
+// 线程数据通知接口，当前日志线程不主动派发通知，仅保留基类契约。
 class CDataNotify
 {
 public:
-	// �߳��¼��ص���ڣ������ఴ�账���߳� ID��֪ͨ���ͺ͸������ݡ�
+	// 线程事件回调入口，派生类按需处理线程 ID、通知类型和附带数据。
 	virtual void OnDataNotify(unsigned long long p_ullThreadId, NotifyType p_enType, void* p_pData, int p_iDataLen) = 0;
 };
 
-// SocketServer ��־���������������̷߳�װ��������ֱ�Ӹ���ʵ�֣���������ⲿ src Դ�롣
+// SocketServer 日志基类依赖的轻量线程封装，本工程直接复制实现，避免包含外部 src 源码。
 class CThread
 {
 public:
 	CThread();
 	virtual ~CThread();
 
-	// �߳�����״̬���� SocketServer ԭʵ�ֱ���ͬһ���塣
+	// 线程运行状态，和 SocketServer 原实现保持同一语义。
 	enum ThreadState
 	{
-		Stoped,		// ��ֹͣ����δ������
-		Running,	// �������С�
-		Paused		// ����ͣ��
+		Stoped,		// 已停止或尚未启动。
+		Running,	// 正在运行。
+		Paused		// 已暂停。
 	};
 
-	// ���ص�ǰ�߳�״̬��
+	// 返回当前线程状态。
 	ThreadState State() const;
-	// �߳����ѭ������ pthread �ص�������
+	// 线程入口循环，由 std::thread 触发；Linux 标准库仍通过 pthread 实现。
 	void Run();
-	// �����̣߳�p_uId �����ϲ��ʶҵ���̡߳�
+	// 创建线程，p_uId 用于上层标识业务线程。
 	int Start(unsigned int p_uId);
-	// ֹͣ�̲߳��ȴ��߳��˳���
+	// 停止线程并等待线程退出。
 	int Stop();
-	// ��ͣ�߳�ѭ����
+	// 暂停线程循环。
 	int Pause();
-	// �ָ��߳�ѭ����
+	// 恢复线程循环。
 	int Resume();
-	// �����߳��Ƿ��Ѿ�������
+	// 返回线程是否已经结束。
 	bool GetFinish() const;
-	// ����ҵ���߳� ID��
+	// 返回业务线程 ID。
 	unsigned long long GetThreadId() const;
 
 protected:
-	// ������ʵ�ʹ���������
+	// 派生类实际工作函数。
 	virtual int Work() = 0;
-	// ע��֪ͨ�����ߡ�
+	// 注册通知接收者。
 	virtual bool AddNotify(CDataNotify* p_pNotify) = 0;
-	// ɾ��֪ͨ�����ߡ�
+	// 删除通知接收者。
 	virtual bool DelNotify(CDataNotify* p_pNotify) = 0;
-	// �����߳�֪ͨ��
+	// 发送线程通知。
 	virtual void SendNotify(unsigned long long p_ullThreadId, NotifyType p_enNotifyType, void* p_pData, int p_iDataLen) = 0;
 
-	// �߳���ɱ�ʶ��
+	// 线程完成标识。
 	bool m_bFinishFlag;
-	// ҵ���̱߳�š�
+	// 业务线程编号。
 	unsigned int m_uThreadId;
 
 private:
-	// ��ƽ̨�߳� ID ת���޷��ų����ͣ����� SocketServer �߳��ศ��������
+	// 将平台线程 ID 转成无符号长整型，保留 SocketServer 线程类辅助能力。
 	unsigned long long ThreadId2uLong(unsigned long p_ulThreadId);
 
 private:
-	// pthread �̶߳���Start ������Stop �ͷš�
-	pthread_t* m_pThread;
-	// ��ͣ/�ָ�����������Ӧ�Ļ�������
-	pthread_mutex_t m_mutex;
-	// ��ͣ/�ָ�����������
-	pthread_cond_t m_condition;
-	// ��ͣ��ʶ��Ϊ true ʱ�̵߳ȴ�����������
+	// 进程内工作线程，Start 创建，Stop 等待退出。
+	std::thread m_clThread;
+	// 保护线程状态、暂停/停止标识和业务线程编号。
+	mutable std::mutex m_clStateMutex;
+	// 暂停线程等待及恢复/停止通知。
+	std::condition_variable m_clStateCondition;
+	// Stop 已取走线程且正在等待退出，期间禁止再次 Start。
+	bool m_bJoinInProgress;
+	// 暂停标识，为 true 时线程等待条件变量。
 	bool m_bPauseFlag;
-	// ֹͣ��ʶ��Ϊ true ʱ�߳��˳�ѭ����
+	// 停止标识，为 true 时线程退出循环。
 	bool m_bStopFlag;
-	// ��ǰ�߳�״̬��
+	// 当前线程状态。
 	ThreadState m_enState;
 };
 
-END_NAMESPACE_NSDK
+}
 
-// ��־���ͣ�����/����/����/���ԡ�
+// 日志类型，错误/警告/运行/调试。
 enum enHQLogType
 {
 	eError = 0,
@@ -129,83 +133,83 @@ enum enHQLogType
 
 class CLogFileThread;
 
-// SocketServer �ļ���־����ı��ظ�����������־Ŀ¼����־�ļ����첽ˢ�̡�
+// SocketServer 文件日志基类的本地副本，负责日志目录、日志文件和异步刷盘。
 class CBaseLog
 {
 public:
 	CBaseLog();
 	~CBaseLog();
 
-	// ��־�̹߳�������������д�뻺���е���־�ı���
+	// 日志线程工作函数，批量写入缓存中的日志文本。
 	int ThreadLog();
-	// ��ʼ����־Ŀ¼����־������ļ���ǰ׺��
+	// 初始化日志目录、日志级别和文件名前缀。
 	int InitLog(const char* p_szFold, enHQLogType p_enType = eInfo, const char* p_szLogFileName = "");
-	// ��ָ���������´���־�ļ�������Ϊ 0 ʱʹ�õ������ڡ�
+	// 按指定日期重新打开日志文件，日期为 0 时使用当天日期。
 	int InitLog(int p_iLogDate = 0);
-	// ׷��һ����ʽ����־��ʵ��д�ļ��ɺ�̨�߳���ɡ�
+	// 追加一条格式化日志，实际写文件由后台线程完成。
 	void AddLog(enHQLogType p_enType, const char* p_szFormat, ...);
-	// ���ص�ǰ��־�ļ�����·����
+	// 返回当前日志文件完整路径。
 	std::string GetLogPath() const;
-	// ���ַ���������־���𣬵�ǰ���� debug �� info��
+	// 按字符串设置日志级别，当前兼容 debug 和 info。
 	void SetLogLevel(const char* p_szLogLevel);
-	// �ָ���־�߳�д�롣
+	// 恢复日志线程写入。
 	void Resume();
 
 private:
-	// �رյ�ǰ��־�ļ������
+	// 关闭当前日志文件句柄。
 	void Close();
-	// ��ʼ����ԱĬ��ֵ��
+	// 初始化成员默认值。
 	void Init();
-	// �ͷ���־�̡߳����������ļ������
+	// 释放日志线程、互斥量和文件句柄。
 	void BaseRelease();
 
 private:
-	// ��־���滥���������� m_vecLog��
-	pthread_mutex_t m_mutexLog;
-	// ��д���ļ�����־���档
+	// 日志缓存互斥量，保护 m_vecLog。
+	std::mutex m_clLogMutex;
+	// 待写入文件的日志缓存。
 	std::vector<std::string> m_vecLog;
-	// ��̨д�ļ��̡߳�
+	// 后台写文件线程。
 	CLogFileThread* m_pLogFileThread;
-	// ��ǰ����д�����־����
+	// 当前允许写入的日志级别。
 	volatile enHQLogType m_enLogType;
-	// ��ǰ��־�ļ������
+	// 当前日志文件句柄。
 	FILE* m_pFileLog;
-	// ��ǰ��־�ļ����ڣ���ʽ YYYYMMDD��
+	// 当前日志文件日期，格式 YYYYMMDD。
 	unsigned int m_uLastDate;
-	// ��־Ŀ¼��
+	// 日志目录。
 	std::string m_strLogFold;
-	// ��־�ļ���ǰ׺��
+	// 日志文件名前缀。
 	std::string m_strLogName;
-	// ��ǰ��־�ļ�����·����
+	// 当前日志文件完整路径。
 	std::string m_strLogPath;
-	// ��־�Ƿ���ɳ�ʼ����δ��ʼ��ʱ��ֹд�롣
+	// 日志是否完成初始化，未初始化时禁止写入。
 	volatile bool m_bInitStatus;
 };
 
-// ��־ˢ���̣߳����� CBaseLog::ThreadLog ����첽д�ļ���
+// 日志刷盘线程，调用 CBaseLog::ThreadLog 完成异步写文件。
 class CLogFileThread : public nsdk::CThread
 {
 public:
 	CLogFileThread();
 	virtual ~CLogFileThread();
 
-	// ִ��һ����־ˢ�̡�
+	// 执行一次日志刷盘。
 	virtual int Work();
-	// ��־�̲߳���Ҫ�ⲿ֪ͨ�����ߡ�
+	// 日志线程不需要外部通知接收者。
 	virtual bool AddNotify(nsdk::CDataNotify* p_pNotify);
-	// ��־�̲߳���Ҫ�ⲿ֪ͨ�����ߡ�
+	// 日志线程不需要外部通知接收者。
 	virtual bool DelNotify(nsdk::CDataNotify* p_pNotify);
-	// ��־�̲߳��ɷ�֪ͨ�������ӿ������������Լ��
+	// 日志线程不派发通知，保留接口以满足基类契约。
 	virtual void SendNotify(unsigned long long p_ullThreadId, nsdk::NotifyType p_enNotifyType, void* p_pData, int p_iDataLen);
-	// ��������־��������̹߳���ʱ�ص���д�ļ���
+	// 绑定所属日志基类对象，线程工作时回调它写文件。
 	void SetThis(CBaseLog* p_pParent);
 
 private:
-	// ������־����������������� CBaseLog ���ơ�
+	// 所属日志基类对象，生命周期由 CBaseLog 控制。
 	CBaseLog* m_pParent;
 };
 
-// IceRPCPush ��־���𣬺� SocketServer ��־���𱣳�ͬһ���塣
+// IceRPCPush 日志级别，和 SocketServer 日志级别保持同一语义。
 enum EN_LOG_LEVEL
 {
 	EN_LOG_LEVEL_ERROR = 0,
@@ -215,47 +219,47 @@ enum EN_LOG_LEVEL
 	EN_LOG_LEVEL_OFF
 };
 
-// IceRPCPush ר����־�࣬�̳� SocketServer ��־���ಢ����ҵ�������ʽд��־�ӿڡ�
+// IceRPCPush 专用日志类，继承 SocketServer 日志基类并保留业务侧三段式写日志接口。
 class CIceRPCPushLog : public CBaseLog
 {
 public:
-	// ���ؽ��̼���־�������������� DLL ���̱��֡�
+	// 返回进程级日志对象，生命周期随 DLL 进程保持。
 	static CIceRPCPushLog& Instance();
 public:
-	// ��ʼ����־Ŀ¼���ļ���ǰ׺��p_szLogName Ϊ��ʱʹ��Ĭ�� JSONRPC��
+	// 初始化日志目录和文件名前缀，p_szLogName 为空时使用默认 JSONRPC。
 	bool Open(const char* p_szLogName);
-	// �� XML ��� INI ���ö�ȡ��־����Ĭ�� info��֧�� debug/info/warn/error/off��
+	// 从 XML 或旧 INI 配置读取日志级别，默认 info；支持 debug/info/warn/error/off。
 	void ApplyConfig(const char* p_szCfgFile, const ST_XML_CONFIG_DATA* p_pConfig);
-	// �ֹ�������־����Open ǰ����ɵ��á�
+	// 手工设置日志级别，Open 前后均可调用。
 	void SetLevel(EN_LOG_LEVEL p_enLevel);
-	// ���ַ���������־���𣬷Ƿ�ֵ���ֵ�ǰ���𲻱䡣
+	// 按字符串设置日志级别，非法值保持当前级别不变。
 	void SetLevelName(const char* p_szLevel);
-	// ���ص�ǰ��־���𣬱��ڵ��������Ƿ���Ч��
+	// 返回当前日志级别，便于调试配置是否生效。
 	EN_LOG_LEVEL GetLevel() const;
-	// ׷��һ�� INFO ����ʽ����־�������� IceRPCPush ����ʽ�������塣
+	// 追加一条 INFO 级格式化日志，保留旧 IceRPCPush 三段式调用语义。
 	bool WriteLog(const char* p_szKhh, const char* p_szAction, const char* p_szFormat, ...);
-	// д DEBUG ������־������ɵ���������Ƿ�д�������ü�����ơ�
+	// 写 DEBUG 级别日志，替代旧调试输出，是否写入由配置级别控制。
 	bool WriteDebug(const char* p_szKhh, const char* p_szAction, const char* p_szFormat, ...);
-	// �ر���־д�룬ͨ������ DLL �˳����������ʱ���á�
+	// 关闭日志写入，通常仅在 DLL 退出或测试清理时调用。
 	void CloseLog();
 private:
 	CIceRPCPushLog();
 	virtual ~CIceRPCPushLog();
 
-	// ͳһ��ʽ����д�� SocketServer ��־���ڲ��������� %m_hSocket ռλ����
+	// 统一格式化并写入 SocketServer 日志，内部会修正旧 %m_hSocket 占位符。
 	bool WriteByLevel(EN_LOG_LEVEL p_enLevel, const char* p_szKhh, const char* p_szAction, const char* p_szFormat, va_list p_stArgs);
-	// ���ַ������ý���Ϊ��־���𣬷Ƿ�ֵ���� p_enDefault��
+	// 将字符串配置解析为日志级别，非法值回退 p_enDefault。
 	EN_LOG_LEVEL ParseLevel(const char* p_szLevel, EN_LOG_LEVEL p_enDefault) const;
-	// �жϵ�ǰ�����Ƿ�����д��ָ������
+	// 判断当前配置是否允许写入指定级别。
 	bool CanWrite(EN_LOG_LEVEL p_enLevel) const;
-	// ����Ӧ��Ŀ¼���ļ�������־�������á�
+	// 重新应用目录、文件名和日志级别配置。
 	bool ReopenBaseLog();
 
-	// ��־�Ƿ��Ѿ���ʼ��������δ Open ʱ����дʧ�ܡ�
+	// 日志是否已经初始化，避免未 Open 时反复写失败。
 	bool m_bOpened;
-	// ��ǰ��־����Ĭ�� info��debug ����ż�¼������־��
+	// 当前日志级别，默认 info；debug 级别才记录调试日志。
 	EN_LOG_LEVEL m_enLevel;
-	// �ɽӿڴ������־��ǰ׺���ؿ���־ʱ���� SocketServer ��־���ࡣ
+	// 旧接口传入的日志名前缀，重开日志时传给 SocketServer 日志基类。
 	std::string m_strName;
 };
 

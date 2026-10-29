@@ -32,13 +32,13 @@
       <TreatWarningAsError>true</TreatWarningAsError>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\include;$(ProjectDir)..\..\FacadeCommon\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <DisableSpecificWarnings>4190;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\lib\x64vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\lib\x64vc14\dynamic;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libCredCore.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
@@ -53,8 +53,8 @@
   </ItemGroup>
   <Target Name="CopyTestRuntimeDependencies" AfterTargets="Build">
     <ItemGroup>
-      <TestRuntimeDependency Include="$(ProjectDir)..\lib\x64vc14\libCredCore.dll" />
-      <TestRuntimeDependency Include="$(ProjectDir)..\vender\openssl\3.5.6\bin\x64vc14\dynamic\libcrypto-3-x64.dll" />
+      <TestRuntimeDependency Include="$(ProjectDir)..\lib\x64vc14\dynamic\libCredCore.dll" />
+      <TestRuntimeDependency Include="$(ProjectDir)..\vender\openssl\lib\x64vc14\dynamic\libcrypto-3-x64.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(TestRuntimeDependency)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
   </Target>

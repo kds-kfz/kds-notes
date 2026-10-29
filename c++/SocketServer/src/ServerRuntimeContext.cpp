@@ -14,7 +14,7 @@ namespace
 		{
 			return;
 		}
-		nsdk::SafeCopyCString(p_szTarget, p_szCapacity, p_refValue.c_str());
+		SocketServerSafeCopyCString(p_szTarget, p_szCapacity, p_refValue.c_str());
 	}
 }
 
@@ -76,25 +76,19 @@ ST_TCP_SERVER_RUNTIME::ST_TCP_SERVER_RUNTIME(
 	, pPackServer(nullptr)
 	, pNotifyHandler(nullptr)
 	, ullTaskId(0)
-	, mutexConnection()
+	, clConnectionMutex()
 	, mapClient()
 	, setLocalClosing()
-	, mutexRequest()
+	, clRequestMutex()
 	, mapRequest()
-	, mutexTask()
+	, clTaskMutex()
 	, mapTask()
 	, uiSocketListenQueue(0)
 {
-	pthread_mutex_init(&mutexConnection, nullptr);
-	pthread_mutex_init(&mutexRequest, nullptr);
-	pthread_mutex_init(&mutexTask, nullptr);
 }
 
 ST_TCP_SERVER_RUNTIME::~ST_TCP_SERVER_RUNTIME()
 {
-	pthread_mutex_destroy(&mutexTask);
-	pthread_mutex_destroy(&mutexRequest);
-	pthread_mutex_destroy(&mutexConnection);
 }
 
 ST_WEB_NOTIFY_QUEUE_V2::ST_WEB_NOTIFY_QUEUE_V2()
@@ -124,12 +118,12 @@ ST_WEB_SERVER_RUNTIME::ST_WEB_SERVER_RUNTIME(
 	, pPackServer(nullptr)
 	, pNotifyHandler(nullptr)
 	, ullTaskId(0)
-	, mutexConnection()
+	, clConnectionMutex()
 	, mapClient()
 	, setLocalClosing()
-	, mutexRequest()
+	, clRequestMutex()
 	, mapRequest()
-	, mutexTask()
+	, clTaskMutex()
 	, mapNotifyQueue()
 	, clSendOrdersMutex()
 	, mapSendOrders()
@@ -139,16 +133,10 @@ ST_WEB_SERVER_RUNTIME::ST_WEB_SERVER_RUNTIME(
 	, szActiveSendCount(0)
 	, uiSocketListenQueue(0)
 {
-	pthread_mutex_init(&mutexConnection, nullptr);
-	pthread_mutex_init(&mutexRequest, nullptr);
-	pthread_mutex_init(&mutexTask, nullptr);
 }
 
 ST_WEB_SERVER_RUNTIME::~ST_WEB_SERVER_RUNTIME()
 {
-	pthread_mutex_destroy(&mutexTask);
-	pthread_mutex_destroy(&mutexRequest);
-	pthread_mutex_destroy(&mutexConnection);
 }
 
 ST_HTTP_SERVER_RUNTIME::ST_HTTP_SERVER_RUNTIME(
@@ -162,16 +150,14 @@ ST_HTTP_SERVER_RUNTIME::ST_HTTP_SERVER_RUNTIME(
 	, pOwner(nullptr)
 	, pNotifyHandler(nullptr)
 	, ullAsyncRequestId(0)
-	, mutexRequest()
+	, clRequestMutex()
 	, mapRequest()
 	, mapParsingRequest()
 	, mapActiveRequest()
 	, uiSocketListenQueue(0)
 {
-	pthread_mutex_init(&mutexRequest, nullptr);
 }
 
 ST_HTTP_SERVER_RUNTIME::~ST_HTTP_SERVER_RUNTIME()
 {
-	pthread_mutex_destroy(&mutexRequest);
 }

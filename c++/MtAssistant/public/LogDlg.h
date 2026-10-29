@@ -4,6 +4,9 @@
 #include "afxdialogex.h"
 #include <afxmt.h>
 #include <map>
+#include <string>
+#include <utility>
+#include <vector>
 // CLogDlg 对话框
 
 class CLogDlg : public CDialogEx
@@ -23,10 +26,10 @@ protected:
 private:
 	CFont m_oFont;
 	CRect m_wndRect;		//原始窗口
-	map<int, CRect> m_rect;
+	std::map<int, CRect> m_rect;
 	BOOL m_bMainShow;				// 是否显示主界面
 	CListCtrl m_LogList;
-	vector<pair<string,string>> m_vecBuf;
+	std::vector<std::pair<std::string, std::string>> m_vecBuf;
 	CMutex Mutex;
 
 	void Print();
@@ -39,7 +42,7 @@ public:
 	afx_msg void OnNMCustomdrawList(NMHDR *pNMHDR, LRESULT *pResult);
 	virtual BOOL OnInitDialog();
 
-	void OutInfo(const string& p_strTime, const string& p_strInfo);
+	void OutInfo(const std::string& p_strTime, const std::string& p_strInfo);
 	void Show(BOOL p_bShow);
 };
 

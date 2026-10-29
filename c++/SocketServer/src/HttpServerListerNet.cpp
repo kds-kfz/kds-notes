@@ -207,7 +207,7 @@ namespace
 		{
 			return;
 		}
-		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		SocketServerMutexLock(&p_pRuntime->clRequestMutex);
 		unsigned long long ullReqID = 0;
 		CHttpAsynReqObj* pReqObj = nullptr;
 		if (FindHttpParsingReqNoLock(p_pRuntime, dwConnID,
@@ -224,7 +224,7 @@ namespace
 				p_pRuntime->mapRequest.erase(itReq);
 			}
 		}
-		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+		SocketServerMutexUnlock(&p_pRuntime->clRequestMutex);
 	}
 
 	void DetachHttpActiveReq(ST_HTTP_SERVER_RUNTIME* p_pRuntime,
@@ -234,7 +234,7 @@ namespace
 		{
 			return;
 		}
-		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		SocketServerMutexLock(&p_pRuntime->clRequestMutex);
 		std::map<CONNID, unsigned long long>::iterator itActiveReq =
 			p_pRuntime->mapActiveRequest.find(dwConnID);
 		if (itActiveReq != p_pRuntime->mapActiveRequest.end())
@@ -249,7 +249,7 @@ namespace
 				itReq->second->DetachTransport();
 			}
 		}
-		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+		SocketServerMutexUnlock(&p_pRuntime->clRequestMutex);
 	}
 
 	bool SendSimpleHttpError(ST_HTTP_SERVER_RUNTIME* p_pRuntime,
@@ -353,7 +353,7 @@ namespace
 
 // 以下别名只在 Listener 成员函数内展开为当前实例字段，不对应进程级全局变量。
 #define g_bHttpServerStatus (m_pRuntime->bServerStatus.load())
-#define g_mutexHttpReq (m_pRuntime->mutexRequest)
+#define g_clRequestMutex (m_pRuntime->clRequestMutex)
 #define g_mapHttpReq (m_pRuntime->mapRequest)
 #define g_mapHttpConnReq (m_pRuntime->mapParsingRequest)
 #define g_mapHttpConnActiveReq (m_pRuntime->mapActiveRequest)
@@ -366,10 +366,10 @@ EnHttpParseResult CHttpServerListerNet::OnMessageBegin(IHttpServer*, CONNID dwCo
 		return HPR_ERROR;
 
 	// wyl 2026-04-25：当前实现不支持同一连接并发处理多个 HTTP 请求；若上一个请求还没收尾，这里直接拒绝继续解析。
-	pthread_mutex_lock(&g_mutexHttpReq);
+	SocketServerMutexLock(&g_clRequestMutex);
 	const bool bHasParsingReq = (g_mapHttpConnReq.find(dwConnID) != g_mapHttpConnReq.end());
 	const bool bHasActiveReq = (g_mapHttpConnActiveReq.find(dwConnID) != g_mapHttpConnActiveReq.end());
-	pthread_mutex_unlock(&g_mutexHttpReq);
+	SocketServerMutexUnlock(&g_clRequestMutex);
 
 	if (bHasParsingReq || bHasActiveReq)
 	{
@@ -434,7 +434,7 @@ EnHttpParseResult CHttpServerListerNet::OnRequestLine(IHttpServer* pSender, CONN
 		USHORT usPort = 0;
 		pSender->GetRemoteAddress(dwConnID, szAddress, iAddressLen, usPort);
 		char szClientIp[STR_IP_LEN] = { 0 };
-		SafeCopyCString(szClientIp, sizeof(szClientIp), szAddress);
+		SocketServerSafeCopyCString(szClientIp, sizeof(szClientIp), szAddress);
 		pReqObj->SetAddress(szClientIp, usPort);
 	}
 	catch (...)
@@ -447,7 +447,7 @@ EnHttpParseResult CHttpServerListerNet::OnRequestLine(IHttpServer* pSender, CONN
 
 	bool bInserted = false;
 	unsigned long long ullReqID = 0;
-	pthread_mutex_lock(&g_mutexHttpReq);
+	SocketServerMutexLock(&g_clRequestMutex);
 	if (g_mapHttpConnReq.find(dwConnID) == g_mapHttpConnReq.end()
 		&& g_mapHttpConnActiveReq.find(dwConnID) == g_mapHttpConnActiveReq.end())
 	{
@@ -458,7 +458,7 @@ EnHttpParseResult CHttpServerListerNet::OnRequestLine(IHttpServer* pSender, CONN
 		g_mapHttpConnReq[dwConnID] = ullReqID;
 		bInserted = true;
 	}
-	pthread_mutex_unlock(&g_mutexHttpReq);
+	SocketServerMutexUnlock(&g_clRequestMutex);
 
 	if (!bInserted)
 	{
@@ -481,7 +481,7 @@ EnHttpParseResult CHttpServerListerNet::OnHeader(IHttpServer* pSender, CONNID dw
 
 	bool bFound = false;
 	bool bAdded = false;
-	pthread_mutex_lock(&g_mutexHttpReq);
+	SocketServerMutexLock(&g_clRequestMutex);
 	unsigned long long ullReqID = 0;
 	CHttpAsynReqObj* pReqObj = nullptr;
 	if (FindHttpParsingReqNoLock(m_pRuntime, dwConnID,
@@ -490,7 +490,7 @@ EnHttpParseResult CHttpServerListerNet::OnHeader(IHttpServer* pSender, CONNID dw
 		bFound = true;
 		bAdded = pReqObj->AddRequestHead(lpszName, lpszValue, HTTP_MAX_REQ_HEADER_COUNT, HTTP_MAX_REQ_HEADER_BYTES);
 	}
-	pthread_mutex_unlock(&g_mutexHttpReq);
+	SocketServerMutexUnlock(&g_clRequestMutex);
 
 	if (!bFound)
 		return HPR_ERROR;
@@ -527,7 +527,7 @@ EnHttpParseResult CHttpServerListerNet::OnHeadersComplete(IHttpServer* pSender, 
 
 	bool bFound = false;
 	bool bReserved = true;
-	pthread_mutex_lock(&g_mutexHttpReq);
+	SocketServerMutexLock(&g_clRequestMutex);
 	unsigned long long ullReqID = 0;
 	CHttpAsynReqObj* pReqObj = nullptr;
 	if (FindHttpParsingReqNoLock(m_pRuntime, dwConnID,
@@ -541,7 +541,7 @@ EnHttpParseResult CHttpServerListerNet::OnHeadersComplete(IHttpServer* pSender, 
 		}
 		bFound = true;
 	}
-	pthread_mutex_unlock(&g_mutexHttpReq);
+	SocketServerMutexUnlock(&g_clRequestMutex);
 
 	if (!bFound)
 		return HPR_ERROR;
@@ -568,7 +568,7 @@ EnHttpParseResult CHttpServerListerNet::OnBody(IHttpServer* pSender, CONNID dwCo
 	// wyl 2026-04-25：OnBody 只累计分片并校验总大小，不打印请求正文；完整请求在 OnMessageComplete 统一派发给上层。
 	bool bFound = false;
 	bool bAppended = false;
-	pthread_mutex_lock(&g_mutexHttpReq);
+	SocketServerMutexLock(&g_clRequestMutex);
 	unsigned long long ullReqID = 0;
 	CHttpAsynReqObj* pReqObj = nullptr;
 	if (FindHttpParsingReqNoLock(m_pRuntime, dwConnID,
@@ -577,7 +577,7 @@ EnHttpParseResult CHttpServerListerNet::OnBody(IHttpServer* pSender, CONNID dwCo
 		bFound = true;
 		bAppended = pReqObj->AppendContent(reinterpret_cast<const unsigned char*>(pData), iLength, HTTP_MAX_REQ_BODY_BYTES);
 	}
-	pthread_mutex_unlock(&g_mutexHttpReq);
+	SocketServerMutexUnlock(&g_clRequestMutex);
 
 	if (!bFound)
 		return HPR_ERROR;
@@ -598,7 +598,7 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 
 	CHttpAsynReqObj* pReqObj = nullptr;
 	unsigned long long ullReqID = 0;
-	pthread_mutex_lock(&g_mutexHttpReq);
+	SocketServerMutexLock(&g_clRequestMutex);
 	if (g_mapHttpConnActiveReq.find(dwConnID) == g_mapHttpConnActiveReq.end()
 		&& FindHttpParsingReqNoLock(m_pRuntime, dwConnID,
 			ullReqID, pReqObj))
@@ -609,7 +609,7 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 		pReqObj->SetKeepAlive(!!pSender->IsKeepAlive(dwConnID));
 		pReqObj->MarkDispatched();
 	}
-	pthread_mutex_unlock(&g_mutexHttpReq);
+	SocketServerMutexUnlock(&g_clRequestMutex);
 
 	if (nullptr == pReqObj)
 		return HPR_ERROR;
@@ -633,14 +633,14 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 	// wyl 2026-04-25：先暂停该连接继续接收，避免 keep-alive 下第二个请求先于第一个请求完成回包而产生乱序。
 	if (!PauseHttpReceiveNoThrow(pSender, dwConnID, true, "PauseActiveRequest"))
 	{
-		pthread_mutex_lock(&g_mutexHttpReq);
+		SocketServerMutexLock(&g_clRequestMutex);
 		g_mapHttpConnActiveReq.erase(dwConnID);
 		std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq = g_mapHttpReq.find(ullReqID);
 		if (itReq != g_mapHttpReq.end())
 		{
 			g_mapHttpReq.erase(itReq);
 		}
-		pthread_mutex_unlock(&g_mutexHttpReq);
+		SocketServerMutexUnlock(&g_clRequestMutex);
 
 		pReqObj->DetachTransport();
 		delete pReqObj;
@@ -652,14 +652,14 @@ EnHttpParseResult CHttpServerListerNet::OnMessageComplete(IHttpServer* pSender, 
 	// wyl 2026-04-25：到这里 HTTP 头和 BODY 都已解析完成，提交给线程池后由上层异步处理并发送响应。
 	if (!SubmitHttpRequestTask(m_pRuntime, pReqObj))
 	{
-		pthread_mutex_lock(&g_mutexHttpReq);
+		SocketServerMutexLock(&g_clRequestMutex);
 		std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq = g_mapHttpReq.find(ullReqID);
 		if (itReq != g_mapHttpReq.end())
 		{
 			g_mapHttpReq.erase(itReq);
 		}
 		g_mapHttpConnActiveReq.erase(dwConnID);
-		pthread_mutex_unlock(&g_mutexHttpReq);
+		SocketServerMutexUnlock(&g_clRequestMutex);
 
 		pReqObj->AbortRequest();
 		delete pReqObj;

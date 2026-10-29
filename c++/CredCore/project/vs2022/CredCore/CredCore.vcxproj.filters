@@ -7,17 +7,24 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\CredCore.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\..\..\src\CredCoreC.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\..\..\src\aes.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\..\..\src\JwtRs256Verifier.cpp"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\include\CredCore.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\..\..\include\CredCoreC.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\..\..\include\CredCoreCxxAdapter.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\..\..\include\CredCore_define.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\..\..\..\FacadeCommon\include\FacadeAbi.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\..\..\src\aes.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\..\..\src\JwtRs256Verifier.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="resource.h"><Filter>Header Files</Filter></ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="CredCore.rc"><Filter>Resource Files</Filter></ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CredCore.def"><Filter>Source Files</Filter></None>
   </ItemGroup>
 </Project>

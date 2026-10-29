@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "Ice/Properties.h"
 #include "IceRPCPush.h"
 #include "tinyxml.h"
 #ifdef StartService
@@ -736,7 +737,50 @@ bool MakeRuntimeConfigPath(const char* p_szServiceName, std::string& p_refPath, 
 	return true;
 }
 
-bool BuildServerRuntimeConfig(const char* p_szXmlPath, const char* p_szServiceName, std::string& p_refRuntimePath, std::string& p_refError)
+// 将 IceGrid Node 生成的属性文件合并到服务端 Ice 属性；受管属性最后写入以覆盖独立运行配置。
+bool MergeManagedIceConfig(TiXmlElement* p_pIce, const char* p_szIceConfigPath,
+	std::string& p_refError)
+{
+	p_refError.clear();
+	if (p_szIceConfigPath == NULL || p_szIceConfigPath[0] == '\0')
+	{
+		return true;
+	}
+	try
+	{
+		Ice::PropertiesPtr refProperties = Ice::createProperties();
+		refProperties->load(p_szIceConfigPath);
+		const Ice::PropertyDict mapProperties =
+			refProperties->getPropertiesForPrefix("");
+		if (mapProperties.empty())
+		{
+			p_refError = "ICEGRID_CONFIG_EMPTY: managed Ice config contains no properties";
+			return false;
+		}
+		for (Ice::PropertyDict::const_iterator it = mapProperties.begin();
+			it != mapProperties.end(); ++it)
+		{
+			SetIceProperty(p_pIce, it->first.c_str(), it->second.c_str());
+		}
+		return true;
+	}
+	catch (const std::exception& ex)
+	{
+		p_refError = std::string("ICEGRID_CONFIG_LOAD_FAILED: path=") +
+			MakeApiErrorAscii(p_szIceConfigPath) + ", detail=" +
+			MakeApiErrorAscii(ex.what());
+	}
+	catch (...)
+	{
+		p_refError = std::string("ICEGRID_CONFIG_LOAD_FAILED: path=") +
+			MakeApiErrorAscii(p_szIceConfigPath) + ", detail=unknown exception";
+	}
+	return false;
+}
+
+bool BuildServerRuntimeConfig(const char* p_szXmlPath,
+	const char* p_szServiceName, const char* p_szIceConfigPath,
+	std::string& p_refRuntimePath, std::string& p_refError)
 {
 	p_refRuntimePath.clear();
 	p_refError.clear();
@@ -774,6 +818,11 @@ bool BuildServerRuntimeConfig(const char* p_szXmlPath, const char* p_szServiceNa
 
 	// 底层 IceRPCPush 只能读取固定 Identity，这里按当前插件服务名生成运行时配置，避免多个插件共用 XML 时对象标识冲突。
 	SetIceProperty(pIce, "Identity", p_szServiceName);
+	// 双击运行不传受管路径，继续完全使用业务 XML；IceGrid 模式才让 Node 属性覆盖服务端运行配置。
+	if (!MergeManagedIceConfig(pIce, p_szIceConfigPath, p_refError))
+	{
+		return false;
+	}
 	if (!MakeRuntimeConfigPath(p_szServiceName, p_refRuntimePath, p_refError))
 	{
 		return false;
@@ -1772,6 +1821,35 @@ public:
 		}
 	}
 
+	// 保存当前实例的 IceGrid 配置路径；网络启动后修改会导致 Adapter 所属关系不一致，因此明确拒绝。
+	int SetIceConfigPath(const char* p_szIceConfigPath)
+	{
+		if (p_szIceConfigPath == NULL)
+		{
+			SetLastError("INVALID_PARAM: SetIceConfigPath path is null");
+			return s_iCloudNetInvalidParam;
+		}
+		bool bStateError = false;
+		{
+			std::lock_guard<std::mutex> clLock(m_clMutex);
+			if (m_bNetworkStarted || m_hServer != NULL)
+			{
+				bStateError = true;
+			}
+			else
+			{
+				m_strIceConfigPath = p_szIceConfigPath;
+			}
+		}
+		if (bStateError)
+		{
+			SetLastError("STATE_ERROR: SetIceConfigPath must be called before network start");
+			return s_iCloudNetStateError;
+		}
+		SetLastError(s_iCloudNetOk, GetCloudNetErrorMsg(s_iCloudNetOk));
+		return s_iCloudNetOk;
+	}
+
 	// 启动本地 IceRPCPush 服务端，并登记上层请求回调。
 	int StartService(const char* p_szXmlPath, const char* p_szServiceName, int p_iSnappyCompress, PFN_CLOUD_NET_REQUEST p_pfnCallback, void* p_pParam)
 	{
@@ -1783,7 +1861,9 @@ public:
 		StopService();
 		std::string strRuntimeConfigPath;
 		std::string strConfigError;
-		if (!BuildServerRuntimeConfig(p_szXmlPath, p_szServiceName, strRuntimeConfigPath, strConfigError))
+		const std::string strIceConfigPath = GetIceConfigPath();
+		if (!BuildServerRuntimeConfig(p_szXmlPath, p_szServiceName,
+			strIceConfigPath.c_str(), strRuntimeConfigPath, strConfigError))
 		{
 			SetLastError(strConfigError.c_str());
 			return s_iCloudNetInvalidParam;
@@ -1828,7 +1908,9 @@ public:
 		StopService();
 		std::string strRuntimeConfigPath;
 		std::string strConfigError;
-		if (!BuildServerRuntimeConfig(p_szXmlPath, p_szServiceName, strRuntimeConfigPath, strConfigError))
+		const std::string strIceConfigPath = GetIceConfigPath();
+		if (!BuildServerRuntimeConfig(p_szXmlPath, p_szServiceName,
+			strIceConfigPath.c_str(), strRuntimeConfigPath, strConfigError))
 		{
 			SetLastError(strConfigError.c_str());
 			return s_iCloudNetConfigError;
@@ -1884,8 +1966,9 @@ public:
 		StopService();
 		std::string strRuntimeConfigPath;
 		std::string strConfigError;
+		const std::string strIceConfigPath = GetIceConfigPath();
 		if (!BuildServerRuntimeConfig(p_szXmlPath, p_szServiceName,
-			strRuntimeConfigPath, strConfigError))
+			strIceConfigPath.c_str(), strRuntimeConfigPath, strConfigError))
 		{
 			SetLastError(strConfigError.c_str());
 			return s_iCloudNetConfigError;
@@ -2610,6 +2693,13 @@ public:
 	}
 
 private:
+	// 返回当前实例的受管服务端配置路径副本，调用方可在不持锁状态下解析文件。
+	std::string GetIceConfigPath() const
+	{
+		std::lock_guard<std::mutex> clLock(m_clMutex);
+		return m_strIceConfigPath;
+	}
+
 	// 公共 Binary 同步调用实现，统一执行参数校验、连接保护和结果深拷贝。
 	ST_CLOUD_NET_BINARY_RESULT* BinaryCallSync(const char* p_szConnName, const ST_CLOUD_NET_BINARY_CALL* p_pCall, bool p_bPut, const char* p_szFunction)
 	{
@@ -3530,6 +3620,7 @@ private:
 	PFN_CLOUD_NET_PUSH m_pfnNetworkPush;                        // 组网模式下统一使用的推送回调。
 	void* m_pNetworkParam;                                      // 组网模式推送回调透传参数，生命周期由上层维护。
 	ST_CLOUD_NET_CONFIG m_stConfig;                             // 当前实例加载成功的 CloudNetDataApi 组网配置。
+	std::string m_strIceConfigPath;                             // IceGrid Node 注入的实例级属性文件，仅作用于本地服务端。
 	std::string m_strServerRuntimeConfigPath;                   // 为当前服务端生成的临时 IceRPCPush 运行时配置路径。
 	std::thread m_clNetworkThread;                              // 后台重连和 RegisterPush 续约维护线程。
 	std::map<std::string, ST_CONNECTION_CONTEXT_PTR> m_mapConnection; // 按连接名索引的远端服务连接表。
@@ -3579,6 +3670,32 @@ HCLOUD_NET_API Create()
 		SetCloudNetBoundaryThreadError(s_iCloudNetInternalError, MakeCloudNetUnknownExceptionDetail(__FUNCTION__), __FUNCTION__);
 	}
 	return NULL;
+}
+
+int SetIceConfigPath(HCLOUD_NET_API p_hApi, const char* p_szIceConfigPath)
+{
+	CCloudNetDataApi* pApi = reinterpret_cast<CCloudNetDataApi*>(p_hApi);
+	try
+	{
+		if (pApi == NULL)
+		{
+			SetCloudNetBoundaryError(NULL, s_iCloudNetInvalidParam,
+				"INVALID_HANDLE: CloudNetDataApi handle is null", __FUNCTION__);
+			return s_iCloudNetInvalidParam;
+		}
+		return pApi->SetIceConfigPath(p_szIceConfigPath);
+	}
+	catch (const std::exception& ex)
+	{
+		SetCloudNetBoundaryError(pApi, s_iCloudNetInternalError,
+			MakeCloudNetStdExceptionDetail(__FUNCTION__, ex), __FUNCTION__);
+	}
+	catch (...)
+	{
+		SetCloudNetBoundaryError(pApi, s_iCloudNetInternalError,
+			MakeCloudNetUnknownExceptionDetail(__FUNCTION__), __FUNCTION__);
+	}
+	return s_iCloudNetInternalError;
 }
 
 int LoadConfig(HCLOUD_NET_API p_hApi, const char* p_szXmlPath, const char* p_szPluginId)

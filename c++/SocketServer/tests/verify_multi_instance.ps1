@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 
 $strRoot = Split-Path -Parent $PSScriptRoot
 $strBuildDir = Join-Path $strRoot "tests\build"
@@ -16,7 +16,7 @@ $strTestSource = Join-Path $strRoot "tests\SocketServerMultiInstanceRuntime.cpp"
 $strTestObj = Join-Path $strBuildDir "SocketServerMultiInstanceRuntime.obj"
 $strTestExe = Join-Path $strBuildDir "SocketServerMultiInstanceRuntime.exe"
 $strCompile = 'call "{0}" && cl /nologo /EHsc /std:c++14 /W4 /WX /I"{1}" /Fo"{2}" "{3}" /link /LIBPATH:"{4}" libSocketServer.lib ws2_32.lib /OUT:"{5}"' -f `
-	$strVcVars, (Join-Path $strRoot "include"), $strTestObj, $strTestSource, (Join-Path $strRoot "lib\x64vc14"), $strTestExe
+	$strVcVars, (Join-Path $strRoot "include"), $strTestObj, $strTestSource, (Join-Path $strRoot "lib\x64vc14\dynamic"), $strTestExe
 cmd.exe /d /c $strCompile
 if ($LASTEXITCODE -ne 0)
 {
@@ -27,21 +27,29 @@ if ($LASTEXITCODE -ne 0)
 # SocketServer 静态库统一使用 /MD；HP-Socket 本体仍使用官方 DLL，所以最终程序同时链接其导入库并部署 HPSocket.dll。
 $strStaticObj = Join-Path $strBuildDir "SocketServerMultiInstanceStatic.obj"
 $strStaticExe = Join-Path $strBuildDir "SocketServerMultiInstanceStatic.exe"
-$strStaticCompile = 'call "{0}" && cl /nologo /MD /EHsc /std:c++14 /W4 /WX /DSOCKETSERVER_STATIC /I"{1}" /Fo"{2}" "{3}" /link /LTCG /LIBPATH:"{4}" /LIBPATH:"{5}" /LIBPATH:"{6}" /LIBPATH:"{7}" libSocketServer_static.lib HPSocket.lib pthreadVC2.lib libnsdk_static.lib common.lib crash_generation_client.lib exception_handler.lib ws2_32.lib dbghelp.lib /OUT:"{8}"' -f `
+$strStaticCompile = 'call "{0}" && cl /nologo /MD /EHsc /std:c++14 /W4 /WX /DSOCKETSERVER_STATIC /I"{1}" /Fo"{2}" "{3}" /link /LTCG /LIBPATH:"{4}" /LIBPATH:"{5}" /LIBPATH:"{6}" libSocketServer_static.lib HPSocket.lib libssl.lib libcrypto.lib bcrypt.lib crypt32.lib secur32.lib ws2_32.lib /OUT:"{7}"' -f `
 	$strVcVars, (Join-Path $strRoot "include"), $strStaticObj, $strTestSource, `
-	(Join-Path $strRoot "lib\x64vc14\static"), (Join-Path $strRoot "vender\hpsocket\lib\x64vc14"), `
-	(Join-Path $strRoot "vender\thread\lib\x64vc14"), (Join-Path $strRoot "vender\nsdk\lib\x64vc14\static"), $strStaticExe
+	(Join-Path $strRoot "lib\x64vc14\static"), (Join-Path $strRoot "vender\hpsocket\lib\x64vc14\static"), `
+	(Join-Path $strRoot "vender\openssl\lib\x64vc14\dynamic"), $strStaticExe
 cmd.exe /d /c $strStaticCompile
 if ($LASTEXITCODE -ne 0)
 {
 	throw "SocketServer static consumer test build failed: $LASTEXITCODE"
 }
 
+# 动态与静态测试共用隔离运行目录；显式部署全部运行 DLL，避免从系统 PATH 混入其他版本。
+$aRuntimeFiles = @(
+	"$strRoot\lib\x64vc14\dynamic\libSocketServer.dll"
+	"$strRoot\vender\hpsocket\lib\x64vc14\dynamic\HPSocket.dll"
+	"$strRoot\vender\openssl\lib\x64vc14\dynamic\libssl-3-x64.dll"
+	"$strRoot\vender\openssl\lib\x64vc14\dynamic\libcrypto-3-x64.dll"
+)
+Copy-Item -LiteralPath $aRuntimeFiles -Destination $strBuildDir -Force
+
 $aRuntimePath = @(
-	(Join-Path $strRoot "lib\x64vc14"),
-	(Join-Path $strRoot "vender\hpsocket\lib\x64vc14"),
-	(Join-Path $strRoot "vender\nsdk\lib\x64vc14"),
-	(Join-Path $strRoot "vender\thread\lib\x64vc14"),
+	"$strRoot\lib\x64vc14\dynamic"
+	"$strRoot\vender\hpsocket\lib\x64vc14\dynamic"
+	"$strRoot\vender\openssl\lib\x64vc14\dynamic"
 	$env:PATH
 )
 $strOldPath = $env:PATH

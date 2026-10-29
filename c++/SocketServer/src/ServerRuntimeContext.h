@@ -15,13 +15,23 @@
 #include <set>
 #include <string>
 
-#include <pthread.h>
-
 class CHttpAsynReqObj;
 class CHttpServerListerNet;
 class CHttpSockServerObj;
 class CTcpServerListerNet;
 class CWebServerListerNet;
+
+// 保留原有显式加锁/解锁边界，同时把底层实现统一为 C++17 标准互斥量。
+// 这些锁只用于单进程内运行状态，不需要 POSIX 进程共享、robust 或定时锁语义。
+inline void SocketServerMutexLock(std::mutex* p_pMutex)
+{
+	p_pMutex->lock();
+}
+
+inline void SocketServerMutexUnlock(std::mutex* p_pMutex)
+{
+	p_pMutex->unlock();
+}
 
 // SocketServer 单实例的公共身份和监听状态；数据热路径只保存对象地址，不按名称查询。
 class CSocketServerRuntimeIdentity
@@ -58,12 +68,12 @@ struct ST_TCP_SERVER_RUNTIME
 	ITcpServer* pPackServer;                       // 本实例拥有的 HP-Socket Server。
 	TCP_NOTIFY_PROC pNotifyHandler;                // 调用方注册的 TCP 回调。
 	CONNID ullTaskId;                              // 本实例任务序号。
-	pthread_mutex_t mutexConnection;               // 保护连接表和本端关闭集合。
+	std::mutex clConnectionMutex;                  // 保护连接表和本端关闭集合。
 	std::map<CONNID, ClientData> mapClient;         // 本实例连接状态。
 	std::set<CONNID> setLocalClosing;              // 本实例主动关闭中的连接。
-	pthread_mutex_t mutexRequest;                  // 保护分包请求缓存。
+	std::mutex clRequestMutex;                     // 保护分包请求缓存。
 	std::map<CONNID, ReqCacheData*> mapRequest;     // 本实例 TCP 分包缓存。
-	pthread_mutex_t mutexTask;                     // 保护回调任务缓存。
+	std::mutex clTaskMutex;                        // 保护回调任务缓存。
 	std::map<CONNID, NotifyTask*> mapTask;          // 本实例待派发任务。
 	unsigned int uiSocketListenQueue;              // 启动前设置的 TCP listen 队列；0 使用 HPSocket 默认值。
 
@@ -106,12 +116,12 @@ struct ST_WEB_SERVER_RUNTIME
 	IHttpServer* pPackServer;                      // 本实例拥有的 HTTP/WebSocket Server。
 	WEB_NOTIFY_PROC pNotifyHandler;                // 调用方注册的 WebSocket 回调。
 	CONNID ullTaskId;                              // 本实例通知任务序号。
-	pthread_mutex_t mutexConnection;               // 保护连接表和关闭集合。
+	std::mutex clConnectionMutex;                  // 保护连接表和关闭集合。
 	std::map<CONNID, ClientData> mapClient;         // 本实例连接状态。
 	std::set<CONNID> setLocalClosing;              // 本实例主动关闭中的连接。
-	pthread_mutex_t mutexRequest;                  // 保护 WebSocket 分帧缓存。
+	std::mutex clRequestMutex;                     // 保护 WebSocket 分帧缓存。
 	std::map<CONNID, ReqCacheData*> mapRequest;     // 本实例消息分帧缓存。
-	pthread_mutex_t mutexTask;                     // 保护按连接通知队列。
+	std::mutex clTaskMutex;                        // 保护按连接通知队列。
 	std::map<CONNID, ST_WEB_NOTIFY_QUEUE_V2> mapNotifyQueue; // 本实例顺序通知队列。
 	std::mutex clSendOrdersMutex;                  // 保护单连接发送票据表。
 	std::map<CONNID, std::shared_ptr<ST_WEB_SEND_ORDER>> mapSendOrders; // 发送票据表。
@@ -138,7 +148,7 @@ struct ST_HTTP_SERVER_RUNTIME
 	CHttpSockServerObj* pOwner;                    // 请求完成时调用的所属 Server。
 	HTTP_NOTIFY_PROC pNotifyHandler;               // 调用方注册的 HTTP 回调。
 	unsigned long long ullAsyncRequestId;          // 本实例异步请求序号。
-	pthread_mutex_t mutexRequest;                  // 保护全部 HTTP 请求状态表。
+	std::mutex clRequestMutex;                     // 保护全部 HTTP 请求状态表。
 	std::map<unsigned long long, CHttpAsynReqObj*> mapRequest; // 异步请求号到请求对象。
 	std::map<CONNID, unsigned long long> mapParsingRequest; // 连接当前解析中的请求。
 	std::map<CONNID, unsigned long long> mapActiveRequest; // 已派发并等待响应的请求。

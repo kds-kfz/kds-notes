@@ -1,0 +1,24 @@
+LIBRARY "libDatabaseFacade"
+EXPORTS
+	DatabaseFacade_GetAbiInfo
+	DatabaseFacade_CreatePool
+	DatabaseFacade_DestroyPool
+	DatabaseFacade_IsPoolReady
+	DatabaseFacade_GetPoolStat
+	DatabaseFacade_GetLastError
+	DatabaseFacade_Execute
+	DatabaseFacade_ExecuteBatch
+	DatabaseFacade_Prepare
+	DatabaseFacade_ExecutePrepared
+	DatabaseFacade_Begin
+	DatabaseFacade_TransactionExecute
+	DatabaseFacade_Commit
+	DatabaseFacade_Rollback
+	DatabaseFacade_DestroyTransaction
+	DatabaseFacade_DestroyResult
+	DatabaseFacade_ResultGetAffectedRows
+	DatabaseFacade_ResultGetDimensions
+	DatabaseFacade_ResultGetColumnName
+	DatabaseFacade_ResultIsNull
+	DatabaseFacade_ResultGetField
+	DatabaseFacade_ResultGetError

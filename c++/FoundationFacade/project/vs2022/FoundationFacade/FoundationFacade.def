@@ -1,0 +1,11 @@
+LIBRARY "libFoundationFacade"
+EXPORTS
+	FoundationFacade_GetAbiInfo
+	FoundationFacade_CreatePlatform
+	FoundationFacade_DestroyPlatform
+	FoundationFacade_GetLocalDate
+	FoundationFacade_SleepMs
+	FoundationFacade_FileExists
+	FoundationFacade_DirectoryExists
+	FoundationFacade_CreateDirectories
+	FoundationFacade_GetPathSeparator

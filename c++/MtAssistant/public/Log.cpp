@@ -21,7 +21,6 @@ void CBaseLog::Init()
 	m_strLogName = "";
 	m_strLogPath = "";
 	m_bInitStatus = false;
-	pthread_mutex_init(&m_mutexLog, nullptr);
 }
 
 CBaseLog::CBaseLog()
@@ -119,7 +118,6 @@ void CBaseLog::BaseRelease()
 		m_pLogFileThread = nullptr;
 	}
 
-	pthread_mutex_destroy(&m_mutexLog);
 	Close();
 }
 
@@ -142,9 +140,9 @@ int CBaseLog::InitLog(const char* p_szFold, enHQLogType p_eType, const char* p_s
 	m_strLogFold = p_szFold;
 	m_strLogName = p_szLogFileName;
 	int iRet = 0;
-	if (MA_OK != FolderExists(p_szFold))
+	if (MA_OK != nsdk::FolderExists(p_szFold))
 	{
-		if ((iRet = CreateFolder(p_szFold)) != MA_OK)
+		if ((iRet = nsdk::CreateFolder(p_szFold)) != MA_OK)
 		{
 			return iRet;
 		}
@@ -177,17 +175,19 @@ int CBaseLog::ThreadLog()
 	if (!m_bInitStatus)
 		return MA_KO;
 
-	pthread_mutex_lock(&m_mutexLog);
-	if (m_vecLog.empty())
+	std::vector<std::string> vecCacheLog;
 	{
-		pthread_mutex_unlock(&m_mutexLog);
+		std::lock_guard<std::mutex> clLock(m_clLogMutex);
+		if (!m_vecLog.empty())
+		{
+			vecCacheLog.swap(m_vecLog);
+		}
+	}
+	if (vecCacheLog.empty())
+	{
 		nsdk_Sleep(1000);
 		return MA_OK;
 	}
-	std::vector<std::string> vecCacheLog;
-	vecCacheLog.swap(m_vecLog);
-	m_vecLog.clear();
-	pthread_mutex_unlock(&m_mutexLog);
 
 	//
 	for (int i = 0; i < vecCacheLog.size(); i++)
@@ -220,7 +220,7 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 		return;
 
 	// 格式化
-	vector<char> vecBuf(HQLOG_BUF_SIZE);
+	std::vector<char> vecBuf(HQLOG_BUF_SIZE);
 	int iRet = 0;
 	int iCount = 0;
 
@@ -255,7 +255,7 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 	// 时间
 	const std::chrono::system_clock::time_point tpNow = std::chrono::system_clock::now();
 	const std::time_t ttNow = std::chrono::system_clock::to_time_t(tpNow);
-	const std::tm stCurrTime = SafeLocalTime(ttNow);
+	const std::tm stCurrTime = nsdk::SafeLocalTime(ttNow);
 	const int iMilliseconds = (int)(std::chrono::duration_cast<std::chrono::milliseconds>(
 		tpNow.time_since_epoch()).count() % 1000);
 
@@ -272,10 +272,10 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 		stCurrTime.tm_min, stCurrTime.tm_sec, iMilliseconds);
 
 	// 内容
-	string strLog;
+	std::string strLog;
 	strLog = szTime;
 
-	string strContent;
+	std::string strContent;
 	if (iRet > 0)
 	{
 		// wyl 2026-03-30：仅拷贝本次真正格式化出的长度，避免把缓冲区尾部无效内容写进日志。
@@ -290,9 +290,8 @@ void CBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, ...)
 	}
 
 	// 记录
-	pthread_mutex_lock(&m_mutexLog);
+	std::lock_guard<std::mutex> clLock(m_clLogMutex);
 	m_vecLog.push_back(strLog);
-	pthread_mutex_unlock(&m_mutexLog);
 }
 
 CLog *CLog::GetInstance()

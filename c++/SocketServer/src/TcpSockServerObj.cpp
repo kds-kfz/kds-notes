@@ -15,26 +15,26 @@ namespace
 			return;
 		}
 
-		pthread_mutex_lock(&p_pRuntime->mutexConnection);
+		SocketServerMutexLock(&p_pRuntime->clConnectionMutex);
 		p_pRuntime->mapClient.clear();
 		p_pRuntime->setLocalClosing.clear();
-		pthread_mutex_unlock(&p_pRuntime->mutexConnection);
+		SocketServerMutexUnlock(&p_pRuntime->clConnectionMutex);
 
-		pthread_mutex_lock(&p_pRuntime->mutexTask);
+		SocketServerMutexLock(&p_pRuntime->clTaskMutex);
 		foreach(p_pRuntime->mapTask, it_task)
 		{
 			delete it_task->second;
 		}
 		p_pRuntime->mapTask.clear();
-		pthread_mutex_unlock(&p_pRuntime->mutexTask);
+		SocketServerMutexUnlock(&p_pRuntime->clTaskMutex);
 
-		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		SocketServerMutexLock(&p_pRuntime->clRequestMutex);
 		foreach(p_pRuntime->mapRequest, it_queue)
 		{
 			delete it_queue->second;
 		}
 		p_pRuntime->mapRequest.clear();
-		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+		SocketServerMutexUnlock(&p_pRuntime->clRequestMutex);
 	}
 
 	bool TcpSocketIsConnectedNoThrow(ITcpServer *pSender, CONNID dwConnID)
@@ -63,7 +63,7 @@ namespace
 			return false;
 
 		bool bMapAlive = false;
-		pthread_mutex_lock(&p_pRuntime->mutexConnection);
+		SocketServerMutexLock(&p_pRuntime->clConnectionMutex);
 		std::map<CONNID, ClientData>::iterator itClient =
 			p_pRuntime->mapClient.find(dwConnID);
 		// wyl 2026-05-19：发送前同时校验本地连接表和 HP-Socket 状态，避免关闭通知排队期间继续推送旧 ConnID。
@@ -73,7 +73,7 @@ namespace
 			&& itClient->second.bConnected
 			&& p_pRuntime->setLocalClosing.find(dwConnID) ==
 				p_pRuntime->setLocalClosing.end();
-		pthread_mutex_unlock(&p_pRuntime->mutexConnection);
+		SocketServerMutexUnlock(&p_pRuntime->clConnectionMutex);
 
 		return bMapAlive && TcpSocketIsConnectedNoThrow(pSender, dwConnID);
 	}
@@ -220,10 +220,10 @@ bool CTcpSockServerObj::SetSocketListenQueue(
 #define g_CTcpServerListerNet (m_ptrRuntime->pListener)
 #define g_pTcpHandle (m_ptrRuntime->pNotifyHandler)
 #define g_ullTaskID (m_ptrRuntime->ullTaskId)
-#define g_mutexConnet (m_ptrRuntime->mutexConnection)
+#define g_clConnectionMutex (m_ptrRuntime->clConnectionMutex)
 #define g_mapClient (m_ptrRuntime->mapClient)
 #define g_setTcpLocalClosing (m_ptrRuntime->setLocalClosing)
-#define g_mutexReq (m_ptrRuntime->mutexRequest)
+#define g_clRequestMutex (m_ptrRuntime->clRequestMutex)
 #define g_mapQueue (m_ptrRuntime->mapRequest)
 
 int CTcpSockServerObj::TcpSockCompare(void *p_refSrcClient, void *p_refObjClient)
@@ -342,7 +342,7 @@ bool CTcpSockServerObj::CreateTcpSock(const char *p_szIp, unsigned short p_unPor
 	if (!g_CTcpPackServer->Start(p_szIp, p_unPort))
 	{
 		char szErrDesc[256] = { 0 };
-		SafeCopyCString(szErrDesc, sizeof(szErrDesc), g_CTcpPackServer->GetLastErrorDesc());
+		SocketServerSafeCopyCString(szErrDesc, sizeof(szErrDesc), g_CTcpPackServer->GetLastErrorDesc());
 		snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			g_CTcpPackServer->GetLastError(), szErrDesc);
 		DeleteObj(m_ptrRuntime.get());
@@ -399,7 +399,7 @@ void CTcpSockServerObj::TcpSockClose(void *p_refServer, void *p_refClient, const
 		m_ptrRuntime.get(), pSender, dwConnID);
 	if (g_bTcpMutexInit && bCanClose)
 	{
-		pthread_mutex_lock(&g_mutexConnet);
+		SocketServerMutexLock(&g_clConnectionMutex);
 		std::map<CONNID, ClientData>::iterator itClient = g_mapClient.find(dwConnID);
 		if (itClient != g_mapClient.end())
 		{
@@ -408,7 +408,7 @@ void CTcpSockServerObj::TcpSockClose(void *p_refServer, void *p_refClient, const
 		}
 		// wyl 2026-03-30：显式标记“本端主动断开”，不要再依赖 OnClose 里的系统错误码猜测关闭来源。
 		g_setTcpLocalClosing.insert(dwConnID);
-		pthread_mutex_unlock(&g_mutexConnet);
+		SocketServerMutexUnlock(&g_clConnectionMutex);
 	}
 
 	if (!bCanClose)
@@ -430,18 +430,18 @@ void CTcpSockServerObj::TcpSockClose(void *p_refServer, void *p_refClient, const
 	if (!DisconnectTcpNoThrow(pSender, dwConnID, false, "TcpDisconnect") && g_bTcpMutexInit)
 	{
 		// wyl 2026-03-30：如果断开调用失败，主动回收本次标记和缓存，避免状态残留。
-		pthread_mutex_lock(&g_mutexConnet);
+		SocketServerMutexLock(&g_clConnectionMutex);
 		g_setTcpLocalClosing.erase(dwConnID);
 		g_mapClient.erase(dwConnID);
-		pthread_mutex_unlock(&g_mutexConnet);
+		SocketServerMutexUnlock(&g_clConnectionMutex);
 
-		pthread_mutex_lock(&g_mutexReq);
+		SocketServerMutexLock(&g_clRequestMutex);
 		if (g_mapQueue.find(dwConnID) != g_mapQueue.end())
 		{
 			delete g_mapQueue[dwConnID];
 			g_mapQueue.erase(dwConnID);
 		}
-		pthread_mutex_unlock(&g_mutexReq);
+		SocketServerMutexUnlock(&g_clRequestMutex);
 	}
 }
 

@@ -1,12 +1,11 @@
-// Log.cpp: IceRPCPush ÈÕÖ¾»ù´¡ÀàºÍÒµÎñÈÕÖ¾ÀàÊµÏÖ¡£
+ï»¿// Log.cpp: IceRPCPush æ—¥å¿—åŸºç¡€ç±»å’Œä¸šåŠ¡æ—¥å¿—ç±»å®ç°ã€‚
 //////////////////////////////////////////////////////////////////////
 
 #include "publicfunc.h"
 #include "Log.h"
 #include "XmlConfig.h"
 
-#include "nsdk.h"
-#include "nsdk_atomic.h"
+#include "compat/FoundationCompat.h"
 
 #include <algorithm>
 #include <chrono>
@@ -16,28 +15,20 @@
 #include <cstring>
 #include <ctime>
 #include <sstream>
+#include <system_error>
+#include <utility>
 #include <vector>
 
 namespace nsdk
 {
 
-// pthread Ïß³ÌÈë¿Ú£¬×ª·¢µ½ CThread::Run¡£
-static void* IceRPCPushThreadHandle(void* p_pParam)
-{
-	CThread* p_pThis = static_cast<CThread*>(p_pParam);
-	if (p_pThis != NULL)
-	{
-		p_pThis->Run();
-	}
-	return reinterpret_cast<void*>(1);
-}
-
 CThread::CThread()
 	: m_bFinishFlag(false)
 	, m_uThreadId(0)
-	, m_pThread(NULL)
-	, m_mutex()
-	, m_condition()
+	, m_clThread()
+	, m_clStateMutex()
+	, m_clStateCondition()
+	, m_bJoinInProgress(false)
 	, m_bPauseFlag(true)
 	, m_bStopFlag(false)
 	, m_enState(Stoped)
@@ -51,40 +42,15 @@ CThread::~CThread()
 
 CThread::ThreadState CThread::State() const
 {
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
 	return m_enState;
 }
 
 int CThread::Start(unsigned int p_uId)
 {
-	if (m_pThread != NULL)
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
+	if (m_clThread.joinable() || m_bJoinInProgress)
 	{
-		return MA_KO;
-	}
-
-	if (pthread_mutex_init(&m_mutex, NULL) != 0)
-	{
-		return MA_KO;
-	}
-	if (pthread_cond_init(&m_condition, NULL) != 0)
-	{
-		pthread_mutex_destroy(&m_mutex);
-		return MA_KO;
-	}
-
-	m_pThread = new pthread_t;
-	if (m_pThread == NULL)
-	{
-		pthread_cond_destroy(&m_condition);
-		pthread_mutex_destroy(&m_mutex);
-		return MA_KO;
-	}
-
-	if (pthread_create(m_pThread, NULL, IceRPCPushThreadHandle, this) != 0)
-	{
-		delete m_pThread;
-		m_pThread = NULL;
-		pthread_cond_destroy(&m_condition);
-		pthread_mutex_destroy(&m_mutex);
 		return MA_KO;
 	}
 
@@ -93,32 +59,51 @@ int CThread::Start(unsigned int p_uId)
 	m_enState = Paused;
 	m_bFinishFlag = false;
 	m_uThreadId = p_uId;
+	try
+	{
+		m_clThread = std::thread(&CThread::Run, this);
+	}
+	catch (const std::system_error&)
+	{
+		m_enState = Stoped;
+		m_bFinishFlag = true;
+		return MA_KO;
+	}
 	return MA_OK;
 }
 
 int CThread::Stop()
 {
-	if (m_pThread == NULL)
+	std::thread clThread;
 	{
-		return MA_KO;
+		std::lock_guard<std::mutex> clLock(m_clStateMutex);
+		if (!m_clThread.joinable() ||
+			m_clThread.get_id() == std::this_thread::get_id())
+		{
+			return MA_KO;
+		}
+
+		m_bPauseFlag = false;
+		m_bStopFlag = true;
+		m_bJoinInProgress = true;
+		m_clStateCondition.notify_all();
+		clThread = std::move(m_clThread);
 	}
 
-	m_bPauseFlag = false;
-	m_bStopFlag = true;
-	pthread_cond_signal(&m_condition);
-	pthread_join(*m_pThread, NULL);
-	delete m_pThread;
-	m_pThread = NULL;
-	m_enState = Stoped;
-
-	pthread_mutex_destroy(&m_mutex);
-	pthread_cond_destroy(&m_condition);
+	clThread.join();
+	{
+		std::lock_guard<std::mutex> clLock(m_clStateMutex);
+		m_bStopFlag = false;
+		m_bJoinInProgress = false;
+		m_enState = Stoped;
+	}
 	return MA_OK;
 }
 
 int CThread::Pause()
 {
-	if (m_pThread == NULL)
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
+	if (!m_clThread.joinable() || m_bJoinInProgress)
 	{
 		return MA_KO;
 	}
@@ -130,52 +115,52 @@ int CThread::Pause()
 
 int CThread::Resume()
 {
-	if (m_pThread == NULL)
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
+	if (!m_clThread.joinable() || m_bJoinInProgress)
 	{
 		return MA_KO;
 	}
 
 	m_bPauseFlag = false;
-	pthread_cond_signal(&m_condition);
 	m_enState = Running;
+	m_clStateCondition.notify_one();
 	return MA_OK;
 }
 
 bool CThread::GetFinish() const
 {
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
 	return m_bFinishFlag;
 }
 
 unsigned long long CThread::GetThreadId() const
 {
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
 	return m_uThreadId;
 }
 
 void CThread::Run()
 {
-	while (!m_bStopFlag)
+	for (;;)
 	{
-		if (m_bPauseFlag)
 		{
-			pthread_mutex_lock(&m_mutex);
-			while (m_bPauseFlag && !m_bStopFlag)
+			std::unique_lock<std::mutex> clLock(m_clStateMutex);
+			m_clStateCondition.wait(clLock, [this]()
 			{
-				pthread_cond_wait(&m_condition, &m_mutex);
+				return !m_bPauseFlag || m_bStopFlag;
+			});
+			if (m_bStopFlag)
+			{
+				break;
 			}
-			pthread_mutex_unlock(&m_mutex);
 		}
-
-		if (m_bStopFlag)
-		{
-			break;
-		}
-
 		Work();
 	}
 
+	std::lock_guard<std::mutex> clLock(m_clStateMutex);
 	m_bFinishFlag = true;
 	m_bPauseFlag = false;
-	m_bStopFlag = false;
+	m_enState = Stoped;
 }
 
 unsigned long long CThread::ThreadId2uLong(unsigned long p_ulThreadId)
@@ -208,7 +193,6 @@ void CBaseLog::Init()
 	m_strLogName = "";
 	m_strLogPath = "";
 	m_bInitStatus = false;
-	pthread_mutex_init(&m_mutexLog, NULL);
 }
 
 void CBaseLog::Close()
@@ -224,7 +208,7 @@ int CBaseLog::InitLog(int p_iLogDate)
 {
 	int iRet = MA_OK;
 
-	// ÖØĞÂ´ò¿ªÎÄ¼şÆÚ¼äÔİÍ£Ìá½»ÈÕÖ¾£¬±ÜÃâºóÌ¨Ïß³ÌĞ´ÈëÒÑ¹Ø±Õ¾ä±ú¡£
+	// é‡æ–°æ‰“å¼€æ–‡ä»¶æœŸé—´æš‚åœæäº¤æ—¥å¿—ï¼Œé¿å…åå°çº¿ç¨‹å†™å…¥å·²å…³é—­å¥æŸ„ã€‚
 	m_bInitStatus = false;
 	if (m_pLogFileThread != NULL)
 	{
@@ -236,9 +220,10 @@ int CBaseLog::InitLog(int p_iLogDate)
 	}
 
 	Close();
-	m_uLastDate = (p_iLogDate == 0) ? nsdk::GetCurDate() : static_cast<unsigned int>(p_iLogDate);
+	m_uLastDate = (p_iLogDate == 0) ? icerpcfoundation::GetCurrentDate() :
+		static_cast<unsigned int>(p_iLogDate);
 
-	char szLogFile[NSDK_MAX_PATH] = {0};
+	char szLogFile[HQLOG_PATH_MAX] = {0};
 	snprintf(szLogFile, sizeof(szLogFile), "%s%s%s%08d.log", m_strLogFold.c_str(), PATH_DELIMETER, m_strLogName.c_str(), m_uLastDate);
 	m_strLogPath = szLogFile;
 	m_pFileLog = fopen(szLogFile, "a+");
@@ -286,7 +271,6 @@ void CBaseLog::BaseRelease()
 		m_pLogFileThread = NULL;
 	}
 
-	pthread_mutex_destroy(&m_mutexLog);
 	Close();
 }
 
@@ -307,13 +291,10 @@ int CBaseLog::InitLog(const char* p_szFold, enHQLogType p_enType, const char* p_
 
 	m_strLogFold = p_szFold;
 	m_strLogName = (p_szLogFileName == NULL) ? "" : p_szLogFileName;
-	if (nsdk::FolderExists(p_szFold) != MA_OK)
+	// ç›®å½•èƒ½åŠ›ç»Ÿä¸€äº¤ç»™ FoundationStaticï¼Œé¿å… IceRPCPush å†é™æ€å¸æ”¶å®Œæ•´ nsdkã€‚
+	if (!icerpcfoundation::EnsureDirectory(p_szFold))
 	{
-		int iRet = nsdk::CreateFolder(p_szFold);
-		if (iRet != MA_OK)
-		{
-			return iRet;
-		}
+		return MA_KO;
 	}
 
 	m_enLogType = p_enType;
@@ -349,17 +330,17 @@ int CBaseLog::ThreadLog()
 		return MA_KO;
 	}
 
-	pthread_mutex_lock(&m_mutexLog);
+	std::unique_lock<std::mutex> clLock(m_clLogMutex);
 	if (m_vecLog.empty())
 	{
-		pthread_mutex_unlock(&m_mutexLog);
-		nsdk_Sleep(1000);
+		clLock.unlock();
+		icerpcfoundation::SleepMs(1000U);
 		return MA_OK;
 	}
 
 	std::vector<std::string> vecCacheLog;
 	vecCacheLog.swap(m_vecLog);
-	pthread_mutex_unlock(&m_mutexLog);
+	clLock.unlock();
 
 	for (size_t uIndex = 0; uIndex < vecCacheLog.size(); ++uIndex)
 	{
@@ -377,7 +358,7 @@ void CBaseLog::AddLog(enHQLogType p_enType, const char* p_szFormat, ...)
 		return;
 	}
 
-	// warn/error Ê¼ÖÕĞ´Èë£»info/debug °´ÅäÖÃ¼¶±ğ¹ıÂË¡£
+	// warn/error å§‹ç»ˆå†™å…¥ï¼›info/debug æŒ‰é…ç½®çº§åˆ«è¿‡æ»¤ã€‚
 	if (p_enType > eWarn && p_enType > m_enLogType)
 	{
 		return;
@@ -422,7 +403,7 @@ void CBaseLog::AddLog(enHQLogType p_enType, const char* p_szFormat, ...)
 
 	const std::chrono::system_clock::time_point stNowPoint = std::chrono::system_clock::now();
 	const std::time_t ttNow = std::chrono::system_clock::to_time_t(stNowPoint);
-	const std::tm stCurrTime = nsdk::SafeLocalTime(ttNow);
+	const std::tm stCurrTime = icerpcfoundation::SafeLocalTime(ttNow);
 	const int iMilliseconds = static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(stNowPoint.time_since_epoch()).count() % 1000);
 
 	unsigned int uCurDate = static_cast<unsigned int>((stCurrTime.tm_year + 1900) * 10000 + (stCurrTime.tm_mon + 1) * 100 + stCurrTime.tm_mday);
@@ -442,9 +423,8 @@ void CBaseLog::AddLog(enHQLogType p_enType, const char* p_szFormat, ...)
 		strLog.append(vecBuf.data(), static_cast<size_t>(iRet));
 	}
 
-	pthread_mutex_lock(&m_mutexLog);
+	std::lock_guard<std::mutex> clLock(m_clLogMutex);
 	m_vecLog.push_back(strLog);
-	pthread_mutex_unlock(&m_mutexLog);
 }
 
 CLogFileThread::CLogFileThread()
@@ -485,7 +465,7 @@ void CLogFileThread::SetThis(CBaseLog* p_pParent)
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
 
-// ½« IceRPCPush ÅäÖÃ¼¶±ğ×ª»»³É SocketServer ÈÕÖ¾»ùÀàÊ¶±ğµÄ¼¶±ğ¡£
+// å°† IceRPCPush é…ç½®çº§åˆ«è½¬æ¢æˆ SocketServer æ—¥å¿—åŸºç±»è¯†åˆ«çš„çº§åˆ«ã€‚
 static enHQLogType ConvertLogLevel(EN_LOG_LEVEL p_enLevel)
 {
 	switch (p_enLevel)
@@ -503,7 +483,7 @@ static enHQLogType ConvertLogLevel(EN_LOG_LEVEL p_enLevel)
 	}
 }
 
-// ¼æÈİ¾É´úÂëÀïÎóÓÃµÄ %m_hSocket Õ¼Î»·û£¬Í³Ò»Ìæ»»³É±ê×¼ %s¡£
+// å…¼å®¹æ—§ä»£ç é‡Œè¯¯ç”¨çš„ %m_hSocket å ä½ç¬¦ï¼Œç»Ÿä¸€æ›¿æ¢æˆæ ‡å‡† %sã€‚
 static std::string NormalizeLogFormat(const char* p_szFormat)
 {
 	if (p_szFormat == NULL)
@@ -521,7 +501,7 @@ static std::string NormalizeLogFormat(const char* p_szFormat)
 	return strFormat;
 }
 
-// Éú³É´ø¼¶±ğºÍÀ´Ô´µÄÈÕÖ¾Ç°×º£¬·½±ãÌæ´ú¾Éµ÷ÊÔÊä³öºó¶¨Î»À´Ô´¡£
+// ç”Ÿæˆå¸¦çº§åˆ«å’Œæ¥æºçš„æ—¥å¿—å‰ç¼€ï¼Œæ–¹ä¾¿æ›¿ä»£æ—§è°ƒè¯•è¾“å‡ºåå®šä½æ¥æºã€‚
 static const char* GetLevelName(EN_LOG_LEVEL p_enLevel)
 {
 	switch (p_enLevel)
@@ -544,7 +524,7 @@ CIceRPCPushLog::CIceRPCPushLog()
 {
 	m_bOpened = false;
 	m_enLevel = EN_LOG_LEVEL_INFO;
-	// ÈÕÖ¾µ¥ÀıÊ×´ÎÊ¹ÓÃÊ±Á¢¼´´ò¿ªÄ¬ÈÏÎÄ¼ş£¬È·±£ Ice ³õÊ¼»¯ÔçÆÚÊ§°ÜÒ²ÄÜĞ´Èë PushLog¡£
+	// æ—¥å¿—å•ä¾‹é¦–æ¬¡ä½¿ç”¨æ—¶ç«‹å³æ‰“å¼€é»˜è®¤æ–‡ä»¶ï¼Œç¡®ä¿ Ice åˆå§‹åŒ–æ—©æœŸå¤±è´¥ä¹Ÿèƒ½å†™å…¥ PushLogã€‚
 	Open("JSONRPC");
 }
 
@@ -553,14 +533,14 @@ CIceRPCPushLog::~CIceRPCPushLog()
 	CloseLog();
 }
 
-// ·µ»ØÈÕÖ¾µ¥Àı£¬¼æÈİ IceRPCPush ½ø³Ì¼¶ÈÕÖ¾ÉúÃüÖÜÆÚ¡£
+// è¿”å›æ—¥å¿—å•ä¾‹ï¼Œå…¼å®¹ IceRPCPush è¿›ç¨‹çº§æ—¥å¿—ç”Ÿå‘½å‘¨æœŸã€‚
 CIceRPCPushLog& CIceRPCPushLog::Instance()
 {
 	static CIceRPCPushLog clLog;
 	return clLog;
 }
 
-// Ê¹ÓÃ±¾µØ¸´ÖÆµÄ SocketServer CBaseLog ³õÊ¼»¯ PushLog Ä¿Â¼ºÍ°´½ø³Ì¸ôÀëµÄÈÕÖ¾ÎÄ¼şÇ°×º¡£
+// ä½¿ç”¨æœ¬åœ°å¤åˆ¶çš„ SocketServer CBaseLog åˆå§‹åŒ– PushLog ç›®å½•å’ŒæŒ‰è¿›ç¨‹éš”ç¦»çš„æ—¥å¿—æ–‡ä»¶å‰ç¼€ã€‚
 bool CIceRPCPushLog::Open(const char* p_szLogName)
 {
 	if (p_szLogName == NULL || p_szLogName[0] == '\0')
@@ -586,12 +566,12 @@ bool CIceRPCPushLog::Open(const char* p_szLogName)
 	m_bOpened = ReopenBaseLog();
 	if (m_bOpened)
 	{
-		WriteLog("Æô¶¯LOG", "", "**************************** Level=%s", GetLevelName(m_enLevel));
+		WriteLog("å¯åŠ¨LOG", "", "**************************** Level=%s", GetLevelName(m_enLevel));
 	}
 	return m_bOpened;
 }
 
-// ´ÓÅäÖÃÖĞ¶ÁÈ¡ÈÕÖ¾¼¶±ğ£¬XML ºÍ¾É INI ¶¼Ê¹ÓÃ ICEPUSH/LogLevel¡£
+// ä»é…ç½®ä¸­è¯»å–æ—¥å¿—çº§åˆ«ï¼ŒXML å’Œæ—§ INI éƒ½ä½¿ç”¨ ICEPUSH/LogLevelã€‚
 void CIceRPCPushLog::ApplyConfig(const char* p_szCfgFile, const ST_XML_CONFIG_DATA* p_pConfig)
 {
 	std::string strLevel = GetConfigString(p_pConfig, p_szCfgFile, "ICEPUSH", "LogLevel", "");
@@ -601,7 +581,7 @@ void CIceRPCPushLog::ApplyConfig(const char* p_szCfgFile, const ST_XML_CONFIG_DA
 		return;
 	}
 
-	// DebugLog ÊÇ¾ÉÊ½²¼¶û¿ª¹Ø£¬½öÓÃÓÚ´ò¿ª DEBUG ÈÕÖ¾¡£
+	// DebugLog æ˜¯æ—§å¼å¸ƒå°”å¼€å…³ï¼Œä»…ç”¨äºæ‰“å¼€ DEBUG æ—¥å¿—ã€‚
 	std::string strDebug = GetConfigString(p_pConfig, p_szCfgFile, "ICEPUSH", "DebugLog", "");
 	if (_stricmp(strDebug.c_str(), "1") == 0 || _stricmp(strDebug.c_str(), "true") == 0 || _stricmp(strDebug.c_str(), "debug") == 0)
 	{
@@ -628,7 +608,7 @@ EN_LOG_LEVEL CIceRPCPushLog::GetLevel() const
 	return m_enLevel;
 }
 
-// ¼æÈİ¾É WriteLog Èı¶ÎÊ½¸ñÊ½£¬µ×²ãµ÷ÓÃ CBaseLog::AddLog¡£
+// å…¼å®¹æ—§ WriteLog ä¸‰æ®µå¼æ ¼å¼ï¼Œåº•å±‚è°ƒç”¨ CBaseLog::AddLogã€‚
 bool CIceRPCPushLog::WriteLog(const char* p_szKhh, const char* p_szAction, const char* p_szFormat, ...)
 {
 	va_list stArgs;
@@ -638,7 +618,7 @@ bool CIceRPCPushLog::WriteLog(const char* p_szKhh, const char* p_szAction, const
 	return bRet;
 }
 
-// ¾Éµ÷ÊÔÊä³öÍ³Ò»Âäµ½ DEBUG ÈÕÖ¾£¬ÊÇ·ñĞ´ÈëÓÉ LogLevel ¿ØÖÆ¡£
+// æ—§è°ƒè¯•è¾“å‡ºç»Ÿä¸€è½åˆ° DEBUG æ—¥å¿—ï¼Œæ˜¯å¦å†™å…¥ç”± LogLevel æ§åˆ¶ã€‚
 bool CIceRPCPushLog::WriteDebug(const char* p_szKhh, const char* p_szAction, const char* p_szFormat, ...)
 {
 	va_list stArgs;
@@ -731,7 +711,7 @@ bool CIceRPCPushLog::ReopenBaseLog()
 	return false;
 }
 
-// ¹Ø±ÕÈÕÖ¾Ğ´Èë£¬CBaseLog Îö¹¹»áÍê³ÉÏß³ÌºÍÎÄ¼ş¾ä±úÊÍ·Å¡£
+// å…³é—­æ—¥å¿—å†™å…¥ï¼ŒCBaseLog ææ„ä¼šå®Œæˆçº¿ç¨‹å’Œæ–‡ä»¶å¥æŸ„é‡Šæ”¾ã€‚
 void CIceRPCPushLog::CloseLog()
 {
 	m_bOpened = false;

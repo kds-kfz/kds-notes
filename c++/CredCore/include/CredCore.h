@@ -7,7 +7,8 @@
 #if defined(CREDCORE_STATIC)
 #define CREDCORE_API
 #elif defined(CREDCORE_EXPORTS)
-#define CREDCORE_API __declspec(dllexport)
+// DLL 构建由 CredCore.def 统一控制导出白名单，避免源码宏意外扩大公共 ABI。
+#define CREDCORE_API
 #else
 #define CREDCORE_API __declspec(dllimport)
 #endif

@@ -1,5 +1,6 @@
 # Linux 共享库构建；Windows 仍使用 project/vs2022/SocketServer 工程。
 CXX := $(CROSS)g++
+CXX_VERSION_MAJOR := $(shell $(CXX) -dumpversion | cut -d. -f1)
 PLATFORM ?= Lnx64
 ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/..)
 HP_INCLUDE ?= /usr/local/include
@@ -16,6 +17,12 @@ CPPFLAGS += -I$(ROOT)/include -I$(ROOT)/src -I$(NSDK_INCLUDE) -I$(HP_INCLUDE)
 CXXFLAGS += -std=c++17 -O2 -g -fPIC -Wall -Wextra -pthread
 LDFLAGS += -L$(HP_LIB_DIR) -L$(NSDK_LIB_DIR) -Wl,-z,defs
 LDLIBS += -lhpsocket -lnsdk -pthread -ldl
+
+# GCC 7 的 C++17 filesystem 尚位于 experimental 命名空间并需要独立链接库；
+# GCC 8 及以上使用标准 <filesystem>，不再额外链接 libstdc++fs。
+ifeq ($(shell test "$(CXX_VERSION_MAJOR)" -lt 8 2>/dev/null && echo yes),yes)
+LDLIBS += -lstdc++fs
+endif
 
 .PHONY: all check-deps clean
 all: $(TARGET)

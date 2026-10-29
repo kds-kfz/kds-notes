@@ -57,7 +57,7 @@
       <WarningLevel>Level4</WarningLevel><SDLCheck>true</SDLCheck>
       <PrecompiledHeader>NotUsing</PrecompiledHeader><LanguageStandard>stdcpp17</LanguageStandard><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <!-- HP-Socket/OpenSSL/zlib 头文件按第三方系统头处理，不把上游告警混入本库告警基线。 -->
-      <AdditionalOptions>/utf-8 /external:I"$(SolutionDir)..\..\..\vender\hpsocket\include" /external:I"$(SolutionDir)..\..\..\vender\openssl\3.5.6\include" /external:I"$(SolutionDir)..\..\..\vender\zlib\include" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/utf-8 /external:I"$(SolutionDir)..\..\..\vender\hpsocket\include" /external:I"$(SolutionDir)..\..\..\vender\openssl\include" /external:I"$(SolutionDir)..\..\..\vender\zlib\include" %(AdditionalOptions)</AdditionalOptions>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <PreprocessorDefinitions Condition="'$(Configuration)'!='ReleaseStatic'">SOCKETCLIENT_EXPORTS;_SSL_SUPPORT;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='ReleaseStatic'">SOCKETCLIENT_STATIC;HPSOCKET_STATIC_LIB;_SSL_SUPPORT;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -66,7 +66,7 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <!-- DLL 自己完成 SAN/CN 校验，因此动态配置直接链接统一 OpenSSL 3.5.6 导入库。 -->
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\..\vender\hpsocket\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\openssl\3.5.6\lib\$(Platform)vc14\dynamic;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\..\vender\hpsocket\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\openssl\lib\$(Platform)vc14\dynamic;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>HPSocket.lib;libcrypto.lib;bcrypt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

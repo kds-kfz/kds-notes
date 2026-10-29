@@ -1,0 +1,15 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "NetworkFacade", "NetworkFacade.vcxproj", "{F5338BC4-9FD8-493F-B53D-E976F210BEA2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F5338BC4-9FD8-493F-B53D-E976F210BEA2}.Release|x64.ActiveCfg = Release|x64
+		{F5338BC4-9FD8-493F-B53D-E976F210BEA2}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+EndGlobal

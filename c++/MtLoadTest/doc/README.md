@@ -9,7 +9,7 @@
 - 主窗口只负责功能导航，不加载 DLL、不发请求、不解析数据文件。
 - 压力测试窗口负责 XML 计划选择与重新加载、HTTP/HTTPS 运行环境、工作负载和用户选择、运行控制、请求/事务指标表格、阈值结果和报告格式选择；全部参数只在 XML 中维护，用户下拉仅显示无密码摘要。
 - 接口测试已实现 HTTP+JSON、HTTPS+JSON、WebSocket/WSS+JSON；TCP、Binary、Protobuf 保留配置、枚举、界面入口和适配器接口，并明确显示“待开发”。
-- 接口测试配置 `interface-test.xml` 和压力测试配置 `v3-http.xml` 都只属于 `MtLoadTest/conf`，不得放入或复用 `MtLoadEngine/conf`。HTTP/HTTPS/Web 接口测试请求不通过压测 DLL 转发。
+- 接口测试配置 `interface-test.xml`、legacy 压力测试配置 `v3-http.xml` 和 mthub V2 指标绘图专用配置 `v2-chart-http.xml` 都只属于 `MtLoadTest/conf`，不得放入或复用 `MtLoadEngine/conf`。HTTP/HTTPS/Web 接口测试请求不通过压测 DLL 转发。
 - 数据查看当前状态为 `RESERVED`，入口和窗口生命周期已固定。
 - 通过 `MtLoadEngine` V4 公共 C ABI 获取状态、请求指标、事务指标和阈值的不可变快照。
 - 本地日志只记录操作状态、DLL 脱敏错误样本和终态聚合结果，不记录密码、完整 Token 或报文正文。
@@ -18,7 +18,7 @@
 - 接口测试通过 `Server.maxResponseBytes` 限制解压后的单响应正文，默认 8 MiB；自动化回归覆盖真实配置读取/原子保存、重复 HTTP 请求、响应超限、取消和句柄释放。
 - 当前与压测库同进程运行，不实现 Worker 或命名管道。
 - 工程提供 x64 `Release` 动态版和 `ReleaseStatic` 静态版；通过 `vender/MtLoadEngine` 使用公共头及对应模式的库，不引用压测库内部源码。
-- `interface-test.xml` 与 `v3-http.xml` 在 Visual Studio 中属于“配置文件”筛选器，项目项类型为 `None`；它们不是 `.rc` 资源，也不会嵌入 EXE。
+- `interface-test.xml`、`v3-http.xml` 与 `v2-chart-http.xml` 在 Visual Studio 中属于“配置文件”筛选器，项目项类型为 `None`；它们不是 `.rc` 资源，也不会嵌入 EXE。
 
 ## 文档索引
 

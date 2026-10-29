@@ -13,7 +13,7 @@ namespace
 		{
 			return;
 		}
-		pthread_mutex_lock(&p_pRuntime->mutexRequest);
+		SocketServerMutexLock(&p_pRuntime->clRequestMutex);
 		foreach(p_pRuntime->mapRequest, it_req)
 		{
 			if (nullptr == it_req->second)
@@ -32,7 +32,7 @@ namespace
 		p_pRuntime->mapRequest.clear();
 		p_pRuntime->mapParsingRequest.clear();
 		p_pRuntime->mapActiveRequest.clear();
-		pthread_mutex_unlock(&p_pRuntime->mutexRequest);
+		SocketServerMutexUnlock(&p_pRuntime->clRequestMutex);
 	}
 
 	// 停服只释放指定 HTTP 实例，其他同协议实例继续独立运行。
@@ -238,7 +238,7 @@ bool CHttpSockServerObj::CreateHttpSock(const char* p_szIp, unsigned short p_unP
 	if (!m_ptrRuntime->pPackServer->Start(p_szIp, p_unPort))
 	{
 		char szErrDesc[256] = { 0 };
-		SafeCopyCString(szErrDesc, sizeof(szErrDesc),
+		SocketServerSafeCopyCString(szErrDesc, sizeof(szErrDesc),
 			m_ptrRuntime->pPackServer->GetLastErrorDesc());
 		snprintf(p_szErr, 1024, "code=%d,msg=%s",
 			m_ptrRuntime->pPackServer->GetLastError(), szErrDesc);
@@ -278,12 +278,12 @@ bool CHttpSockServerObj::DelHttpAsynReq(unsigned long long p_lluReqId)
 		return false;
 
 	CHttpAsynReqObj* pReqObj = nullptr;
-	pthread_mutex_lock(&m_ptrRuntime->mutexRequest);
+	SocketServerMutexLock(&m_ptrRuntime->clRequestMutex);
 	std::map<unsigned long long, CHttpAsynReqObj*>::iterator itReq =
 		m_ptrRuntime->mapRequest.find(p_lluReqId);
 	if (itReq == m_ptrRuntime->mapRequest.end())
 	{
-		pthread_mutex_unlock(&m_ptrRuntime->mutexRequest);
+		SocketServerMutexUnlock(&m_ptrRuntime->clRequestMutex);
 		return false;
 	}
 
@@ -305,7 +305,7 @@ bool CHttpSockServerObj::DelHttpAsynReq(unsigned long long p_lluReqId)
 	}
 
 	m_ptrRuntime->mapRequest.erase(itReq);
-	pthread_mutex_unlock(&m_ptrRuntime->mutexRequest);
+	SocketServerMutexUnlock(&m_ptrRuntime->clRequestMutex);
 
 	if (nullptr != pReqObj)
 	{

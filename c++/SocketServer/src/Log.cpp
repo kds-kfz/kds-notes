@@ -3,7 +3,6 @@
 #include <chrono>
 #include <ctime>
 #include <thread>
-#include "nsdk_atomic.h"
 #include "publicfunc.h"
 
 CSocketServerLog *CSocketServerLog::m_pThis = nullptr;
@@ -22,7 +21,6 @@ void CSocketServerBaseLog::Init()
 	m_strLogName = "";
 	m_strLogPath = "";
 	m_bInitStatus = false;
-	pthread_mutex_init(&m_mutexLog, nullptr);
 }
 
 CSocketServerBaseLog::CSocketServerBaseLog()
@@ -64,10 +62,10 @@ int CSocketServerBaseLog::InitLog(int p_iLogDate)
 	//关闭日志
 	Close();
 
-	m_uiLastDate = 0 == p_iLogDate ? nsdk::GetCurDate() : p_iLogDate;
+	m_uiLastDate = 0 == p_iLogDate ? SocketServerCurrentDate() : p_iLogDate;
 
-	char szLogFile[NSDK_MAX_PATH] = { 0 };
-	snprintf(szLogFile, NSDK_MAX_PATH - 1, "%s%s%s%08d.log", m_strLogFold.c_str(), PATH_DELIMETER, m_strLogName.c_str(), m_uiLastDate);
+	char szLogFile[SOCKET_SERVER_MAX_PATH] = { 0 };
+	snprintf(szLogFile, SOCKET_SERVER_MAX_PATH - 1U, "%s%s%s%08d.log", m_strLogFold.c_str(), PATH_DELIMETER, m_strLogName.c_str(), m_uiLastDate);
 	m_strLogPath = szLogFile;
 	m_pFileLog = fopen(szLogFile, "a+");
 
@@ -119,7 +117,6 @@ void CSocketServerBaseLog::BaseRelease()
 		m_pLogFileThread = nullptr;
 	}
 
-	pthread_mutex_destroy(&m_mutexLog);
 	Close();
 }
 
@@ -142,9 +139,9 @@ int CSocketServerBaseLog::InitLog(const char* p_szFold, enHQLogType p_eType, con
 	m_strLogFold = p_szFold;
 	m_strLogName = p_szLogFileName;
 	int iRet = 0;
-	if (MA_OK != FolderExists(p_szFold))
+	if (MA_OK != SocketServerFolderExists(p_szFold))
 	{
-		if ((iRet = CreateFolder(p_szFold)) != MA_OK)
+		if ((iRet = SocketServerCreateFolder(p_szFold)) != MA_OK)
 		{
 			return iRet;
 		}
@@ -177,17 +174,18 @@ int CSocketServerBaseLog::ThreadLog()
 	if (!m_bInitStatus)
 		return MA_KO;
 
-	pthread_mutex_lock(&m_mutexLog);
+	std::unique_lock<std::mutex> clLock(m_clLogMutex);
 	if (m_vecLog.empty())
 	{
-		pthread_mutex_unlock(&m_mutexLog);
-		nsdk_Sleep(1000);
+		clLock.unlock();
+		// 空队列时主动让出一个刷新周期，避免日志线程空转占满 CPU。
+		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		return MA_OK;
 	}
 	std::vector<std::string> vecCacheLog;
 	vecCacheLog.swap(m_vecLog);
 	m_vecLog.clear();
-	pthread_mutex_unlock(&m_mutexLog);
+	clLock.unlock();
 
 	//
 	for (int i = 0; i < vecCacheLog.size(); i++)
@@ -197,9 +195,6 @@ int CSocketServerBaseLog::ThreadLog()
 	}
 
 	fflush(m_pFileLog);
-	//m_vecLog.clear();
-	//m_mutexLog.Unlock();
-
 	return MA_OK;
 }
 
@@ -251,7 +246,7 @@ void CSocketServerBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, .
 	// 时间
 	const std::chrono::system_clock::time_point tpNow = std::chrono::system_clock::now();
 	const std::time_t ttNow = std::chrono::system_clock::to_time_t(tpNow);
-	const std::tm stCurrTime = SafeLocalTime(ttNow);
+	const std::tm stCurrTime = SocketServerLocalTime(ttNow);
 	const int iMilliseconds = (int)(std::chrono::duration_cast<std::chrono::milliseconds>(
 		tpNow.time_since_epoch()).count() % 1000);
 
@@ -281,9 +276,8 @@ void CSocketServerBaseLog::AddLog(enHQLogType p_eType, const char* p_szFormat, .
 	strLog += strContent;
 
 	// 记录
-	pthread_mutex_lock(&m_mutexLog);
+	std::lock_guard<std::mutex> clLock(m_clLogMutex);
 	m_vecLog.push_back(strLog);
-	pthread_mutex_unlock(&m_mutexLog);
 }
 
 CSocketServerLog *CSocketServerLog::GetInstance()

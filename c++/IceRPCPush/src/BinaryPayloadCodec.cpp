@@ -1,7 +1,7 @@
 ﻿#include "BinaryPayloadCodec.h"
 
 #include <cstring>
-#include <snappy.h>
+#include "compat/SnappyCompat.h"
 
 namespace binarypayload
 {

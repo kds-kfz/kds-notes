@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals"><VCProjectVersion>17.0</VCProjectVersion><Keyword>Win32Proj</Keyword><ProjectGuid>{F5338BC4-9FD8-493F-B53D-E976F210BEA2}</ProjectGuid><RootNamespace>NetworkFacade</RootNamespace><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'"><OutDir>$(ProjectDir)..\..\..\lib\x64vc14\dynamic\</OutDir><IntDir>$(ProjectDir)..\..\..\build\x64\$(Configuration)\</IntDir><TargetName>libNetworkFacade</TargetName></PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile><WarningLevel>Level4</WarningLevel><TreatWarningAsError>true</TreatWarningAsError><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp17</LanguageStandard><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary><PrecompiledHeader>NotUsing</PrecompiledHeader><Optimization>MaxSpeed</Optimization><PreprocessorDefinitions>NDEBUG;NETWORK_FACADE_EXPORTS;FOUNDATION_FACADE_STATIC;SOCKETSERVER_STATIC;SOCKETCLIENT_STATIC;HPSOCKET_STATIC_LIB;_SSL_SUPPORT;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions><AdditionalIncludeDirectories>$(ProjectDir)..\..\..\include;$(ProjectDir)..\..\..\..\FacadeCommon\include;$(ProjectDir)..\..\..\..\FoundationFacade\include;$(ProjectDir)..\..\..\..\SocketServer\include;$(ProjectDir)..\..\..\..\SocketClient\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><AdditionalOptions>/utf-8 /external:anglebrackets %(AdditionalOptions)</AdditionalOptions><ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel></ClCompile>
+    <Link><GenerateDebugInformation>true</GenerateDebugInformation><EnableCOMDATFolding>true</EnableCOMDATFolding><OptimizeReferences>true</OptimizeReferences><ModuleDefinitionFile>$(ProjectDir)NetworkFacade.def</ModuleDefinitionFile><AdditionalLibraryDirectories>$(ProjectDir)..\..\..\..\SocketServer\lib\x64vc14\static;$(ProjectDir)..\..\..\..\SocketClient\lib\x64vc14\static;$(ProjectDir)..\..\..\..\SocketServer\vender\hpsocket\lib\x64vc14\static;$(ProjectDir)..\..\..\..\FoundationFacade\lib\x64vc14\static;$(ProjectDir)..\..\..\..\SocketClient\vender\openssl\lib\x64vc14\dynamic;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories><AdditionalDependencies>libSocketServer_static.lib;libSocketClient_static.lib;HPSocket.lib;FoundationStatic.lib;libssl.lib;libcrypto.lib;bcrypt.lib;crypt32.lib;secur32.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies><AdditionalOptions>/DEPENDENTLOADFLAG:0x1000 %(AdditionalOptions)</AdditionalOptions></Link>
+  </ItemDefinitionGroup>
+  <ItemGroup><ClInclude Include="..\..\..\include\NetworkFacade.h" /><ClInclude Include="..\..\..\..\FacadeCommon\include\FacadeAbi.h" /><ClInclude Include="..\..\..\..\FoundationFacade\include\FoundationFacade.h" /><ClInclude Include="..\..\..\..\SocketServer\include\SocketServer.h" /><ClInclude Include="..\..\..\..\SocketClient\include\SocketClient.h" /></ItemGroup>
+  <ItemGroup><ClCompile Include="..\..\..\src\NetworkFacade.cpp" /></ItemGroup>
+  <ItemGroup><ResourceCompile Include="NetworkFacade.rc" /></ItemGroup>
+  <ItemGroup><None Include="NetworkFacade.def" /></ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

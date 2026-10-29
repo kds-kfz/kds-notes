@@ -3,12 +3,12 @@
 
 #include "Thread.h"
 
+#include <mutex>
 #include <string>
 #include <vector>
-//#include <mutex>
 using namespace std;
 
-USE_NAMESPACE_NSDK
+using namespace nsdk;
 
 #if defined(_WIN32)
 #define PATH_DELIMETER "\\"
@@ -47,7 +47,7 @@ public:
 	void SetLogLevel(char *p_strLogLevel);
 	void Resume();
 private:
-	pthread_mutex_t m_mutexLog;
+	std::mutex m_clLogMutex; // 仅保护进程内日志缓存；Linux 标准库仍通过 pthread 实现。
 	std::vector<string> m_vecLog;
 
 	CSocketServerLogFileThread *m_pLogFileThread;

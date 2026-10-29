@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Release|x64"><Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseStatic|x64"><Configuration>ReleaseStatic</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals"><VCProjectVersion>17.0</VCProjectVersion><Keyword>Win32Proj</Keyword><ProjectGuid>{E943BE74-EAA3-4E8E-B155-976F04D1948B}</ProjectGuid><RootNamespace>DatabaseFacade</RootNamespace><WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration"><ConfigurationType>DynamicLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'" Label="Configuration"><ConfigurationType>StaticLibrary</ConfigurationType><UseDebugLibraries>false</UseDebugLibraries><PlatformToolset>v143</PlatformToolset><WholeProgramOptimization>true</WholeProgramOptimization><CharacterSet>MultiByte</CharacterSet></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup Condition="'$(Configuration)'=='Release'"><OutDir>$(ProjectDir)..\..\..\lib\x64vc14\dynamic\</OutDir><IntDir>$(ProjectDir)..\..\..\build\x64\$(Configuration)\</IntDir><TargetName>libDatabaseFacade</TargetName></PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='ReleaseStatic'"><OutDir>$(ProjectDir)..\..\..\lib\x64vc14\static\</OutDir><IntDir>$(ProjectDir)..\..\..\build\x64\$(Configuration)\</IntDir><TargetName>libDatabaseFacade_static</TargetName></PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile><WarningLevel>Level4</WarningLevel><TreatWarningAsError>true</TreatWarningAsError><SDLCheck>true</SDLCheck><ConformanceMode>true</ConformanceMode><LanguageStandard>stdcpp17</LanguageStandard><RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary><PrecompiledHeader>NotUsing</PrecompiledHeader><AdditionalIncludeDirectories>$(ProjectDir)..\..\..\include;$(ProjectDir)..\..\..\..\FacadeCommon\include;$(ProjectDir)..\..\..\vender\pqxx\include;$(ProjectDir)..\..\..\vender\postgresql\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories><AdditionalOptions>/utf-8 /external:anglebrackets %(AdditionalOptions)</AdditionalOptions><ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel><PreprocessorDefinitions>_HAS_STD_BYTE=1;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile><PreprocessorDefinitions>NDEBUG;DATABASE_FACADE_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
+    <Link><GenerateDebugInformation>true</GenerateDebugInformation><EnableCOMDATFolding>true</EnableCOMDATFolding><OptimizeReferences>true</OptimizeReferences><ModuleDefinitionFile>$(ProjectDir)DatabaseFacade.def</ModuleDefinitionFile><AdditionalLibraryDirectories>$(ProjectDir)..\..\..\vender\pqxx\lib\x64vc14\static;$(ProjectDir)..\..\..\vender\postgresql\lib\x64vc14\static;$(ProjectDir)..\..\..\vender\openssl\lib\x64vc14\dynamic;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories><AdditionalDependencies>pqxx.lib;libpq.a;libpgcommon_shlib.a;libpgport_shlib.a;libssl.lib;libcrypto.lib;Ws2_32.lib;Secur32.lib;Crypt32.lib;Wldap32.lib;Advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies><AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions></Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='ReleaseStatic'">
+    <ClCompile><PreprocessorDefinitions>NDEBUG;DATABASE_FACADE_STATIC;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
+    <Lib><LinkTimeCodeGeneration>true</LinkTimeCodeGeneration></Lib>
+  </ItemDefinitionGroup>
+  <ItemGroup><ClInclude Include="..\..\..\include\DatabaseFacade.h" /><ClInclude Include="..\..\..\..\FacadeCommon\include\FacadeAbi.h" /></ItemGroup>
+  <ItemGroup><ClCompile Include="..\..\..\src\DatabaseFacade.cpp" /></ItemGroup>
+  <ItemGroup Condition="'$(Configuration)'=='Release'"><ResourceCompile Include="DatabaseFacade.rc" /></ItemGroup>
+  <ItemGroup><None Include="DatabaseFacade.def" /></ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

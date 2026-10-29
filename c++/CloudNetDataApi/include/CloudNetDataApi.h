@@ -300,6 +300,8 @@ typedef void (*PFN_CLOUD_NET_BINARY_ENCODED_ASYNC)(ST_CLOUD_NET_BINARY_ENCODED_R
 CLOUDNETDATA_API HCLOUD_NET_API Create();
 // 销毁 CloudNetDataApi 实例，并释放其内部服务端和客户端连接。
 CLOUDNETDATA_API void Destroy(HCLOUD_NET_API p_hApi);
+// 设置当前实例由 IceGrid Node 注入的 Ice 配置路径；必须在启动网络前调用，空字符串清除受管配置。
+CLOUDNETDATA_API int SetIceConfigPath(HCLOUD_NET_API p_hApi, const char* p_szIceConfigPath);
 // 加载 CloudNetDataApi 组网配置，p_szXmlPath 为空时默认读取当前目录下的 IceRPCPush.xml。
 CLOUDNETDATA_API int LoadConfig(HCLOUD_NET_API p_hApi, const char* p_szXmlPath, const char* p_szPluginId);
 // 重新加载上一次 LoadConfig 使用的配置文件，并让后台维护线程按新服务表继续工作。

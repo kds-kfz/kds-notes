@@ -147,14 +147,14 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;ICERPCPUSH_EXPORTS;SNAPPY_STATIC;NSDK_STATIC;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;JSON_NO_AUTOLINK;WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;ICERPCPUSH_EXPORTS;FOUNDATION_FACADE_STATIC;COMPRESSION_FACADE_STATIC;OS_IS_WINDOWS;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;JSON_NO_AUTOLINK;WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalUsingDirectories>
       </AdditionalUsingDirectories>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\..\src;$(SolutionDir)..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/external:I"$(SolutionDir)..\..\vender\ice\include" /external:I"$(SolutionDir)..\..\vender\ice\include\generated\x64\Release" /external:I"$(SolutionDir)..\..\vender\snappy\include" /external:I"$(SolutionDir)..\..\vender\json\include" /external:I"$(SolutionDir)..\..\vender\zlib\include\x64" /external:I"$(SolutionDir)..\..\vender\tinyxml\include" /external:I"$(SolutionDir)..\..\vender\SocketServer\include" /external:I"$(SolutionDir)..\..\vender\nsdk\include" /external:I"$(SolutionDir)..\..\vender\xsdk\include" /external:I"$(SolutionDir)..\..\vender\thread\include" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\src;$(SolutionDir)..\..\include;$(SolutionDir)..\..\..\FoundationFacade\include;$(SolutionDir)..\..\..\CompressionFacade\include;$(SolutionDir)..\..\..\FacadeCommon\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/external:I"$(SolutionDir)..\..\vender\ice\include" /external:I"$(SolutionDir)..\..\vender\ice\include\generated\x64\Release" /external:I"$(SolutionDir)..\..\vender\json\include" /external:I"$(SolutionDir)..\..\vender\zlib\include\x64" /external:I"$(SolutionDir)..\..\vender\tinyxml\include" /external:I"$(SolutionDir)..\..\vender\xsdk\include" %(AdditionalOptions)</AdditionalOptions>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <DisableSpecificWarnings>4200;4251;4275;4190;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -164,8 +164,8 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\vender\ice\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\snappy\lib\$(Platform)vc14\static;$(SolutionDir)..\..\vender\json\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\zlib\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\tinyxml\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\SocketServer\lib\x64vc14;$(SolutionDir)..\..\vender\nsdk\lib\$(Platform)vc14\static;$(SolutionDir)..\..\vender\xsdk\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\thread\lib\$(Platform)vc14;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>ice38.lib;iceutil38.lib;icegrid38.lib;glacier238.lib;libSocketServer.lib;libsnappy_static.lib;libjson.lib;zlibstat.lib;tinyxml.lib;libnsdk_static.lib;common.lib;crash_generation_client.lib;exception_handler.lib;libxsdk.lib;pthreadVC2.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\vender\ice\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\json\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\zlib\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\tinyxml\lib\$(Platform)vc14;$(SolutionDir)..\..\vender\xsdk\lib\$(Platform)vc14;$(SolutionDir)..\..\..\FoundationFacade\lib\x64vc14\static;$(SolutionDir)..\..\..\CompressionFacade\lib\x64vc14\static;$(SolutionDir)..\..\..\NetworkFacade\lib\x64vc14\dynamic;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ice38.lib;iceutil38.lib;icegrid38.lib;glacier238.lib;FoundationStatic.lib;CompressionStatic.lib;libNetworkFacade.lib;libjson.lib;zlibstat.lib;tinyxml.lib;libxsdk.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>..\..\include\IceRPCPush.def</ModuleDefinitionFile>
       <DisableSpecificWarnings>4099;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
@@ -177,12 +177,12 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;ICERPCPUSH_STATIC;SNAPPY_STATIC;NSDK_STATIC;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;JSON_NO_AUTOLINK;WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;ICERPCPUSH_STATIC;FOUNDATION_FACADE_STATIC;COMPRESSION_FACADE_STATIC;OS_IS_WINDOWS;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;JSON_NO_AUTOLINK;WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\..\src;$(SolutionDir)..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/external:I"$(SolutionDir)..\..\vender\ice\include" /external:I"$(SolutionDir)..\..\vender\ice\include\generated\x64\Release" /external:I"$(SolutionDir)..\..\vender\snappy\include" /external:I"$(SolutionDir)..\..\vender\json\include" /external:I"$(SolutionDir)..\..\vender\zlib\include\x64" /external:I"$(SolutionDir)..\..\vender\tinyxml\include" /external:I"$(SolutionDir)..\..\vender\SocketServer\include" /external:I"$(SolutionDir)..\..\vender\nsdk\include" /external:I"$(SolutionDir)..\..\vender\xsdk\include" /external:I"$(SolutionDir)..\..\vender\thread\include" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\..\src;$(SolutionDir)..\..\include;$(SolutionDir)..\..\..\FoundationFacade\include;$(SolutionDir)..\..\..\CompressionFacade\include;$(SolutionDir)..\..\..\FacadeCommon\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/external:I"$(SolutionDir)..\..\vender\ice\include" /external:I"$(SolutionDir)..\..\vender\ice\include\generated\x64\Release" /external:I"$(SolutionDir)..\..\vender\json\include" /external:I"$(SolutionDir)..\..\vender\zlib\include\x64" /external:I"$(SolutionDir)..\..\vender\tinyxml\include" /external:I"$(SolutionDir)..\..\vender\xsdk\include" %(AdditionalOptions)</AdditionalOptions>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <DisableSpecificWarnings>4200;4251;4275;4190;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -197,8 +197,10 @@
     <ClInclude Include="..\..\src\BinaryPayloadCodec.h" />
     <ClInclude Include="..\..\src\ClientThreadPool.h" />
     <ClInclude Include="..\..\src\compat\ByteCompat.h" />
+    <ClInclude Include="..\..\src\compat\FoundationCompat.h" />
     <ClInclude Include="..\..\src\compat\IceCompat.h" />
     <ClInclude Include="..\..\src\compat\SimplePool.h" />
+    <ClInclude Include="..\..\src\compat\SnappyCompat.h" />
     <ClInclude Include="..\..\src\concurrentqueue.h" />
     <ClInclude Include="..\..\src\Corba\JSONBINRPCU.h" />
     <ClInclude Include="..\..\src\CJsonBinRPCImp.h" />
@@ -222,6 +224,12 @@
     <ClCompile Include="..\..\src\BinaryPayloadCodec.cpp" />
     <ClCompile Include="..\..\src\ClientThreadPool.cpp" />
     <ClCompile Include="..\..\src\compat\SocketServerCompat.cpp" />
+    <ClCompile Include="..\..\src\compat\FoundationCompat.cpp">
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="..\..\src\compat\SnappyCompat.cpp">
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
     <ClCompile Include="..\..\src\Corba\JSONBINRPCU.cpp" />
     <ClCompile Include="..\..\src\CJsonBinRPCImp.cpp" />
     <ClCompile Include="..\..\src\CSubscriptionFilter.cpp" />

@@ -53,7 +53,7 @@ END_MESSAGE_MAP()
 void CLogDlg::OnBnClickedOk()
 {
 	// wyl 2026-05-06：打开日志按钮直接复用日志模块维护的完整路径，避免再次拼接日期路径。
-	const string& strLogPath = CLog::GetInstance()->GetLogPath();
+	const std::string& strLogPath = CLog::GetInstance()->GetLogPath();
 	if (strLogPath.empty())
 	{
 		MessageBox("Log file is not ready.", "MtAssistant", MB_ICONWARNING | MB_OK);
@@ -64,7 +64,7 @@ void CLogDlg::OnBnClickedOk()
 	//CDialogEx::OnOK();
 }
 
-void CLogDlg::OutInfo(const string& p_strTime, const string& p_strInfo)
+void CLogDlg::OutInfo(const std::string& p_strTime, const std::string& p_strInfo)
 {
 	Mutex.Lock();
 	m_vecBuf.push_back(make_pair(p_strTime, p_strInfo));
@@ -77,7 +77,7 @@ void CLogDlg::Print()
 	if (!::IsWindow(m_LogList.GetSafeHwnd()))
 		return;
 
-	vector<pair<string, string>> vecTmp;
+	std::vector<std::pair<std::string, std::string>> vecTmp;
 	Mutex.Lock();
 	if (m_vecBuf.empty()) 
 	{ 
@@ -91,18 +91,18 @@ void CLogDlg::Print()
 	{
 		vecTmp.erase(vecTmp.begin(), vecTmp.end() - MAXINFO);
 	}
-	string strTime;
-	string strMsg;
+	std::string strTime;
+	std::string strMsg;
 	for (int i = 0; i < vecTmp.size(); i++) 
 	{
 		strTime = vecTmp[i].first;
 		strMsg = vecTmp[i].second;
 
 		size_t nLeft = strMsg.find('[');
-		size_t nRight = strMsg.find(']', nLeft == string::npos ? 0 : nLeft + 1);
-		string strTag = "INFO";
-		string strDisplayMsg = strMsg;
-		if (nLeft != string::npos && nRight != string::npos && nRight > nLeft)
+		size_t nRight = strMsg.find(']', nLeft == std::string::npos ? 0 : nLeft + 1);
+		std::string strTag = "INFO";
+		std::string strDisplayMsg = strMsg;
+		if (nLeft != std::string::npos && nRight != std::string::npos && nRight > nLeft)
 		{
 			strTag = strMsg.substr(nLeft + 1, nRight - nLeft - 1);
 			strDisplayMsg = strMsg.substr(nRight + 1);
@@ -160,7 +160,7 @@ BOOL CLogDlg::OnInitDialog()
 		pWnd = GetDlgItem(id);
 		pWnd->GetWindowRect(&szRect); //获取按钮变化前的大小
 		ScreenToClient(&szRect);
-		m_rect.insert(make_pair(id, szRect));
+		m_rect.insert(std::make_pair(id, szRect));
 		hwndChild = ::GetWindow(hwndChild, GW_HWNDNEXT);
 	}
 

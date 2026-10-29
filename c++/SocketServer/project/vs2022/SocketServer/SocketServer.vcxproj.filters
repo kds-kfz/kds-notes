@@ -19,12 +19,6 @@
     <Filter Include="hpsocket">
       <UniqueIdentifier>{82014472-45b3-4fa7-958e-8d62cfee1dde}</UniqueIdentifier>
     </Filter>
-    <Filter Include="thread">
-      <UniqueIdentifier>{654cee1f-ac88-46aa-a0e0-4e0f6b22bb01}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="nsdk">
-      <UniqueIdentifier>{e7499471-403d-4a3f-a43f-a43047b3e260}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket.h">
@@ -95,24 +89,6 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\USER_SHA1.h">
       <Filter>public</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk.h">
-      <Filter>nsdk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_atomic.h">
-      <Filter>nsdk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_define.h">
-      <Filter>nsdk</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\vender\thread\include\pthread.h">
-      <Filter>thread</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\vender\thread\include\sched.h">
-      <Filter>thread</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\vender\thread\include\semaphore.h">
-      <Filter>thread</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\include\SocketServer.h">
       <Filter>include</Filter>

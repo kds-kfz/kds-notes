@@ -85,7 +85,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)..\..\..\lib\$(Platform)vc14\</OutDir>
+    <OutDir>$(SolutionDir)..\..\..\lib\$(Platform)vc14\dynamic\</OutDir>
     <TargetName>lib$(ProjectName)</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
@@ -101,7 +101,7 @@
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalOptions>/utf-8 /external:I"$(SolutionDir)..\..\..\vender\hpsocket\include" /external:I"$(SolutionDir)..\..\..\vender\nsdk\include" /external:I"$(SolutionDir)..\..\..\vender\thread\include" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/utf-8 /external:I"$(SolutionDir)..\..\..\vender\hpsocket\include" %(AdditionalOptions)</AdditionalOptions>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
     </ClCompile>
     <Link>
@@ -152,8 +152,8 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;SOCKETSERVER_EXPORTS;NSDK_STATIC;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_SCL_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>/utf-8 /external:I"$(SolutionDir)..\..\..\vender\hpsocket\include" /external:I"$(SolutionDir)..\..\..\vender\nsdk\include" /external:I"$(SolutionDir)..\..\..\vender\thread\include" %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>NDEBUG;SOCKETSERVER_EXPORTS;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_SCL_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/utf-8 /external:I"$(SolutionDir)..\..\..\vender\hpsocket\include" %(AdditionalOptions)</AdditionalOptions>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -169,10 +169,8 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableUAC>false</EnableUAC>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\..\..\vender\hpsocket\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\thread\lib\$(Platform)vc14;$(SolutionDir)..\..\..\vender\nsdk\lib\$(Platform)vc14\static;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>HPSocket.lib;libnsdk_static.lib;pthreadVC2.lib;common.lib;crash_generation_client.lib;exception_handler.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <!-- 当前 nsdk 静态发布库未携带对象 PDB；仅忽略缺少调试信息的 LNK4099。 -->
-      <AdditionalOptions>/ignore:4099 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalLibraryDirectories>$(SolutionDir)..\..\..\vender\hpsocket\lib\$(Platform)vc14\dynamic;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>HPSocket.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseStatic|x64'">
@@ -181,8 +179,8 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;SOCKETSERVER_STATIC;HPSOCKET_STATIC_LIB;NSDK_STATIC;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_SCL_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalOptions>/utf-8 /external:I"$(SolutionDir)..\..\..\vender\hpsocket\include" /external:I"$(SolutionDir)..\..\..\vender\nsdk\include" /external:I"$(SolutionDir)..\..\..\vender\thread\include" %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>NDEBUG;SOCKETSERVER_STATIC;HPSOCKET_STATIC_LIB;_WINDOWS;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_SCL_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/utf-8 /external:I"$(SolutionDir)..\..\..\vender\hpsocket\include" %(AdditionalOptions)</AdditionalOptions>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -220,12 +218,6 @@
     <ClInclude Include="..\..\..\vender\hpsocket\include\HPSocket4C.h" />
     <ClInclude Include="..\..\..\vender\hpsocket\include\HPTypeDef.h" />
     <ClInclude Include="..\..\..\vender\hpsocket\include\SocketInterface.h" />
-    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk.h" />
-    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_atomic.h" />
-    <ClInclude Include="..\..\..\vender\nsdk\include\nsdk_define.h" />
-    <ClInclude Include="..\..\..\vender\thread\include\pthread.h" />
-    <ClInclude Include="..\..\..\vender\thread\include\sched.h" />
-    <ClInclude Include="..\..\..\vender\thread\include\semaphore.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\Base64.cpp" />

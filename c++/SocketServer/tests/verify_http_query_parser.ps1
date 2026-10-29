@@ -61,18 +61,27 @@ $strVcVars = Join-Path $strVsRoot "VC\Auxiliary\Build\vcvars64.bat"
 $strTestSource = Join-Path $strRoot "tests\SocketServerHttpQueryRuntime.cpp"
 $strTestExe = Join-Path $strBuildDir "SocketServerHttpQueryRuntimeAbi4.exe"
 $strCompile = 'call "{0}" && cl /nologo /EHsc /std:c++14 /I"{1}" "{2}" /link /LIBPATH:"{3}" libSocketServer.lib ws2_32.lib /OUT:"{4}"' -f `
-	$strVcVars, (Join-Path $strRoot "include"), $strTestSource, (Join-Path $strRoot "lib\x64vc14"), $strTestExe
+	$strVcVars, (Join-Path $strRoot "include"), $strTestSource, (Join-Path $strRoot "lib\x64vc14\dynamic"), $strTestExe
 cmd.exe /d /c $strCompile
 if ($LASTEXITCODE -ne 0)
 {
 	throw "HTTP query runtime test build failed: $LASTEXITCODE"
 }
 
+# Windows 安全加载模式不保证使用进程运行期修改后的 PATH 搜索依赖；测试按生产部署方式
+# 将同批 DLL 放到 EXE 目录，既验证依赖闭包，也避免误加载系统或其他工程的同名库。
+$aRuntimeFiles = @(
+	"$strRoot\lib\x64vc14\dynamic\libSocketServer.dll"
+	"$strRoot\vender\hpsocket\lib\x64vc14\dynamic\HPSocket.dll"
+	"$strRoot\vender\openssl\lib\x64vc14\dynamic\libssl-3-x64.dll"
+	"$strRoot\vender\openssl\lib\x64vc14\dynamic\libcrypto-3-x64.dll"
+)
+Copy-Item -LiteralPath $aRuntimeFiles -Destination $strBuildDir -Force
+
 $aRuntimePath = @(
-	(Join-Path $strRoot "lib\x64vc14"),
-	(Join-Path $strRoot "vender\hpsocket\lib\x64vc14"),
-	(Join-Path $strRoot "vender\nsdk\lib\x64vc14"),
-	(Join-Path $strRoot "vender\thread\lib\x64vc14"),
+	"$strRoot\lib\x64vc14\dynamic"
+	"$strRoot\vender\hpsocket\lib\x64vc14\dynamic"
+	"$strRoot\vender\openssl\lib\x64vc14\dynamic"
 	$env:PATH
 )
 $strOldPath = $env:PATH
